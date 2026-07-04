@@ -1,0 +1,38 @@
+# sqlviz-inference/rules/fallback_rules.yaml
+
+chart:
+  min_raw_score: 0.35
+  default: table
+  message: "Low confidence inference -- showing raw data"
+
+intent:
+  min_raw_score: 0.30
+  default: detail
+  message: "Intent unclear -- defaulting to detail view"
+
+quality_thresholds:
+  high:   0.70
+  medium: 0.35
+
+display_rules:
+  # quality=high, gap=high -> very certain
+  high_high:
+    show_alternatives: 0
+    show_warning: false
+
+  # quality=high, gap=low -> both good options
+  high_low:
+    show_alternatives: 2
+    show_warning: false
+
+  # quality=low, gap=high -> winner barely acceptable
+  low_high:
+    show_alternatives: 1
+    show_warning: true
+    warning_message: "Low confidence inference"
+
+  # quality=low, gap=low -> fallback
+  low_low:
+    show_alternatives: 0
+    show_warning: true
+    apply_fallback: true

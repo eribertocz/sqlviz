@@ -1,0 +1,113 @@
+"""Server startup — uvicorn + optional Quack wire-protocol + browser."""
+
+from __future__ import annotations
+
+import threading
+import time
+import webbrowser
+
+import duckdb
+import uvicorn
+from sqlviz_api.main import create_app
+
+_HOST = "127.0.0.1"
+_PORT = 4000
+
+
+def _open_browser(url: str, delay: float = 1.2) -> None:
+    time.sleep(delay)
+    webbrowser.open(url)
+
+
+def _try_start_quack(
+    admin_conn: duckdb.DuckDBPyConnection,
+    port: int = 5433,
+) -> None:
+    """Attempt to start the Quack PostgreSQL wire-protocol server.
+
+    Quack exposes DuckDB as a PostgreSQL-compatible server (DOC3 §3),
+    enabling true concurrent multi-client access. If the quack package
+    is not installed or fails to start, degrade gracefully — SQLviz
+    continues with DuckDB's built-in concurrent-reader support.
+    """
+    try:
+        import quack  # type: ignore[import-not-found]
+    except ImportError:
+        print(
+            "  [warn] quack not installed — PostgreSQL wire-protocol server skipped.\n"
+            "         Install with: uv add quack"
+        )
+        return
+
+    try:
+        server = quack.QuackServer(admin_conn, host="127.0.0.1", port=port)
+        t = threading.Thread(target=server.start, daemon=True)
+        t.start()
+        print(f"  Quack:    postgresql://127.0.0.1:{port}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [warn] Quack failed to start: {exc}")
+
+
+def serve(
+    conn: duckdb.DuckDBPyConnection,
+    *,
+    db_path: str | None,
+    host: str = _HOST,
+    port: int = _PORT,
+    open_browser: bool = True,
+) -> None:
+    """Start FastAPI + uvicorn.  Blocks until Ctrl+C.
+
+    Args:
+        conn:         Open read/write DuckDB connection (admin).
+        db_path:      Filesystem path to the .sqlviz file, or None for
+                      demo mode (in-memory, no read-only viewer conn).
+        host:         Bind host (default 127.0.0.1).
+        port:         HTTP port (default 4000).
+        open_browser: Open the default browser automatically.
+    """
+    demo_mode = db_path is None
+
+    # Phase 6 — read-only viewer connection for non-admin requests.
+    viewer_conn: duckdb.DuckDBPyConnection | None = None
+    if db_path is not None:
+        try:
+            viewer_conn = duckdb.connect(db_path, read_only=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  [warn] Could not open read-only viewer connection: {exc}")
+
+    app = create_app(conn, viewer_conn=viewer_conn, demo_mode=demo_mode)
+
+    # Try to start the Quack PostgreSQL wire-protocol server.
+    _try_start_quack(conn)
+
+    url = f"http://{host}:{port}"
+    print(f"  Listening on {url}")
+
+    if open_browser:
+        print("  Opening browser...")
+        threading.Thread(
+            target=_open_browser, args=(url,), daemon=True
+        ).start()
+
+    print("  Press Ctrl+C to stop.\n")
+
+    config = uvicorn.Config(
+        app=app,
+        host=host,
+        port=port,
+        log_level="warning",   # suppress INFO noise; our banner is the UI
+    )
+    server = uvicorn.Server(config)
+
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if viewer_conn is not None:
+            try:
+                viewer_conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+        print("\nServer stopped.")

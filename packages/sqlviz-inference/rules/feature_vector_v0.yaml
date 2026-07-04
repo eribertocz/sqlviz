@@ -1,0 +1,65 @@
+# sqlviz-inference/rules/feature_vector_v0.yaml
+# Canonical definition of the 39-dimension feature vector V0.
+# Indices 0-37 are named features. Index 38 (trend_direction) is
+# computed by FeatureEngine.data_statistics but not declared here
+# because the spec reserves 38-127 for V1+ (see §16.5 fix note).
+
+version: "v0"
+dimensions: 39
+
+features:
+  # SQL Structural Features (0-17)
+  has_group_by:               {index: 0,  type: binary}
+  has_order_by:               {index: 1,  type: binary}
+  has_order_by_desc:          {index: 2,  type: binary}
+  has_limit:                  {index: 3,  type: binary}
+  has_aggregation:            {index: 4,  type: binary}
+  has_sum:                    {index: 5,  type: binary}
+  has_count:                  {index: 6,  type: binary}
+  has_avg:                    {index: 7,  type: binary}
+  has_window_function:        {index: 8,  type: binary}
+  has_cte:                    {index: 9,  type: binary}
+  has_join:                   {index: 10, type: binary}
+  has_where:                  {index: 11, type: binary}
+  group_by_column_count:      {index: 12, type: continuous, normalize: "divide_by_5"}
+  select_column_count:        {index: 13, type: continuous, normalize: "divide_by_10"}
+  has_subquery:               {index: 14, type: binary}
+  has_partition_by:           {index: 15, type: binary}
+  has_case_when:              {index: 16, type: binary}
+  has_distinct:               {index: 17, type: binary}
+
+  # Column Type Features (18-24)
+  has_date_column:            {index: 18, type: binary}
+  has_numeric_column:         {index: 19, type: binary}
+  has_string_column:          {index: 20, type: binary}
+  numeric_column_ratio:       {index: 21, type: continuous}
+  date_column_ratio:          {index: 22, type: continuous}
+  has_single_numeric_column:  {index: 23, type: binary}
+  has_two_numeric_columns:    {index: 24, type: binary}
+
+  # Data Statistics (25-29)
+  row_count_normalized:       {index: 25, type: continuous, normalize: "divide_by_10000"}
+  cardinality_ratio:          {index: 26, type: continuous}
+  temporal_cardinality:       {index: 27, type: continuous, normalize: "divide_by_366"}
+  trend_strength:             {index: 28, type: continuous}
+  has_outliers:               {index: 29, type: binary}
+
+  # Semantic Features (30-34)
+  has_revenue_metric:         {index: 30, type: binary}
+  has_temporal_dimension:     {index: 31, type: binary}
+  has_geographic_dimension:   {index: 32, type: binary}
+  has_product_entity:         {index: 33, type: binary}
+  has_customer_entity:        {index: 34, type: binary}
+
+  # Result Shape Features (35-37)
+  result_row_count_is_1:      {index: 35, type: binary}
+  result_column_count_is_1:   {index: 36, type: binary}
+  result_is_wide_table:       {index: 37, type: binary}
+
+  # Trend Direction (38) — computed but not a named intent feature
+  trend_direction:            {index: 38, type: continuous}
+
+reserved:
+  start_index: 39
+  end_index: 127
+  note: "Reserved for V1 features (DOC 4, Section 3.3). Never use in V0."

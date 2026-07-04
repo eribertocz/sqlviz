@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/*
+ * SQLviz design tokens — DOC6 Section 2.
+ *
+ * :root holds the DARK theme values (dark is the default — DOC6 §2.1).
+ * [data-theme="light"] overrides only the values that change.
+ * --sqlviz-primary and semantic colors are identical in both themes.
+ */
+
+:root {
+  /* Color */
+  --sqlviz-primary:       #6366f1;  /* indigo — brand, CTAs, links */
+  --sqlviz-primary-hover: #818cf8;
+  --sqlviz-bg:            #0f172a;  /* dark background (default theme) */
+  --sqlviz-bg-surface:    #1e293b;  /* card / panel background */
+  --sqlviz-border:        #334155;
+  --sqlviz-text:          #f1f5f9;  /* primary text */
+  --sqlviz-text-muted:    #94a3b8;  /* secondary text, metadata */
+
+  /* Semantic colors — KPI trend indicators only (DOC5 §16.2, dim 38) */
+  --sqlviz-positive:      #22c55e;  /* green — growing KPI */
+  --sqlviz-negative:      #ef4444;  /* red — declining KPI */
+  --sqlviz-neutral:       #94a3b8;  /* gray — flat KPI */
+
+  /* Geometry */
+  --sqlviz-radius:        6px;
+  --sqlviz-radius-lg:     10px;
+  --sqlviz-gap:           16px;     /* panel grid gap — must match DOC5 §9 col_span math */
+
+  /* Typography */
+  --sqlviz-font-sans:     'Inter', system-ui, sans-serif;
+  --sqlviz-font-mono:     'JetBrains Mono', 'Fira Code', monospace;
+}
+
+[data-theme="light"] {
+  --sqlviz-bg:            #ffffff;
+  --sqlviz-bg-surface:    #f8fafc;
+  --sqlviz-border:        #e2e8f0;
+  --sqlviz-text:          #0f172a;
+  --sqlviz-text-muted:    #64748b;
+  /* --sqlviz-primary and semantic colors stay the same in both themes */
+}
+
+body {
+  background-color: var(--sqlviz-bg);
+  color: var(--sqlviz-text);
+  font-family: var(--sqlviz-font-sans);
+}

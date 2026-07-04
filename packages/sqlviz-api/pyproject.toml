@@ -1,0 +1,30 @@
+[project]
+name = "sqlviz-api"
+version = "0.1.0"
+description = "SQLviz HTTP API: FastAPI door between frontend and inference/storage"
+requires-python = ">=3.12"
+dependencies = [
+    "sqlviz-core",
+    "sqlviz-inference",
+    "sqlviz-storage",
+    "fastapi>=0.139",
+    "uvicorn>=0.30",
+    "pydantic>=2.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sqlviz_api"]
+
+[tool.hatch.build]
+artifacts = [
+    "src/sqlviz_api/static/dist/**",
+]
+
+[tool.uv.sources]
+sqlviz-core      = { workspace = true }
+sqlviz-inference = { workspace = true }
+sqlviz-storage   = { workspace = true }

@@ -1,0 +1,313 @@
+# sqlviz-inference/tests/benchmark/benchmark_cases.yaml
+# Gold Dataset V0 — 30 cases (DOC5 Section 14.3).
+# Grows to 100 then 300 as SQLviz matures (DOC4 roadmap).
+
+cases:
+
+  # ── KPI cases (1-5) ─────────────────────────────────────────
+  - id: kpi_001
+    sql: "SELECT SUM(revenue) AS total FROM sales"
+    data: [{total: 125430.0}]
+    schema: [{name: total, type: DOUBLE}]
+    expected_intent: kpi
+    expected_chart: kpi
+    min_quality: high
+    notes: "Simplest KPI — single SUM, no GROUP BY"
+
+  - id: kpi_002
+    sql: "SELECT COUNT(*) AS total_orders FROM orders"
+    data: [{total_orders: 4521}]
+    schema: [{name: total_orders, type: BIGINT}]
+    expected_intent: kpi
+    expected_chart: kpi
+    min_quality: high
+    notes: "COUNT(*) KPI pattern"
+
+  - id: kpi_003
+    sql: "SELECT AVG(order_value) AS avg_order FROM orders"
+    data: [{avg_order: 87.5}]
+    schema: [{name: avg_order, type: DOUBLE}]
+    expected_intent: kpi
+    expected_chart: kpi
+    min_quality: high
+    notes: "AVG aggregation KPI"
+
+  - id: kpi_004
+    sql: "SELECT SUM(ventas) AS total FROM ventas"
+    data: [{total: 87000.0}]
+    schema: [{name: total, type: DOUBLE}]
+    expected_intent: kpi
+    expected_chart: kpi
+    min_quality: high
+    notes: "Spanish language — same pattern as kpi_001"
+
+  - id: kpi_005
+    sql: "SELECT COUNT(DISTINCT customer_id) AS unique_customers FROM orders"
+    data: [{unique_customers: 892}]
+    schema: [{name: unique_customers, type: BIGINT}]
+    expected_intent: kpi
+    expected_chart: kpi
+    min_quality: medium
+    notes: "DISTINCT count — slightly less common pattern"
+
+  # ── Trend cases (6-11) ───────────────────────────────────────
+  - id: trend_001
+    sql: "SELECT month, SUM(revenue) FROM sales GROUP BY month ORDER BY month"
+    data:
+      - {month: "2024-01", revenue: 8500}
+      - {month: "2024-02", revenue: 9200}
+      - {month: "2024-03", revenue: 11000}
+      - {month: "2024-04", revenue: 10500}
+    schema: [{name: month, type: DATE}, {name: revenue, type: DOUBLE}]
+    expected_intent: trend
+    expected_chart: line
+    min_quality: high
+    notes: "Canonical trend pattern"
+
+  - id: trend_002
+    sql: "SELECT fecha, SUM(ventas) FROM ventas GROUP BY fecha ORDER BY fecha"
+    schema: [{name: fecha, type: DATE}, {name: ventas, type: DOUBLE}]
+    expected_intent: trend
+    expected_chart: line
+    min_quality: high
+    notes: "Spanish — must produce same fingerprint as trend_001"
+
+  - id: trend_003
+    sql: "SELECT week, COUNT(*) FROM events GROUP BY week ORDER BY week"
+    schema: [{name: week, type: DATE}, {name: count, type: BIGINT}]
+    expected_intent: trend
+    expected_chart: line
+    min_quality: high
+    notes: "COUNT-based trend"
+
+  - id: trend_004
+    sql: "SELECT created_at, AVG(rating) FROM reviews GROUP BY created_at ORDER BY created_at"
+    schema: [{name: created_at, type: DATE}, {name: rating, type: DOUBLE}]
+    expected_intent: trend
+    expected_chart: line
+    min_quality: medium
+    notes: "created_at temporal pattern, AVG aggregation"
+
+  - id: trend_005
+    sql: "SELECT quarter, SUM(revenue) FROM sales GROUP BY quarter ORDER BY quarter"
+    schema: [{name: quarter, type: VARCHAR}, {name: revenue, type: DOUBLE}]
+    expected_intent: trend
+    expected_chart: line
+    min_quality: medium
+    notes: "Quarter as VARCHAR — temporal dict still matches"
+
+  - id: trend_006
+    sql: "SELECT month, SUM(revenue), SUM(cost) FROM sales GROUP BY month ORDER BY month"
+    schema:
+      - {name: month, type: DATE}
+      - {name: revenue, type: DOUBLE}
+      - {name: cost, type: DOUBLE}
+    expected_intent: trend
+    expected_chart: line
+    min_quality: medium
+    notes: "Multiple metrics over time — V0 picks line, V1 should suggest multiline"
+
+  # ── Comparison cases (12-16) ─────────────────────────────────
+  - id: comparison_001
+    sql: "SELECT region, SUM(revenue) FROM sales GROUP BY region"
+    data:
+      - {region: "North", revenue: 45000}
+      - {region: "South", revenue: 32000}
+      - {region: "East", revenue: 28000}
+      - {region: "West", revenue: 19000}
+    schema: [{name: region, type: VARCHAR}, {name: revenue, type: DOUBLE}]
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: high
+    notes: "Canonical comparison pattern"
+
+  - id: comparison_002
+    sql: "SELECT categoria, COUNT(*) FROM productos GROUP BY categoria"
+    schema: [{name: categoria, type: VARCHAR}, {name: count, type: BIGINT}]
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: high
+    notes: "Spanish category comparison"
+
+  - id: comparison_003
+    sql: "SELECT department, AVG(salary) FROM employees GROUP BY department"
+    schema: [{name: department, type: VARCHAR}, {name: salary, type: DOUBLE}]
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: high
+    notes: "AVG-based comparison"
+
+  - id: comparison_004
+    sql: "SELECT browser, COUNT(*) FROM sessions GROUP BY browser"
+    data:
+      - {browser: "Chrome", count: 5000}
+      - {browser: "Safari", count: 2000}
+      - {browser: "Firefox", count: 800}
+      - {browser: "Edge", count: 400}
+    schema: [{name: browser, type: VARCHAR}, {name: count, type: BIGINT}]
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: high
+    notes: "Web analytics comparison pattern"
+
+  - id: comparison_005
+    sql: "SELECT pais, SUM(ingresos) FROM ventas GROUP BY pais"
+    schema: [{name: pais, type: VARCHAR}, {name: ingresos, type: DOUBLE}]
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: high
+    notes: "Geographic comparison — Spanish, but no ranking pattern"
+
+  # ── Ranking cases (17-21) ────────────────────────────────────
+  - id: ranking_001
+    sql: "SELECT product, SUM(revenue) FROM sales GROUP BY product ORDER BY 2 DESC LIMIT 10"
+    schema: [{name: product, type: VARCHAR}, {name: revenue, type: DOUBLE}]
+    expected_intent: ranking
+    expected_chart: bar_horizontal
+    min_quality: high
+    notes: "Canonical ranking with ORDER BY DESC + LIMIT"
+
+  - id: ranking_002
+    sql: "SELECT producto, COUNT(*) FROM ventas GROUP BY producto ORDER BY 2 DESC LIMIT 5"
+    schema: [{name: producto, type: VARCHAR}, {name: count, type: BIGINT}]
+    expected_intent: ranking
+    expected_chart: bar_horizontal
+    min_quality: high
+    notes: "Spanish ranking, smaller LIMIT"
+
+  - id: ranking_003
+    sql: "SELECT customer_name, SUM(total_spent) FROM orders GROUP BY customer_name ORDER BY 2 DESC LIMIT 20"
+    schema: [{name: customer_name, type: VARCHAR}, {name: total_spent, type: DOUBLE}]
+    expected_intent: ranking
+    expected_chart: bar_horizontal
+    min_quality: high
+    notes: "Larger LIMIT — top customers"
+
+  - id: ranking_004
+    sql: "SELECT page_url, COUNT(*) AS views FROM pageviews GROUP BY page_url ORDER BY views DESC LIMIT 10"
+    schema: [{name: page_url, type: VARCHAR}, {name: views, type: BIGINT}]
+    expected_intent: ranking
+    expected_chart: bar_horizontal
+    min_quality: high
+    notes: "ORDER BY column alias instead of position"
+
+  - id: ranking_005
+    sql: "SELECT employee, SUM(sales_amount) FROM sales GROUP BY employee ORDER BY 2 ASC LIMIT 5"
+    schema: [{name: employee, type: VARCHAR}, {name: sales_amount, type: DOUBLE}]
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: medium
+    notes: "ASC + LIMIT is 'bottom N' — not the strong ranking_pattern (requires DESC)"
+
+  # ── Composition / Distribution cases (22-25) ─────────────────
+  - id: composition_001
+    sql: "SELECT payment_method, COUNT(*) FROM orders GROUP BY payment_method"
+    data:
+      - {payment_method: "Credit Card", count: 700}
+      - {payment_method: "PayPal", count: 200}
+      - {payment_method: "Cash", count: 100}
+    schema: [{name: payment_method, type: VARCHAR}, {name: count, type: BIGINT}]
+    expected_intent: composition
+    expected_chart: pie
+    min_quality: medium
+    notes: "Few categories, part-to-whole — pie candidate"
+
+  - id: composition_002
+    sql: "SELECT subscription_tier, COUNT(*) FROM users GROUP BY subscription_tier"
+    data:
+      - {subscription_tier: "Free", count: 8000}
+      - {subscription_tier: "Pro", count: 1500}
+      - {subscription_tier: "Enterprise", count: 200}
+    schema: [{name: subscription_tier, type: VARCHAR}, {name: count, type: BIGINT}]
+    expected_intent: composition
+    expected_chart: pie
+    min_quality: medium
+    notes: "3 categories — clean composition pattern"
+
+  - id: distribution_001
+    sql: "SELECT order_value FROM orders"
+    data:
+      - {order_value: 10}
+      - {order_value: 15}
+      - {order_value: 20}
+      - {order_value: 22}
+      - {order_value: 25}
+      - {order_value: 30}
+      - {order_value: 35}
+      - {order_value: 40}
+      - {order_value: 80}
+      - {order_value: 150}
+    schema: [{name: order_value, type: DOUBLE}]
+    expected_intent: distribution
+    expected_chart: histogram
+    min_quality: medium
+    notes: "Single numeric column, no aggregation, no grouping"
+
+  - id: distribution_002
+    sql: "SELECT age FROM customers"
+    schema: [{name: age, type: INTEGER}]
+    expected_intent: distribution
+    expected_chart: histogram
+    min_quality: medium
+    notes: "Demographic distribution"
+
+  # ── Correlation cases (26-27) ────────────────────────────────
+  - id: correlation_001
+    sql: "SELECT price, quantity_sold FROM products"
+    data:
+      - {price: 10, quantity_sold: 100}
+      - {price: 20, quantity_sold: 80}
+      - {price: 30, quantity_sold: 60}
+      - {price: 40, quantity_sold: 40}
+      - {price: 50, quantity_sold: 20}
+    schema: [{name: price, type: DOUBLE}, {name: quantity_sold, type: INTEGER}]
+    expected_intent: correlation
+    expected_chart: scatter
+    min_quality: high
+    notes: "Two numeric columns, no aggregation, no grouping — classic scatter"
+
+  - id: correlation_002
+    sql: "SELECT marketing_spend, revenue FROM monthly_data"
+    schema: [{name: marketing_spend, type: DOUBLE}, {name: revenue, type: DOUBLE}]
+    expected_intent: correlation
+    expected_chart: scatter
+    min_quality: high
+    notes: "Business correlation use case"
+
+  # ── Detail cases (28-30) ─────────────────────────────────────
+  - id: detail_001
+    sql: "SELECT id, name, email, phone, address FROM customers"
+    schema:
+      - {name: id, type: INTEGER}
+      - {name: name, type: VARCHAR}
+      - {name: email, type: VARCHAR}
+      - {name: phone, type: VARCHAR}
+      - {name: address, type: VARCHAR}
+    expected_intent: detail
+    expected_chart: table
+    min_quality: high
+    notes: "No aggregation, no grouping, many columns — clear detail view"
+
+  - id: detail_002
+    sql: "SELECT * FROM orders WHERE order_date = '2024-01-15'"
+    schema:
+      - {name: order_id, type: INTEGER}
+      - {name: customer_id, type: INTEGER}
+      - {name: order_date, type: DATE}
+      - {name: total, type: DOUBLE}
+    expected_intent: detail
+    expected_chart: table
+    min_quality: medium
+    notes: "Filtered detail query"
+
+  - id: detail_003
+    sql: "SELECT order_id, product_name, quantity, unit_price FROM order_items LIMIT 100"
+    schema:
+      - {name: order_id, type: INTEGER}
+      - {name: product_name, type: VARCHAR}
+      - {name: quantity, type: INTEGER}
+      - {name: unit_price, type: DOUBLE}
+    expected_intent: detail
+    expected_chart: table
+    min_quality: medium
+    notes: "LIMIT without ORDER BY DESC — not a ranking pattern, still detail"

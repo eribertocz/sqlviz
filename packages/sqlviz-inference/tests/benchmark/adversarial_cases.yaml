@@ -1,0 +1,779 @@
+# tests/benchmark/adversarial_cases.yaml
+# Adversarial Gold Dataset — Entrega 3.A (42 cases)
+# Thresholds: intent_accuracy >= 0.90, chart_accuracy >= 0.90, quality_avg >= 0.85
+#
+# Each case must have:
+#   id, description, sql, schema, expected_intent, expected_chart,
+#   expected_quality_min (high/medium/low), reason
+
+cases:
+
+  # ── CONFUSION 1: comparison vs composition (6 cases) ─────────────────────
+
+  - id: adv_cc_001
+    description: "5 categories — comparison wins, not composition"
+    sql: "SELECT canal_venta, SUM(ingresos) FROM ventas GROUP BY canal_venta"
+    schema:
+      - {name: canal_venta, type: VARCHAR}
+      - {name: ingresos, type: DOUBLE}
+    data:
+      - {canal_venta: "Online",   ingresos: 45000}
+      - {canal_venta: "Tienda",   ingresos: 38000}
+      - {canal_venta: "Teléfono", ingresos: 21000}
+      - {canal_venta: "Partner",  ingresos: 15000}
+      - {canal_venta: "Otro",     ingresos: 8000}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "5 distinct categories — estimated distinct = 5 > 3, low_cardinality does not fire, comparison (0.96) beats composition (0.90)"
+
+  - id: adv_cc_002
+    description: "3 cities with AVG — comparison, not composition"
+    sql: "SELECT city, AVG(response_time_ms) AS avg_rt FROM support_tickets GROUP BY city"
+    schema:
+      - {name: city, type: VARCHAR}
+      - {name: avg_rt, type: DOUBLE}
+    data:
+      - {city: "Madrid",    avg_rt: 250}
+      - {city: "Barcelona", avg_rt: 180}
+      - {city: "Valencia",  avg_rt: 220}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: low
+    reason: "FIXED §16.21: has_avg penalty (0.25) fires on AVG(response_time_ms) → composition drops from 1.00 to 0.75 → comparison (0.96) wins. Cities compared by AVG are not part-to-whole."
+
+  - id: adv_cc_003
+    description: "2 categories binary split — composition/pie is correct"
+    sql: "SELECT genero, COUNT(*) AS usuarios FROM clientes GROUP BY genero"
+    schema:
+      - {name: genero,   type: VARCHAR}
+      - {name: usuarios, type: BIGINT}
+    data:
+      - {genero: "Femenino",  usuarios: 6200}
+      - {genero: "Masculino", usuarios: 4800}
+    expected_intent: composition
+    expected_chart: pie
+    expected_quality_min: medium
+    reason: "2 categories → low_cardinality fires legitimately → composition wins → pie is semantically correct"
+
+  - id: adv_cc_004
+    description: "4 contract types — comparison wins (4 > 3 threshold)"
+    sql: "SELECT tipo_contrato, COUNT(*) AS total FROM empleados GROUP BY tipo_contrato"
+    schema:
+      - {name: tipo_contrato, type: VARCHAR}
+      - {name: total, type: BIGINT}
+    data:
+      - {tipo_contrato: "Indefinido", total: 850}
+      - {tipo_contrato: "Temporal",   total: 320}
+      - {tipo_contrato: "Practicas",  total: 180}
+      - {tipo_contrato: "Consultor",  total: 95}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "4 distinct categories — estimated_distinct = 4 > 3, low_cardinality does not fire, comparison wins"
+
+  - id: adv_cc_005
+    description: "Pre-computed market shares, no SQL aggregation — comparison not composition"
+    sql: "SELECT segmento, cuota_mercado FROM participacion_mercado GROUP BY segmento"
+    schema:
+      - {name: segmento,       type: VARCHAR}
+      - {name: cuota_mercado,  type: DOUBLE}
+    data:
+      - {segmento: "Empresa A", cuota_mercado: 0.42}
+      - {segmento: "Empresa B", cuota_mercado: 0.28}
+      - {segmento: "Empresa C", cuota_mercado: 0.19}
+      - {segmento: "Otros",     cuota_mercado: 0.11}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: low
+    reason: |
+      No SUM/COUNT in SQL → has_aggregation=0 → composition gets no_aggregation penalty 0.50
+      → composition raw ≈ 0.10. Comparison wins at 0.65.
+      Note: 'cuota_mercado' (share signal) has no semantic class in V0 — future improvement.
+
+  - id: adv_cc_006
+    description: "8 product categories — clearly comparison, well above threshold"
+    sql: "SELECT categoria, SUM(unidades) FROM inventario GROUP BY categoria"
+    schema:
+      - {name: categoria, type: VARCHAR}
+      - {name: unidades,  type: BIGINT}
+    data:
+      - {categoria: "Electrónica",  unidades: 12000}
+      - {categoria: "Ropa",         unidades: 8500}
+      - {categoria: "Hogar",        unidades: 7200}
+      - {categoria: "Deportes",     unidades: 5400}
+      - {categoria: "Libros",       unidades: 4100}
+      - {categoria: "Juguetes",     unidades: 3200}
+      - {categoria: "Alimentación", unidades: 2800}
+      - {categoria: "Otros",        unidades: 1900}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "8 categories — far above the 3-row low_cardinality boundary, comparison wins decisively"
+
+  # ── CONFUSION 2: comparison vs distribution (5 cases) ────────────────────
+
+  - id: adv_cd_001
+    description: "VARCHAR age buckets — comparison, not distribution"
+    sql: "SELECT rango_edad, COUNT(*) AS usuarios FROM clientes GROUP BY rango_edad ORDER BY rango_edad"
+    schema:
+      - {name: rango_edad, type: VARCHAR}
+      - {name: usuarios,   type: BIGINT}
+    data:
+      - {rango_edad: "18-24", usuarios: 1200}
+      - {rango_edad: "25-34", usuarios: 2800}
+      - {rango_edad: "35-44", usuarios: 2100}
+      - {rango_edad: "45-54", usuarios: 1500}
+      - {rango_edad: "55+",   usuarios: 900}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "VARCHAR buckets look distribution-like but GROUP BY + aggregation → distribution gets has_group_by penalty 0.50 → distribution raw 0.20 vs comparison 0.96"
+
+  - id: adv_cd_002
+    description: "FLOOR numeric salary buckets — comparison not distribution"
+    sql: "SELECT FLOOR(salary / 10000) * 10000 AS salary_bucket, COUNT(*) AS cnt FROM employees GROUP BY 1 ORDER BY 1"
+    schema:
+      - {name: salary_bucket, type: DOUBLE}
+      - {name: cnt,           type: BIGINT}
+    data:
+      - {salary_bucket: 20000, cnt: 45}
+      - {salary_bucket: 30000, cnt: 128}
+      - {salary_bucket: 40000, cnt: 213}
+      - {salary_bucket: 50000, cnt: 187}
+      - {salary_bucket: 60000, cnt: 94}
+      - {salary_bucket: 70000, cnt: 32}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: low
+    reason: "Numeric FLOOR buckets semantically suggest histogram but GROUP BY + aggregation → distribution penalized → comparison wins. V0 limitation: FLOOR/bucket pattern not detected."
+
+  - id: adv_cd_003
+    description: "Raw salary column — pure distribution, no GROUP BY"
+    sql: "SELECT salary FROM employees WHERE department = 'Engineering'"
+    schema:
+      - {name: salary, type: DOUBLE}
+    data:
+      - {salary: 45000}
+      - {salary: 52000}
+      - {salary: 58000}
+      - {salary: 61000}
+      - {salary: 63000}
+      - {salary: 67000}
+      - {salary: 72000}
+      - {salary: 78000}
+      - {salary: 82000}
+      - {salary: 95000}
+      - {salary: 110000}
+    expected_intent: distribution
+    expected_chart: histogram
+    expected_quality_min: medium
+    reason: "Single numeric column, no aggregation, no GROUP BY → pure distribution signal"
+
+  - id: adv_cd_004
+    description: "GROUP BY numeric year — temporal semantics override distribution"
+    sql: "SELECT ano, SUM(ventas) AS total FROM ventas GROUP BY ano ORDER BY ano"
+    schema:
+      - {name: ano,   type: INTEGER}
+      - {name: total, type: DOUBLE}
+    data:
+      - {ano: 2021, total: 820000}
+      - {ano: 2022, total: 940000}
+      - {ano: 2023, total: 1100000}
+      - {ano: 2024, total: 1250000}
+    expected_intent: trend
+    expected_chart: line
+    expected_quality_min: medium
+    reason: "'ano' matched by semantic engine as TEMPORAL_DIMENSION (exact match) → dim31=1 → trend wins; distribution gets has_group_by penalty"
+
+  - id: adv_cd_005
+    description: "Two numeric columns, no GROUP BY — correlation/scatter not comparison"
+    sql: "SELECT precio, cantidad_vendida FROM productos"
+    schema:
+      - {name: precio,           type: DOUBLE}
+      - {name: cantidad_vendida, type: INTEGER}
+    data:
+      - {precio: 10.0, cantidad_vendida: 450}
+      - {precio: 15.0, cantidad_vendida: 380}
+      - {precio: 20.0, cantidad_vendida: 320}
+      - {precio: 25.0, cantidad_vendida: 260}
+      - {precio: 30.0, cantidad_vendida: 200}
+      - {precio: 35.0, cantidad_vendida: 150}
+    expected_intent: correlation
+    expected_chart: scatter
+    expected_quality_min: high
+    reason: "Two numeric columns (dim24=1), no GROUP BY, no aggregation → correlation wins; scatter has has_aggregation penalty protecting against false positives"
+
+  # ── CONFUSION 3: trend vs KPI (5 cases) ──────────────────────────────────
+
+  - id: adv_tk_001
+    description: "Monthly revenue series — trend, not KPI"
+    sql: "SELECT mes, SUM(ingresos) AS ingresos_mes FROM ventas GROUP BY mes ORDER BY mes"
+    schema:
+      - {name: mes,          type: VARCHAR}
+      - {name: ingresos_mes, type: DOUBLE}
+    data:
+      - {mes: "2024-01", ingresos_mes: 112000}
+      - {mes: "2024-02", ingresos_mes: 125000}
+      - {mes: "2024-03", ingresos_mes: 118000}
+      - {mes: "2024-04", ingresos_mes: 134000}
+      - {mes: "2024-05", ingresos_mes: 142000}
+      - {mes: "2024-06", ingresos_mes: 158000}
+    expected_intent: trend
+    expected_chart: line
+    expected_quality_min: high
+    reason: "'mes' matches TEMPORAL_DIMENSION → dim31=1 → KPI gets has_group_by penalty 0.80 → KPI ≈ 0; trend wins"
+
+  - id: adv_tk_002
+    description: "Single derived scalar — KPI, not trend"
+    sql: "SELECT SUM(ingresos) / COUNT(DISTINCT cliente_id) AS ingreso_por_cliente FROM pedidos"
+    schema:
+      - {name: ingreso_por_cliente, type: DOUBLE}
+    data:
+      - {ingreso_por_cliente: 142.5}
+    expected_intent: kpi
+    expected_chart: kpi
+    expected_quality_min: high
+    reason: "Single scalar result → result_row_count_is_1=1, result_col_count_is_1=1 → KPI scores 0.70, wins"
+
+  - id: adv_tk_003
+    description: "Quarterly series with 2 metrics — trend, not KPI"
+    sql: "SELECT trimestre, SUM(revenue) AS revenue, SUM(cost) AS cost FROM sales GROUP BY trimestre ORDER BY trimestre"
+    schema:
+      - {name: trimestre, type: VARCHAR}
+      - {name: revenue,   type: DOUBLE}
+      - {name: cost,      type: DOUBLE}
+    data:
+      - {trimestre: "2024-Q1", revenue: 320000, cost: 180000}
+      - {trimestre: "2024-Q2", revenue: 385000, cost: 210000}
+      - {trimestre: "2024-Q3", revenue: 410000, cost: 225000}
+      - {trimestre: "2024-Q4", revenue: 445000, cost: 240000}
+    expected_intent: trend
+    expected_chart: line
+    expected_quality_min: medium
+    reason: "'trimestre' matches TEMPORAL_DIMENSION → trend. result_col_count_is_1=0 (3 cols) → KPI weight drops"
+
+  - id: adv_tk_004
+    description: "Monthly growth rate with window function — trend, not KPI"
+    sql: "SELECT mes, SUM(ventas) AS total, SUM(ventas) / LAG(SUM(ventas)) OVER (ORDER BY mes) - 1 AS crecimiento FROM ventas GROUP BY mes ORDER BY mes"
+    schema:
+      - {name: mes,         type: VARCHAR}
+      - {name: total,       type: DOUBLE}
+      - {name: crecimiento, type: DOUBLE}
+    data:
+      - {mes: "2024-01", total: 100000, crecimiento: null}
+      - {mes: "2024-02", total: 112000, crecimiento: 0.12}
+      - {mes: "2024-03", total: 108000, crecimiento: -0.036}
+      - {mes: "2024-04", total: 125000, crecimiento: 0.157}
+      - {mes: "2024-05", total: 130000, crecimiento: 0.04}
+    expected_intent: trend
+    expected_chart: line
+    expected_quality_min: medium
+    reason: "Window function + temporal + GROUP BY. KPI requires no GROUP BY → penalized. Trend wins despite ratio semantics."
+
+  - id: adv_tk_005
+    description: "YoY 2-row comparison — trend, not KPI (2 rows = multiple)"
+    sql: "SELECT anio, SUM(revenue) AS total FROM annual_sales GROUP BY anio ORDER BY anio"
+    schema:
+      - {name: anio,  type: VARCHAR}
+      - {name: total, type: DOUBLE}
+    data:
+      - {anio: "2023", total: 1800000}
+      - {anio: "2024", total: 2100000}
+    expected_intent: trend
+    expected_chart: line
+    expected_quality_min: medium
+    reason: "'anio' matches TEMPORAL_DIMENSION. 2 rows → multiple_rows penalty fires on KPI → KPI ≈ 0. Trend wins."
+
+  # ── CONFUSION 4: ranking vs comparison (5 cases) ──────────────────────────
+
+  - id: adv_rc_001
+    description: "ORDER BY DESC without LIMIT — comparison, not ranking"
+    sql: "SELECT producto, SUM(ventas) AS total FROM ventas GROUP BY producto ORDER BY 2 DESC"
+    schema:
+      - {name: producto, type: VARCHAR}
+      - {name: total,    type: DOUBLE}
+    data:
+      - {producto: "Laptop",   total: 85000}
+      - {producto: "Tablet",   total: 62000}
+      - {producto: "Phone",    total: 54000}
+      - {producto: "Monitor",  total: 43000}
+      - {producto: "Keyboard", total: 28000}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "has_order_by_desc=1 but has_limit=0 → order_desc_and_limit=0 → ranking boost (1.50×) does not fire → comparison (0.96) beats ranking (0.70)"
+
+  - id: adv_rc_002
+    description: "ORDER BY metric ASC + LIMIT (bottom N) — comparison not ranking"
+    sql: "SELECT empleado, SUM(ventas) AS total FROM ventas GROUP BY empleado ORDER BY 2 ASC LIMIT 5"
+    schema:
+      - {name: empleado, type: VARCHAR}
+      - {name: total,    type: DOUBLE}
+    data:
+      - {empleado: "García",    total: 8200}
+      - {empleado: "Martínez",  total: 9400}
+      - {empleado: "López",     total: 10100}
+      - {empleado: "Sánchez",   total: 11300}
+      - {empleado: "Romero",    total: 12800}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "ASC order → has_order_by_desc=0 → ranking boost condition fails → comparison wins. Mirrors benchmark ranking_005."
+
+  - id: adv_rc_003
+    description: "ORDER BY categorical column + LIMIT — comparison not ranking"
+    sql: "SELECT country, COUNT(*) AS customers FROM orders GROUP BY country ORDER BY country ASC LIMIT 10"
+    schema:
+      - {name: country,   type: VARCHAR}
+      - {name: customers, type: BIGINT}
+    data:
+      - {country: "Argentina", customers: 1200}
+      - {country: "Bolivia",   customers: 340}
+      - {country: "Brasil",    customers: 4500}
+      - {country: "Chile",     customers: 1800}
+      - {country: "Colombia",  customers: 2100}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "ORDER BY categorical column (alphabetical), not metric DESC → has_order_by_desc=0 → not ranking pattern"
+
+  - id: adv_rc_004
+    description: "Top 10 products by revenue — ranking not comparison"
+    sql: "SELECT producto, SUM(revenue) AS total FROM sales GROUP BY producto ORDER BY 2 DESC LIMIT 10"
+    schema:
+      - {name: producto, type: VARCHAR}
+      - {name: total,    type: DOUBLE}
+    data:
+      - {producto: "Pro Max",  total: 125000}
+      - {producto: "Standard", total: 98000}
+      - {producto: "Lite",     total: 76000}
+      - {producto: "Mini",     total: 54000}
+      - {producto: "Ultra",    total: 43000}
+    expected_intent: ranking
+    expected_chart: bar_horizontal
+    expected_quality_min: high
+    reason: "ORDER BY DESC + LIMIT → order_desc_and_limit=1 → ranking boost 1.50× fires → ranking wins strongly"
+
+  - id: adv_rc_005
+    description: "ORDER BY named alias DESC + LIMIT — ranking pattern"
+    sql: "SELECT page_path, COUNT(*) AS page_views FROM analytics GROUP BY page_path ORDER BY page_views DESC LIMIT 5"
+    schema:
+      - {name: page_path,  type: VARCHAR}
+      - {name: page_views, type: BIGINT}
+    data:
+      - {page_path: "/home",     page_views: 45000}
+      - {page_path: "/products", page_views: 32000}
+      - {page_path: "/checkout", page_views: 18000}
+      - {page_path: "/about",    page_views: 12000}
+      - {page_path: "/contact",  page_views: 8000}
+    expected_intent: ranking
+    expected_chart: bar_horizontal
+    expected_quality_min: high
+    reason: "ORDER BY alias DESC + LIMIT → ranking. Tests alias detection vs positional ORDER BY."
+
+  # ── CONFUSION 5: detail vs table (4 cases) ────────────────────────────────
+
+  - id: adv_dt_001
+    description: "7 columns, no aggregation — detail/table"
+    sql: "SELECT id, nombre, email, telefono, ciudad, pais, fecha_registro FROM clientes"
+    schema:
+      - {name: id,               type: INTEGER}
+      - {name: nombre,           type: VARCHAR}
+      - {name: email,            type: VARCHAR}
+      - {name: telefono,         type: VARCHAR}
+      - {name: ciudad,           type: VARCHAR}
+      - {name: pais,             type: VARCHAR}
+      - {name: fecha_registro,   type: DATE}
+    expected_intent: detail
+    expected_chart: table
+    expected_quality_min: medium
+    reason: "7 columns, no GROUP BY, no aggregation → no_aggregation=1, no_group_by=1 → detail wins → table"
+
+  - id: adv_dt_002
+    description: "Transactional rows with WHERE filter — detail/table"
+    sql: "SELECT order_id, customer_id, product_name, quantity, unit_price, order_date FROM orders WHERE order_date >= '2024-01-01'"
+    schema:
+      - {name: order_id,     type: INTEGER}
+      - {name: customer_id,  type: INTEGER}
+      - {name: product_name, type: VARCHAR}
+      - {name: quantity,     type: INTEGER}
+      - {name: unit_price,   type: DOUBLE}
+      - {name: order_date,   type: DATE}
+    expected_intent: detail
+    expected_chart: table
+    expected_quality_min: medium
+    reason: "Mixed types, no aggregation, WHERE filter → detail/table even though date column present"
+
+  - id: adv_dt_003
+    description: "LIMIT without ORDER BY DESC — detail not ranking"
+    sql: "SELECT order_id, product_name, quantity, unit_price FROM order_items LIMIT 50"
+    schema:
+      - {name: order_id,     type: INTEGER}
+      - {name: product_name, type: VARCHAR}
+      - {name: quantity,     type: INTEGER}
+      - {name: unit_price,   type: DOUBLE}
+    expected_intent: detail
+    expected_chart: table
+    expected_quality_min: medium
+    reason: "LIMIT without ORDER BY DESC → has_order_by_desc=0 → ranking boost fails → detail wins"
+
+  - id: adv_dt_004
+    description: "5 aggregate metrics grouped by region — comparison not detail"
+    sql: "SELECT region, SUM(revenue) AS rev, SUM(cost) AS cost, AVG(margin_pct) AS margin, COUNT(*) AS deals, MAX(deal_size) AS max_deal FROM sales GROUP BY region"
+    schema:
+      - {name: region,   type: VARCHAR}
+      - {name: rev,      type: DOUBLE}
+      - {name: cost,     type: DOUBLE}
+      - {name: margin,   type: DOUBLE}
+      - {name: deals,    type: BIGINT}
+      - {name: max_deal, type: DOUBLE}
+    data:
+      - {region: "Norte", rev: 450000, cost: 280000, margin: 0.38, deals: 124, max_deal: 45000}
+      - {region: "Sur",   rev: 320000, cost: 195000, margin: 0.39, deals: 98,  max_deal: 38000}
+      - {region: "Este",  rev: 285000, cost: 172000, margin: 0.40, deals: 87,  max_deal: 31000}
+      - {region: "Oeste", rev: 198000, cost: 124000, margin: 0.37, deals: 65,  max_deal: 28000}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "FIXED §16.24: comparison intent → bar's has_two_numeric_columns penalty suppressed (only fires for correlation intent) → bar (comparison×0.90) wins over pie."
+
+  # ── CONFUSION 6: cohort vs trend (5 cases) ────────────────────────────────
+
+  - id: adv_coh_001
+    description: "Single temporal GROUP BY — trend, not cohort"
+    sql: "SELECT month, SUM(revenue) FROM orders GROUP BY month ORDER BY month"
+    schema:
+      - {name: month,   type: DATE}
+      - {name: revenue, type: DOUBLE}
+    data:
+      - {month: "2024-01-01", revenue: 85000}
+      - {month: "2024-02-01", revenue: 92000}
+      - {month: "2024-03-01", revenue: 98000}
+      - {month: "2024-04-01", revenue: 105000}
+    expected_intent: trend
+    expected_chart: line
+    expected_quality_min: high
+    reason: "Single temporal GROUP BY → cohort requires group_by_count_gte_2 → dim12=0.2, does not fire → trend wins cleanly"
+
+  - id: adv_coh_002
+    description: "2 GROUP BY (month + segment) — cohort analysis, not plain trend"
+    sql: "SELECT mes, segmento, COUNT(*) AS usuarios FROM suscripciones GROUP BY mes, segmento ORDER BY mes"
+    schema:
+      - {name: mes,      type: DATE}
+      - {name: segmento, type: VARCHAR}
+      - {name: usuarios, type: BIGINT}
+    data:
+      - {mes: "2024-01-01", segmento: "Premium", usuarios: 450}
+      - {mes: "2024-01-01", segmento: "Free",    usuarios: 1200}
+      - {mes: "2024-02-01", segmento: "Premium", usuarios: 480}
+      - {mes: "2024-02-01", segmento: "Free",    usuarios: 1350}
+      - {mes: "2024-03-01", segmento: "Premium", usuarios: 510}
+      - {mes: "2024-03-01", segmento: "Free",    usuarios: 1420}
+    expected_intent: cohort
+    expected_chart: line
+    expected_quality_min: low
+    reason: "FIXED §16.22: changed > 0.4 to >= 0.4 → group_by_count_gte_2 now fires for 2 GROUP BY columns (dim12=0.4) → cohort (1.00) beats trend (0.975)."
+
+  - id: adv_coh_003
+    description: "3 GROUP BY (month + segment + country) — cohort fires correctly"
+    sql: "SELECT mes, segmento, pais, COUNT(*) AS usuarios FROM suscripciones GROUP BY mes, segmento, pais ORDER BY mes"
+    schema:
+      - {name: mes,      type: DATE}
+      - {name: segmento, type: VARCHAR}
+      - {name: pais,     type: VARCHAR}
+      - {name: usuarios, type: BIGINT}
+    data:
+      - {mes: "2024-01-01", segmento: "Premium", pais: "ES", usuarios: 220}
+      - {mes: "2024-01-01", segmento: "Premium", pais: "MX", usuarios: 230}
+      - {mes: "2024-01-01", segmento: "Free",    pais: "ES", usuarios: 600}
+      - {mes: "2024-02-01", segmento: "Premium", pais: "ES", usuarios: 240}
+      - {mes: "2024-02-01", segmento: "Free",    pais: "ES", usuarios: 650}
+    expected_intent: cohort
+    expected_chart: line
+    expected_quality_min: medium
+    reason: "3 GROUP BY → dim12 = 3/5 = 0.60 > 0.40 → group_by_count_gte_2 fires → cohort (1.00) beats trend (0.95)"
+
+  - id: adv_coh_004
+    description: "2 GROUP BY (week + channel) — cohort, but off-by-one blocks it"
+    sql: "SELECT semana, canal, SUM(conversiones) AS total FROM campanas GROUP BY semana, canal ORDER BY semana"
+    schema:
+      - {name: semana,       type: DATE}
+      - {name: canal,        type: VARCHAR}
+      - {name: conversiones, type: BIGINT}
+    data:
+      - {semana: "2024-01-07", canal: "Email",  conversiones: 320}
+      - {semana: "2024-01-07", canal: "Social", conversiones: 480}
+      - {semana: "2024-01-14", canal: "Email",  conversiones: 290}
+      - {semana: "2024-01-14", canal: "Social", conversiones: 510}
+    expected_intent: cohort
+    expected_chart: line
+    expected_quality_min: low
+    reason: "FIXED §16.22: same fix as adv_coh_002 — >= 0.4 → group_by_count_gte_2 fires for 2 GROUP BY columns → cohort wins."
+
+  - id: adv_coh_005
+    description: "Single temporal GROUP BY — trend, not cohort (controls for adv_coh_001)"
+    sql: "SELECT week, COUNT(*) AS events FROM user_events GROUP BY week ORDER BY week"
+    schema:
+      - {name: week,   type: DATE}
+      - {name: events, type: BIGINT}
+    data:
+      - {week: "2024-01-07", events: 12400}
+      - {week: "2024-01-14", events: 13200}
+      - {week: "2024-01-21", events: 11800}
+      - {week: "2024-01-28", events: 14100}
+    expected_intent: trend
+    expected_chart: line
+    expected_quality_min: high
+    reason: "1 GROUP BY → dim12=0.20 → group_by_count_gte_2 cannot fire → trend wins decisively"
+
+  # ── CONFUSION 7: retention vs line (4 cases) ──────────────────────────────
+
+  - id: adv_ret_001
+    description: "Window function + customer_id in SELECT → retention"
+    sql: "SELECT user_id, cohort_month, COUNT(*) OVER (PARTITION BY cohort_month) AS cohort_size, SUM(purchases) OVER (PARTITION BY user_id ORDER BY cohort_month) AS cumulative_purchases FROM user_metrics ORDER BY cohort_month, user_id"
+    schema:
+      - {name: user_id,               type: INTEGER}
+      - {name: cohort_month,          type: DATE}
+      - {name: cohort_size,           type: BIGINT}
+      - {name: cumulative_purchases,  type: BIGINT}
+    data:
+      - {user_id: 1, cohort_month: "2024-01-01", cohort_size: 500, cumulative_purchases: 1}
+      - {user_id: 1, cohort_month: "2024-02-01", cohort_size: 480, cumulative_purchases: 2}
+      - {user_id: 2, cohort_month: "2024-01-01", cohort_size: 500, cumulative_purchases: 1}
+      - {user_id: 2, cohort_month: "2024-03-01", cohort_size: 460, cumulative_purchases: 2}
+    expected_intent: retention
+    expected_chart: line
+    expected_quality_min: medium
+    reason: |
+      user_id in SELECT → semantic engine detects CUSTOMER_ENTITY (dim34=1).
+      cohort_month (DATE, contains 'month') → TEMPORAL_DIMENSION (dim31=1).
+      PARTITION BY → has_window_function=1, has_partition_by=1.
+      No GROUP BY → cohort group_by=0 → cohort score 0.45.
+      retention: temporal×0.40 + customer×0.30 + window×0.20 + join×0 = 0.90.
+      trend: temporal×0.40 + group_by×0 + aggregation×0.20 + order_by×0.10 = 0.70.
+      retention (0.90) wins over trend (0.70) and cohort (0.45).
+
+  - id: adv_ret_002
+    description: "Daily active users time series — trend not retention"
+    sql: "SELECT fecha, COUNT(DISTINCT user_id) AS dau FROM events GROUP BY fecha ORDER BY fecha"
+    schema:
+      - {name: fecha, type: DATE}
+      - {name: dau,   type: BIGINT}
+    data:
+      - {fecha: "2024-01-01", dau: 12400}
+      - {fecha: "2024-01-02", dau: 13100}
+      - {fecha: "2024-01-03", dau: 11800}
+      - {fecha: "2024-01-04", dau: 12900}
+      - {fecha: "2024-01-05", dau: 14200}
+    expected_intent: trend
+    expected_chart: line
+    expected_quality_min: medium
+    reason: "user_id aggregated away in schema — 'dau' and 'fecha' don't match CUSTOMER_ENTITY → no_customer_entity penalty fires → retention ≈ 0 → trend wins"
+
+  - id: adv_ret_003
+    description: "Precomputed retention table without GROUP BY — detail not trend"
+    sql: "SELECT cohort_month, retention_month_1, retention_month_3, retention_month_6 FROM retention_summary"
+    schema:
+      - {name: cohort_month,      type: DATE}
+      - {name: retention_month_1, type: DOUBLE}
+      - {name: retention_month_3, type: DOUBLE}
+      - {name: retention_month_6, type: DOUBLE}
+    data:
+      - {cohort_month: "2024-01-01", retention_month_1: 0.68, retention_month_3: 0.45, retention_month_6: 0.31}
+      - {cohort_month: "2024-02-01", retention_month_1: 0.71, retention_month_3: 0.48, retention_month_6: null}
+      - {cohort_month: "2024-03-01", retention_month_1: 0.65, retention_month_3: null,  retention_month_6: null}
+    expected_intent: detail
+    expected_chart: table
+    expected_quality_min: low
+    reason: |
+      No GROUP BY and no aggregation → no_aggregation=1, no_group_by=1 → detail raw=1.00 wins.
+      4 columns → dim13=0.4 > 0.3 → high_col_count fires → detail=1.00.
+      V0 limitation: 'retention_month_N' column names not in semantic dictionary.
+      Even if they were, without GROUP BY this is a raw detail query structurally.
+
+  - id: adv_ret_004
+    description: "Self-join for repeat customers — retention signal weak without schema customer column"
+    sql: "SELECT e1.fecha AS first_purchase, COUNT(DISTINCT e2.customer_id) AS returning_customers FROM orders e1 JOIN orders e2 ON e1.customer_id = e2.customer_id AND e2.fecha > e1.fecha GROUP BY e1.fecha ORDER BY e1.fecha"
+    schema:
+      - {name: first_purchase,      type: DATE}
+      - {name: returning_customers, type: BIGINT}
+    data:
+      - {first_purchase: "2024-01-01", returning_customers: 142}
+      - {first_purchase: "2024-01-02", returning_customers: 128}
+      - {first_purchase: "2024-01-03", returning_customers: 156}
+      - {first_purchase: "2024-01-04", returning_customers: 138}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: low
+    reason: |
+      'first_purchase' does not match any TEMPORAL_DIMENSION pattern → dim31=0 → trend=0.
+      customer_id only inside COUNT alias → 'returning_customers' ≠ CUSTOMER_ENTITY → dim34=0.
+      Schema: DATE + BIGINT only → no VARCHAR → zero cardinality → after §16.23 fix low_cardinality=0.
+      comparison (0.75) wins. V0 limitation: 'first_purchase' not recognized as temporal.
+
+  # ── CONFUSION 8: anomaly vs trend (4 cases) ───────────────────────────────
+
+  - id: adv_ano_001
+    description: "Monthly series with December spike — anomaly not trend"
+    sql: "SELECT mes, SUM(revenue) AS total FROM daily_sales GROUP BY mes ORDER BY mes"
+    schema:
+      - {name: mes,   type: DATE}
+      - {name: total, type: DOUBLE}
+    data:
+      - {mes: "2024-01-01", total: 98000}
+      - {mes: "2024-02-01", total: 102000}
+      - {mes: "2024-03-01", total: 99500}
+      - {mes: "2024-04-01", total: 103000}
+      - {mes: "2024-05-01", total: 101000}
+      - {mes: "2024-06-01", total: 97000}
+      - {mes: "2024-07-01", total: 100000}
+      - {mes: "2024-08-01", total: 104000}
+      - {mes: "2024-09-01", total: 99000}
+      - {mes: "2024-10-01", total: 102000}
+      - {mes: "2024-11-01", total: 100000}
+      - {mes: "2024-12-01", total: 485000}
+    expected_intent: anomaly
+    expected_chart: line
+    expected_quality_min: medium
+    reason: "Dec=485k vs avg≈100k → Z≈3.17 > 3.0 → has_outliers=1 → anomaly boost 1.30× → anomaly (clamped 1.0) > trend (0.95)"
+
+  - id: adv_ano_002
+    description: "Monthly series with regular growth — trend not anomaly"
+    sql: "SELECT mes, SUM(revenue) AS total FROM sales GROUP BY mes ORDER BY mes"
+    schema:
+      - {name: mes,   type: DATE}
+      - {name: total, type: DOUBLE}
+    data:
+      - {mes: "2024-01-01", total: 98000}
+      - {mes: "2024-02-01", total: 105000}
+      - {mes: "2024-03-01", total: 112000}
+      - {mes: "2024-04-01", total: 108000}
+      - {mes: "2024-05-01", total: 118000}
+      - {mes: "2024-06-01", total: 125000}
+    expected_intent: trend
+    expected_chart: line
+    expected_quality_min: high
+    reason: "Regular monthly growth — max Z≈1.46 < 3.0 → has_outliers=0 → anomaly boost does not fire → trend wins"
+
+  - id: adv_ano_003
+    description: "Daily error rate with incident spike (14 days) — anomaly"
+    sql: "SELECT fecha, COUNT(*) AS errores FROM application_logs WHERE level = 'ERROR' GROUP BY fecha ORDER BY fecha"
+    schema:
+      - {name: fecha,   type: DATE}
+      - {name: errores, type: BIGINT}
+    data:
+      - {fecha: "2024-06-01", errores: 45}
+      - {fecha: "2024-06-02", errores: 52}
+      - {fecha: "2024-06-03", errores: 48}
+      - {fecha: "2024-06-04", errores: 55}
+      - {fecha: "2024-06-05", errores: 43}
+      - {fecha: "2024-06-06", errores: 50}
+      - {fecha: "2024-06-07", errores: 620}
+      - {fecha: "2024-06-08", errores: 47}
+      - {fecha: "2024-06-09", errores: 51}
+      - {fecha: "2024-06-10", errores: 46}
+      - {fecha: "2024-06-11", errores: 49}
+      - {fecha: "2024-06-12", errores: 53}
+      - {fecha: "2024-06-13", errores: 48}
+      - {fecha: "2024-06-14", errores: 44}
+    expected_intent: anomaly
+    expected_chart: line
+    expected_quality_min: medium
+    reason: "14 data points required: with n=8, max Z for single outlier is bounded by (n-1)/sqrt(n)≈2.47 < 3.0. With n=14: Z(620)≈3.47 > 3.0 → has_outliers=1 → anomaly wins."
+
+  - id: adv_ano_004
+    description: "Seasonal December peak — trend not anomaly (no statistical outlier)"
+    sql: "SELECT month, SUM(orders) AS total_orders FROM ecommerce GROUP BY month ORDER BY month"
+    schema:
+      - {name: month,        type: DATE}
+      - {name: total_orders, type: BIGINT}
+    data:
+      - {month: "2024-01-01", total_orders: 3200}
+      - {month: "2024-02-01", total_orders: 2800}
+      - {month: "2024-03-01", total_orders: 3400}
+      - {month: "2024-04-01", total_orders: 3100}
+      - {month: "2024-05-01", total_orders: 3600}
+      - {month: "2024-06-01", total_orders: 3300}
+      - {month: "2024-07-01", total_orders: 3800}
+      - {month: "2024-08-01", total_orders: 3500}
+      - {month: "2024-09-01", total_orders: 3900}
+      - {month: "2024-10-01", total_orders: 4200}
+      - {month: "2024-11-01", total_orders: 4800}
+      - {month: "2024-12-01", total_orders: 6100}
+    expected_intent: trend
+    expected_chart: line
+    expected_quality_min: medium
+    reason: "Seasonal ramp-up — Dec peak Z≈2.1 < 3.0 → no statistical outlier detected → has_outliers=0 → trend wins"
+
+  # ── CONFUSION 9: funnel vs ranking (4 cases) ──────────────────────────────
+
+  - id: adv_fun_001
+    description: "CASE WHEN stage classification — funnel not ranking"
+    sql: "SELECT CASE WHEN step = 1 THEN 'Visitante' WHEN step = 2 THEN 'Registro' WHEN step = 3 THEN 'Compra' ELSE 'Abandono' END AS etapa, COUNT(*) AS usuarios FROM user_journey GROUP BY 1"
+    schema:
+      - {name: etapa,    type: VARCHAR}
+      - {name: usuarios, type: BIGINT}
+    data:
+      - {etapa: "Visitante", usuarios: 10000}
+      - {etapa: "Registro",  usuarios: 4200}
+      - {etapa: "Compra",    usuarios: 1800}
+      - {etapa: "Abandono",  usuarios: 4000}
+    expected_intent: funnel
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "has_case_when=1 → funnel weights fire (0.40+0.30+0.20+0.10=1.00). No ORDER BY DESC + LIMIT → ranking boost fails. Funnel wins."
+
+  - id: adv_fun_002
+    description: "Stage column without CASE WHEN — comparison not funnel"
+    sql: "SELECT etapa_ventas, COUNT(*) AS oportunidades FROM pipeline GROUP BY etapa_ventas ORDER BY COUNT(*) DESC"
+    schema:
+      - {name: etapa_ventas,  type: VARCHAR}
+      - {name: oportunidades, type: BIGINT}
+    data:
+      - {etapa_ventas: "Prospecto",   oportunidades: 840}
+      - {etapa_ventas: "Calificado",  oportunidades: 420}
+      - {etapa_ventas: "Propuesta",   oportunidades: 210}
+      - {etapa_ventas: "Negociación", oportunidades: 105}
+      - {etapa_ventas: "Cerrado",     oportunidades: 52}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "No CASE WHEN → has_case_when=0 → no_case_when penalty 0.50 fires → funnel ≈ 0 → comparison wins"
+
+  - id: adv_fun_003
+    description: "Top conversion rates ranking — ranking not funnel"
+    sql: "SELECT campaign, SUM(conversions) * 1.0 / SUM(clicks) AS ctr FROM ad_campaigns GROUP BY campaign ORDER BY ctr DESC LIMIT 10"
+    schema:
+      - {name: campaign, type: VARCHAR}
+      - {name: ctr,      type: DOUBLE}
+    data:
+      - {campaign: "Summer Sale",  ctr: 0.082}
+      - {campaign: "Black Friday", ctr: 0.074}
+      - {campaign: "Spring Promo", ctr: 0.068}
+      - {campaign: "Newsletter",   ctr: 0.061}
+      - {campaign: "Social Media", ctr: 0.053}
+    expected_intent: ranking
+    expected_chart: bar_horizontal
+    expected_quality_min: medium
+    reason: "ORDER BY alias DESC + LIMIT → ranking boost fires. No CASE WHEN → funnel penalized. Ranking wins."
+
+  - id: adv_fun_004
+    description: "Spanish sales funnel with CASE WHEN — funnel over comparison"
+    sql: "SELECT CASE WHEN estado = 'visita' THEN 'Visita' WHEN estado = 'lead' THEN 'Lead' WHEN estado = 'propuesta' THEN 'Propuesta' WHEN estado = 'contrato' THEN 'Contrato' END AS fase, COUNT(*) AS clientes FROM oportunidades GROUP BY 1 ORDER BY COUNT(*) DESC"
+    schema:
+      - {name: fase,     type: VARCHAR}
+      - {name: clientes, type: BIGINT}
+    data:
+      - {fase: "Visita",    clientes: 5600}
+      - {fase: "Lead",      clientes: 2300}
+      - {fase: "Propuesta", clientes: 980}
+      - {fase: "Contrato",  clientes: 340}
+    expected_intent: funnel
+    expected_chart: bar_horizontal
+    expected_quality_min: medium
+    reason: |
+      CASE WHEN → funnel wins (1.00) despite ORDER BY DESC (no LIMIT → ranking boost fails).
+      Chart: ORDER BY DESC gives has_order_by_desc=1 → ranking raw=0.70 → bar_horizontal gets
+      ranking×0.95 affinity boost → bar_horizontal (1.525) > bar (1.415). Both are semantically
+      valid for funnels; bar_horizontal reflects the descending order signal.

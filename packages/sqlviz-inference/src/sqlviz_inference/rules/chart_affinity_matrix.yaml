@@ -1,0 +1,119 @@
+# sqlviz-inference/rules/chart_affinity_matrix.yaml
+# Affinity scores between chart types and intents.
+# Values in [0.0, 1.0].
+# Higher = stronger affinity.
+# V0 -- 8 chart types only.
+
+# score(chart) = sum affinity(chart, intent) x normalized_score(intent)
+
+kpi:
+  trend:        0.00
+  comparison:   0.00
+  ranking:      0.00
+  distribution: 0.00
+  correlation:  0.00
+  composition:  0.00
+  kpi:          1.00
+  anomaly:      0.00
+  cohort:       0.00
+  retention:    0.00
+  funnel:       0.00
+  detail:       0.00
+
+line:
+  trend:        0.95
+  comparison:   0.10
+  ranking:      0.00
+  distribution: 0.05
+  correlation:  0.00
+  composition:  0.00
+  kpi:          0.00
+  anomaly:      0.20
+  cohort:       0.30
+  retention:    0.40
+  funnel:       0.00
+  detail:       0.05
+
+bar:
+  trend:        0.15
+  comparison:   0.90
+  ranking:      0.40
+  distribution: 0.20
+  correlation:  0.00
+  composition:  0.20
+  kpi:          0.00
+  anomaly:      0.10
+  cohort:       0.10
+  retention:    0.05
+  funnel:       0.10
+  detail:       0.10
+
+bar_horizontal:
+  trend:        0.05
+  comparison:   0.60
+  ranking:      0.95
+  distribution: 0.10
+  correlation:  0.00
+  composition:  0.10
+  kpi:          0.00
+  anomaly:      0.05
+  cohort:       0.05
+  retention:    0.00
+  funnel:       0.20
+  detail:       0.05
+
+pie:
+  trend:        0.00
+  comparison:   0.30
+  ranking:      0.00
+  distribution: 0.10
+  correlation:  0.00
+  composition:  0.90
+  kpi:          0.00
+  anomaly:      0.00
+  cohort:       0.00
+  retention:    0.00
+  funnel:       0.10
+  detail:       0.00
+
+scatter:
+  trend:        0.05
+  comparison:   0.10
+  ranking:      0.00
+  distribution: 0.40
+  correlation:  0.95
+  composition:  0.00
+  kpi:          0.00
+  anomaly:      0.20
+  cohort:       0.00
+  retention:    0.00
+  funnel:       0.00
+  detail:       0.00
+
+histogram:
+  trend:        0.10
+  comparison:   0.10
+  ranking:      0.00
+  distribution: 0.95
+  correlation:  0.10
+  composition:  0.00
+  kpi:          0.00
+  anomaly:      0.15
+  cohort:       0.00
+  retention:    0.00
+  funnel:       0.00
+  detail:       0.05
+
+table:
+  trend:        0.10
+  comparison:   0.20
+  ranking:      0.20
+  distribution: 0.20
+  correlation:  0.10
+  composition:  0.10
+  kpi:          0.10
+  anomaly:      0.10
+  cohort:       0.20
+  retention:    0.20
+  funnel:       0.20
+  detail:       0.95

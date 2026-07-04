@@ -1,0 +1,25 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# ── Node / SvelteKit ──────────────────────────────────────────────────────────
+# dist/ is intentionally NOT ignored — packages/sqlviz-api/src/sqlviz_api/static/dist/
+# is the compiled frontend and must be committed so the wheel ships the UI.
+node_modules/
+.svelte-kit/
+
+# ── SQLviz runtime ────────────────────────────────────────────────────────────
+# User project databases — not source code
+*.sqlviz
+
+# ── Temp / OS ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.sql

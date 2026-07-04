@@ -1,0 +1,44 @@
+[project]
+name = "sqlviz"
+version = "0.1.0"
+description = "Analytical operating system where SQL is the only interface"
+requires-python = ">=3.12"
+
+[tool.uv.workspace]
+members = [
+    "packages/sqlviz-core",
+    "packages/sqlviz-inference",
+    "packages/sqlviz-storage",
+    "packages/sqlviz-api",
+    "packages/sqlviz-cli",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "types-pyyaml>=6.0.12.20260518",
+    "httpx2>=0.28",
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "packages/sqlviz-core/tests",
+    "packages/sqlviz-inference/tests",
+    "packages/sqlviz-storage/tests",
+    "packages/sqlviz-api/tests",
+    "packages/sqlviz-cli/tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+exclude = ["/tests/"]
