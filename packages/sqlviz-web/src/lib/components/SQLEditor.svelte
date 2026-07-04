@@ -6,14 +6,17 @@
         value = $bindable(''),
         onRun,
         disabled = false,
+        theme = 'dark',
     }: {
         value?: string;
         onRun?: () => void;
         disabled?: boolean;
+        theme?: 'dark' | 'light';
     } = $props();
 
     let container: HTMLDivElement;
     let editor: any = null;
+    let monacoInstance: any = null;
     let monacoReady = $state(false);
     // Guard against setValue triggering onDidChangeModelContent
     let syncing = false;
@@ -61,10 +64,34 @@
                 },
             });
 
+            monaco.editor.defineTheme('sqlviz-light', {
+                base: 'vs',
+                inherit: true,
+                rules: [
+                    { token: 'keyword', foreground: '4f46e5' },
+                    { token: 'string',  foreground: '16a34a' },
+                    { token: 'comment', foreground: '64748b', fontStyle: 'italic' },
+                    { token: 'number',  foreground: 'd97706' },
+                ],
+                colors: {
+                    'editor.background':                '#ffffff',
+                    'editor.foreground':                '#0f172a',
+                    'editor.lineHighlightBackground':   '#f8fafc',
+                    'editor.selectionBackground':       '#6366f133',
+                    'editorLineNumber.foreground':      '#94a3b8',
+                    'editorLineNumber.activeForeground':'#64748b',
+                    'editorCursor.foreground':          '#6366f1',
+                    'scrollbarSlider.background':       '#e2e8f0',
+                    'scrollbarSlider.hoverBackground':  '#cbd5e1',
+                    'editorBracketMatch.background':    '#6366f120',
+                    'editorBracketMatch.border':        '#6366f1',
+                },
+            });
+
             editor = monaco.editor.create(container, {
                 value,
                 language: 'sql',
-                theme: 'sqlviz-dark',
+                theme: theme === 'light' ? 'sqlviz-light' : 'sqlviz-dark',
                 minimap: { enabled: false },
                 fontSize: 13,
                 fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
@@ -129,6 +156,7 @@
                 },
             });
 
+            monacoInstance = monaco;
             monacoReady = true;
             // Force Monaco to measure its container after it becomes visible,
             // then hand focus so the user can type immediately.
@@ -162,6 +190,11 @@
 
     $effect(() => {
         if (editor) editor.updateOptions({ readOnly: disabled });
+    });
+
+    $effect(() => {
+        if (!monacoReady || !monacoInstance || !editor) return;
+        monacoInstance.editor.setTheme(theme === 'light' ? 'sqlviz-light' : 'sqlviz-dark');
     });
 </script>
 

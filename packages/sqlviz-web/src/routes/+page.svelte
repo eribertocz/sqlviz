@@ -442,7 +442,7 @@
             </div>
 
             <div class="editor-wrapper">
-                <SQLEditor bind:value={sql} onRun={run} disabled={executing} />
+                <SQLEditor bind:value={sql} onRun={run} disabled={executing} {theme} />
             </div>
         </div>
     {/if}
