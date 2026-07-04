@@ -392,35 +392,6 @@
         />
     {/if}
 
-    <!-- Dashboard area -->
-    <div class="dashboard-area" class:empty={!hasLayout && !executing}>
-        {#if executing && !hasLayout}
-            <div class="state-msg">
-                <span class="spinner">⟳</span>
-                <span>{statusMsg ?? 'Executing…'}</span>
-            </div>
-        {:else if !hasLayout}
-            <div class="empty-state">
-                <div class="empty-arrow">⬇</div>
-                <p>
-                    {$editMode
-                        ? 'Write SQL below and press Ctrl+Enter to run'
-                        : 'Switch to Edit mode to write SQL and create panels'}
-                </p>
-                {#if $editMode}
-                    <p class="hint">Separate multiple queries with <code>;</code> — each becomes a panel</p>
-                {/if}
-            </div>
-        {:else if layout}
-            <DashboardGrid
-                {layout}
-                onEditSQL={handleEditSQL}
-                onExplain={handleExplain}
-                onDelete={handleDelete}
-            />
-        {/if}
-    </div>
-
     <!-- Editor section — hidden in Preview mode -->
     {#if $editMode}
         <div class="editor-section">
@@ -446,6 +417,35 @@
             </div>
         </div>
     {/if}
+
+    <!-- Dashboard area -->
+    <div class="dashboard-area" class:empty={!hasLayout && !executing}>
+        {#if executing && !hasLayout}
+            <div class="state-msg">
+                <span class="spinner">⟳</span>
+                <span>{statusMsg ?? 'Executing…'}</span>
+            </div>
+        {:else if !hasLayout}
+            <div class="empty-state">
+                <div class="empty-arrow">⬇</div>
+                <p>
+                    {$editMode
+                        ? 'Press Ctrl+Enter to run and see results here'
+                        : 'Switch to Edit mode to write SQL and create panels'}
+                </p>
+                {#if $editMode}
+                    <p class="hint">Separate multiple queries with <code>;</code> — each becomes a panel</p>
+                {/if}
+            </div>
+        {:else if layout}
+            <DashboardGrid
+                {layout}
+                onEditSQL={handleEditSQL}
+                onExplain={handleExplain}
+                onDelete={handleDelete}
+            />
+        {/if}
+    </div>
 </div>
 
 <!-- Toast notification -->
@@ -599,7 +599,7 @@
     .editor-section {
         height: 300px;
         flex-shrink: 0;
-        border-top: 1px solid var(--sqlviz-border);
+        border-bottom: 1px solid var(--sqlviz-border);
         display: flex;
         flex-direction: column;
     }
