@@ -1,0 +1,181 @@
+# explanation_templates.yaml — ExplanationEngine V2 (DOC10 §6.16)
+#
+# Templates for analyst-language explanations.
+# Keys: intent_chart (exact), intent_fallback (fallback by intent only).
+# reject_* sub-keys provide chart-specific rejection reasons for alternatives.
+
+# ── Display names ────────────────────────────────────────────────────────────
+
+chart_display_names:
+  kpi:           "KPI"
+  line:          "gráfico de líneas"
+  bar:           "gráfico de barras"
+  bar_horizontal: "gráfico de barras horizontal"
+  pie:           "gráfico circular"
+  scatter:       "gráfico de dispersión"
+  histogram:     "histograma"
+  table:         "tabla"
+
+# ── Exact intent+chart templates ─────────────────────────────────────────────
+
+intent_chart:
+
+  trend_line:
+    reason_main: "la serie temporal requiere un eje X continuo para mostrar la progresión"
+    reason_secondary: "la línea preserva la continuidad entre puntos temporales consecutivos"
+    reject_bar: "las barras enfatizan la comparación puntual, no la continuidad temporal"
+    reject_bar_horizontal: "la orientación horizontal no transmite progresión en el tiempo"
+    reject_pie: "el gráfico circular no puede representar series temporales"
+    reject_scatter: "el scatter no muestra progresión secuencial; requiere correlación entre dos métricas"
+    reject_table: "la tabla oculta el patrón de tendencia entre las filas"
+    reject_histogram: "el histograma muestra distribución de frecuencias, no evolución temporal"
+
+  trend_bar:
+    reason_main: "la tendencia temporal se muestra con barras cuando los periodos son discretos y pocos"
+    reason_secondary: "las barras destacan la magnitud de cada periodo de forma clara"
+    reject_line: "la línea requiere al menos una columna temporal confirmada como DATE o TIMESTAMP"
+    reject_pie: "el gráfico circular no puede representar evolución en el tiempo"
+    reject_table: "la tabla oculta la comparación visual entre periodos"
+
+  trend_table:
+    reason_main: "no se encontró una columna temporal confirmada para trazar una línea de tendencia"
+    reason_secondary: "la tabla muestra todos los valores con precisión máxima sin suponer continuidad"
+    reject_line: "una línea sin eje temporal confirmado podría inducir a error de lectura"
+    reject_bar: "las barras implicarían categorías discretas sin evidencia de periodos temporales"
+
+  comparison_bar:
+    reason_main: "las categorías discretas se comparan por longitud de barra de forma intuitiva"
+    reason_secondary: "la orientación vertical es estándar para comparar pocos grupos"
+    reject_pie: "el gráfico circular dificulta comparar longitudes entre categorías con precisión"
+    reject_line: "la línea implica continuidad entre categorías que en realidad son discretas"
+    reject_bar_horizontal: "las etiquetas son cortas y no justifican orientación horizontal"
+    reject_table: "la tabla no destaca visualmente las diferencias entre categorías"
+
+  comparison_bar_horizontal:
+    reason_main: "las etiquetas de categoría son largas o numerosas — la orientación horizontal las legibiliza"
+    reason_secondary: "la comparación por longitud horizontal es igualmente precisa que la vertical"
+    reject_bar: "las etiquetas del eje X quedarían solapadas o cortadas en orientación vertical"
+    reject_pie: "el gráfico circular es ambiguo para comparar más de cinco categorías"
+    reject_line: "la línea implica continuidad; las categorías son independientes"
+    reject_table: "la tabla no revela visualmente las diferencias de magnitud entre categorías"
+
+  comparison_table:
+    reason_main: "la comparación involucra múltiples métricas que se leen mejor en columnas paralelas"
+    reason_secondary: "la tabla permite explorar valores exactos sin compresión visual"
+    reject_bar: "el alto número de columnas haría el gráfico de barras ilegible"
+    reject_pie: "la comparación múltiple no se expresa como parte de un todo"
+    reject_line: "las métricas independientes no forman una serie continua"
+
+  ranking_bar_horizontal:
+    reason_main: "el ranking se lee de arriba abajo — la orientación horizontal revela el orden inmediatamente"
+    reason_secondary: "las etiquetas largas de categoría necesitan el espacio del eje Y horizontal"
+    reject_bar: "las etiquetas del eje X quedarían solapadas al mostrar un ranking"
+    reject_pie: "el gráfico circular no transmite el orden de ranking"
+    reject_line: "el ranking es discreto; la línea implicaría continuidad entre posiciones"
+    reject_table: "la tabla no destaca visualmente la posición relativa de cada elemento"
+
+  ranking_bar:
+    reason_main: "el ranking tiene pocas categorías con etiquetas cortas que caben en el eje X"
+    reason_secondary: "la orientación vertical es suficiente y es el estándar para pocos grupos"
+    reject_bar_horizontal: "las etiquetas son cortas y no requieren orientación horizontal"
+    reject_pie: "el gráfico circular no transmite jerarquía de posición"
+    reject_table: "la tabla no hace visible de forma inmediata cuál es el primero"
+
+  ranking_table:
+    reason_main: "el ranking incluye múltiples columnas de métricas que no caben en un gráfico de barras"
+    reason_secondary: "la tabla permite comparar todas las métricas y ordenar por columna"
+    reject_bar_horizontal: "demasiadas columnas de datos hacen el gráfico de barras ilegible"
+    reject_bar: "varias métricas por fila requieren la estructura tabular"
+
+  composition_pie:
+    reason_main: "pocas partes de un todo con proporciones visualmente distintas"
+    reason_secondary: "el gráfico circular comunica la idea de composición del total de forma intuitiva"
+    reject_bar: "las barras no transmiten la noción de parte-todo tan directamente"
+    reject_line: "la línea implica progresión temporal, no distribución de partes"
+    reject_table: "la tabla no comunica visualmente la proporción relativa de cada parte"
+    reject_bar_horizontal: "la orientación horizontal no añade claridad para datos de composición"
+
+  composition_bar:
+    reason_main: "hay demasiadas categorías o proporciones similares para que el gráfico circular sea legible"
+    reason_secondary: "las barras permiten comparar proporciones con mayor precisión perceptual"
+    reject_pie: "con muchas categorías o proporciones similares, los ángulos del círculo son ambiguos"
+    reject_line: "la composición no es una serie temporal"
+    reject_table: "la tabla no revela visualmente las diferencias de proporción"
+
+  composition_table:
+    reason_main: "las categorías tienen proporciones similares difíciles de distinguir visualmente"
+    reason_secondary: "la tabla muestra los valores exactos sin ambigüedad de ángulo o longitud"
+    reject_pie: "los ángulos similares en el gráfico circular inducen a error de estimación"
+    reject_bar: "las barras de altura similar no destacan las diferencias sutiles"
+
+  distribution_histogram:
+    reason_main: "los datos son una variable continua sin agrupar — el histograma revela su distribución real"
+    reason_secondary: "los intervalos del histograma agrupan los valores continuos en franjas de frecuencia"
+    reject_bar: "las barras asumen categorías discretas; el histograma es para variables continuas"
+    reject_table: "la tabla oculta el patrón de distribución entre los valores individuales"
+    reject_line: "la línea requiere un eje temporal; aquí se explora distribución de frecuencias"
+    reject_scatter: "el scatter requiere dos variables; aquí hay una sola variable continua"
+
+  distribution_table:
+    reason_main: "los datos ya están agrupados por el SQL — el histograma requiere datos sin agrupar previos"
+    reason_secondary: "la tabla muestra los buckets y sus frecuencias con valores exactos"
+    reject_histogram: "el histograma agrupa datos crudos; el SQL ya realizó la agrupación"
+    reject_bar: "los buckets ya agrupados se muestran mejor como tabla que como barras categóricas"
+
+  correlation_scatter:
+    reason_main: "dos variables numéricas se correlacionan punto a punto en el plano cartesiano"
+    reason_secondary: "el gráfico de dispersión revela patrones de correlación, clusters y outliers"
+    reject_bar: "las barras no muestran la relación simultánea entre dos variables continuas"
+    reject_line: "la línea implica progresión temporal; aquí se explora correlación entre métricas"
+    reject_table: "la tabla no hace visibles los patrones de correlación en el conjunto de datos"
+    reject_pie: "la correlación entre dos métricas no se expresa como composición"
+
+  correlation_table:
+    reason_main: "las columnas incluyen identificadores o más de dos variables numéricas reales"
+    reason_secondary: "la tabla permite comparar todos los valores sin comprimir la información"
+    reject_scatter: "el gráfico de dispersión toma exactamente dos variables numéricas métricas"
+    reject_bar: "varias columnas numéricas hacen el gráfico de barras ilegible"
+
+  kpi_kpi:
+    reason_main: "el resultado es una sola métrica de resumen — el formato KPI la hace destacar"
+    reason_secondary: "un único valor resalta en pantalla sin distracciones visuales"
+    reject_bar: "una sola fila no justifica la estructura visual de un gráfico de barras"
+    reject_table: "una sola celda de tabla es menos impactante que un KPI destacado"
+    reject_line: "no hay serie temporal de una sola métrica"
+    reject_pie: "una sola métrica no tiene partes que comparar"
+
+  detail_table:
+    reason_main: "el resultado tiene múltiples columnas y filas — la tabla muestra todos los datos fielmente"
+    reason_secondary: "la tabla permite leer valores exactos, ordenar columnas y filtrar filas"
+    reject_bar: "demasiadas columnas harían el gráfico de barras ilegible"
+    reject_line: "no hay dimensión temporal clara que justifique una línea de tendencia"
+    reject_pie: "múltiples columnas no forman una composición de partes de un todo"
+    reject_scatter: "más de dos columnas numéricas impiden un gráfico de dispersión limpio"
+
+# ── Intent fallbacks (when no exact intent+chart match exists) ────────────────
+
+intent_fallback:
+  trend:
+    reason_main: "la tendencia temporal se visualiza mejor con continuidad visual"
+    reason_secondary: "el patrón de evolución en el tiempo queda inmediatamente legible"
+  comparison:
+    reason_main: "la comparación entre categorías se lee mejor por longitud de barra"
+    reason_secondary: "cada categoría ocupa su propio segmento visual diferenciado"
+  ranking:
+    reason_main: "el orden de ranking es inmediatamente legible con barras ordenadas"
+    reason_secondary: "la posición relativa de cada elemento queda explícita"
+  composition:
+    reason_main: "las partes de un todo quedan representadas en su proporción correcta"
+    reason_secondary: "la suma de las partes es visualmente equivalente al total"
+  distribution:
+    reason_main: "la distribución de la variable continua queda revelada"
+    reason_secondary: "los intervalos de frecuencia muestran dónde se concentran los valores"
+  correlation:
+    reason_main: "la correlación entre dos variables numéricas es visible en el plano"
+    reason_secondary: "cada punto representa una observación en el espacio bidimensional"
+  kpi:
+    reason_main: "el valor único de resumen tiene el máximo impacto en formato KPI"
+    reason_secondary: "el número aislado comunica el estado sin distracciones"
+  detail:
+    reason_main: "la tabla de detalle muestra todos los registros sin compresión"
+    reason_secondary: "cada fila y columna es accesible directamente"

@@ -1,9 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlviz_core.models import ColumnSchema
+
+if TYPE_CHECKING:
+    from .contracts.chart import ChartCandidate as ChartCandidateV2
+    from .contracts.column_roles import ColumnRoles
+    from .contracts.constraint import ConstraintReport
+    from .contracts.explanation import Explanation
+    from .contracts.layout import DashboardRole, LayoutDeclaration
+    from .contracts.readability import ReadabilityResult
+    from .profile.data_profile import DataProfile
+    from .spec.visual_spec import VisualSpec
 
 
 @dataclass
@@ -16,6 +26,8 @@ class IntentScore:
 
 @dataclass
 class ChartCandidate:
+    # Deprecated — V0.1 scoring structure used by ChartEngine internals.
+    # For new code use sqlviz_inference.contracts.ChartCandidate (V0.2).
     chart_type: str
     affinity_score: float
     penalty_total: float
@@ -91,6 +103,31 @@ class RuntimeContext:
     # ── Explainability ──────────────────────────────────────────────────────
     explanation: list[dict[str, Any]] = field(default_factory=list)
     score_trace: dict[str, Any] = field(default_factory=dict)
+
+    # ── Profile output (V0.2 Fase 0) ────────────────────────────────────────
+    data_profile: DataProfile | None = field(default=None)
+    visual_spec: VisualSpec | None = field(default=None)
+
+    # ── Fase B — ColumnRoleDetector + ConstraintEngine ───────────────────────
+    column_roles: ColumnRoles | None = field(default=None)
+    constraint_report: ConstraintReport | None = field(default=None)
+
+    # ── Fase C — ReadabilityModel + ScoringModel ─────────────────────────────
+    readability_result: ReadabilityResult | None = field(default=None)
+    scored_candidates: list[ChartCandidateV2] | None = field(default=None)
+
+    # ── Fase D — LayoutDeclarationBuilder + DashboardRoleClassifier ──────────
+    layout_declaration: LayoutDeclaration | None = field(default=None)
+    dashboard_role: DashboardRole | None = field(default=None)
+
+    # ── Fase E — FeedbackEngine ───────────────────────────────────────────────
+    # brain_conn is injected by the API layer; pipeline steps skip when None.
+    brain_conn: Any = field(default=None)
+    # Set by FeedbackEngine.run_consult when a learned override is found.
+    feedback_override: str | None = field(default=None)
+
+    # ── Fase F — ExplanationEngine V2 ─────────────────────────────────────────
+    explanation_v2: Explanation | None = field(default=None)
 
     # ── Error tracking ──────────────────────────────────────────────────────
     errors: list[str] = field(default_factory=list)

@@ -1,11 +1,10 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import * as echarts from 'echarts';
-    import type { InferenceResult } from '$lib/types';
+    import type { VisualSpec } from '$lib/types';
 
-    let { chartType, result, data }: {
-        chartType: string;
-        result: InferenceResult;
+    let { visualSpec, data }: {
+        visualSpec: VisualSpec | null;
         data: Record<string, unknown>[];
     } = $props();
 
@@ -33,23 +32,22 @@
         },
     };
 
+    const axisStyle = {
+        axisLine:  { lineStyle: { color: C.border } },
+        axisLabel: { color: C.muted },
+        splitLine: { lineStyle: { color: C.border, opacity: 0.5 } },
+    };
+
     function buildOption(): echarts.EChartsOption {
-        if (data.length === 0) return BASE;
+        if (!visualSpec || data.length === 0) return BASE;
 
-        const keys = Object.keys(data[0]);
-        // Convention: first column = category / x-axis; last column = primary value
-        const xKey = keys[0];
-        const yKey = keys[keys.length - 1];
-        const xData = data.map(r => String(r[xKey]));
-        const yData = data.map(r => Number(r[yKey]));
+        const xField = visualSpec.x_field ?? '';
+        const yField = visualSpec.y_fields[0] ?? '';
 
-        const axisStyle = {
-            axisLine:  { lineStyle: { color: C.border } },
-            axisLabel: { color: C.muted },
-            splitLine: { lineStyle: { color: C.border, opacity: 0.5 } },
-        };
+        const xData = xField ? data.map(r => String(r[xField])) : [];
+        const yData = yField ? data.map(r => Number(r[yField])) : [];
 
-        switch (chartType) {
+        switch (visualSpec.chart_type) {
             case 'line':
                 return {
                     ...BASE,
@@ -104,8 +102,8 @@
                         type: 'pie',
                         radius: ['30%', '65%'],
                         data: data.map((r, i) => ({
-                            name: String(r[xKey]),
-                            value: Number(r[yKey]),
+                            name: String(r[xField]),
+                            value: Number(r[yField]),
                             itemStyle: { color: C.palette[i % C.palette.length] },
                         })),
                         label: { color: C.muted, fontSize: 11 },
@@ -114,10 +112,8 @@
                 };
 
             case 'scatter': {
-                // Scatter: first two numeric columns as x, y
-                const numKeys = keys.filter(k => typeof data[0][k] === 'number');
-                const sx = numKeys[0] ?? keys[0];
-                const sy = numKeys[1] ?? keys[1] ?? keys[0];
+                const sx = visualSpec.x_field ?? '';
+                const sy = visualSpec.y_fields[0] ?? '';
                 return {
                     ...BASE,
                     xAxis: { type: 'value', name: sx, ...axisStyle },
@@ -167,9 +163,8 @@
         };
     });
 
-    // Re-render when data or chartType changes after mount
     $effect(() => {
-        const _dep = [chartType, data, result];  // track dependencies
+        const _dep = [visualSpec, data];
         if (chart) chart.setOption(buildOption(), { notMerge: true });
     });
 </script>

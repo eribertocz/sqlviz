@@ -48,14 +48,16 @@ SCHEMA_STATEMENTS: list[str] = [
     # Dashboards — each owns one SQL file and one connection
     """
     CREATE TABLE IF NOT EXISTS dashboards (
-        id            VARCHAR PRIMARY KEY,
-        name          VARCHAR NOT NULL,
-        folder_id     VARCHAR,
-        connection_id VARCHAR,
-        sql_content   VARCHAR DEFAULT '',
-        sort_order    INTEGER DEFAULT 0,
-        created_at    VARCHAR NOT NULL,
-        updated_at    VARCHAR NOT NULL
+        id               VARCHAR PRIMARY KEY,
+        name             VARCHAR NOT NULL,
+        folder_id        VARCHAR,
+        connection_id    VARCHAR,
+        sql_content      VARCHAR DEFAULT '',
+        sort_order       INTEGER DEFAULT 0,
+        created_at       VARCHAR NOT NULL,
+        updated_at       VARCHAR NOT NULL,
+        dashboard_hint   VARCHAR,
+        dashboard_domain VARCHAR
     )
     """,
     # Sharing — each share has its own nonce (DOC7 §4.1 fix, prevents
@@ -90,16 +92,32 @@ SCHEMA_STATEMENTS: list[str] = [
         updated_at VARCHAR NOT NULL
     )
     """,
-    # Panels — each belongs to one dashboard, carries the SQL content
+    # Panels — each belongs to one dashboard, carries the SQL content.
+    # V0.2 Fase E adds inference override columns (DOC10 §6.14):
+    #   fingerprint        — links to brain.duckdb patterns
+    #   inferred_*         — written once on execute; never overwritten
+    #   selected_*         — active value (= inferred until user overrides)
+    #   *_user_override    — NULL until user explicitly corrects a field
     """
     CREATE TABLE IF NOT EXISTS panels (
-        id           VARCHAR PRIMARY KEY,
-        dashboard_id VARCHAR NOT NULL,
-        name         VARCHAR NOT NULL,
-        sql_content  VARCHAR DEFAULT '',
-        sort_order   INTEGER DEFAULT 0,
-        created_at   VARCHAR NOT NULL,
-        updated_at   VARCHAR NOT NULL
+        id                     VARCHAR PRIMARY KEY,
+        dashboard_id           VARCHAR NOT NULL,
+        name                   VARCHAR NOT NULL,
+        sql_content            VARCHAR DEFAULT '',
+        sort_order             INTEGER DEFAULT 0,
+        created_at             VARCHAR NOT NULL,
+        updated_at             VARCHAR NOT NULL,
+        fingerprint            VARCHAR,
+        inferred_chart_type    VARCHAR,
+        selected_chart_type    VARCHAR,
+        chart_user_override    VARCHAR,
+        inferred_col_span      INTEGER,
+        selected_col_span      INTEGER,
+        col_span_user_override INTEGER,
+        inferred_height_px     INTEGER,
+        selected_height_px     INTEGER,
+        height_user_override   INTEGER,
+        inferred_intent_type   VARCHAR
     )
     """,
     # Migration control — one row per applied migration (id = migration id)

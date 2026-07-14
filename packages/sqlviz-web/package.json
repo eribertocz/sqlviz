@@ -27,6 +27,7 @@
   "dependencies": {
     "@monaco-editor/loader": "^1.7.0",
     "echarts": "^6.1.0",
+    "lucide-svelte": "^1.0.1",
     "monaco-editor": "^0.55.1"
   }
 }

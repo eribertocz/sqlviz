@@ -1,0 +1,170 @@
+# scoring_annotations.yaml — DOC10 Fase C
+#
+# For each gold case: the expected winner and the top-3 scoring dimensions
+# that should dominate the ChartScore, ranked by weighted contribution.
+#
+# Weights: semantic_fit=0.45, task_fit=0.20, perceptual_accuracy=0.10,
+#          readability=0.08, information_density=0.06, business_relevance=0.06
+#
+# Rule: top_dimensions[0] must always be the dimension with the highest
+# weighted contribution to the winner's score.  Dimensions 2 and 3 must
+# appear in the actual top-5 by weighted contribution.
+
+cases:
+
+  # ── KPI ──────────────────────────────────────────────────────────────────
+  - id: kpi_001
+    expected_chart: kpi
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "single-row SUM — semantic and task perfectly aligned; kpi perceptual=0.90"
+
+  - id: kpi_002
+    expected_chart: kpi
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "COUNT(*) kpi — same dominant pattern"
+
+  - id: kpi_003
+    expected_chart: kpi
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "AVG kpi — single-row aggregate"
+
+  - id: kpi_004
+    expected_chart: kpi
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "Spanish SUM kpi — same fingerprint as kpi_001"
+
+  - id: kpi_005
+    expected_chart: kpi
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "DISTINCT count kpi — semantic_fit still dominates"
+
+  # ── Trend ────────────────────────────────────────────────────────────────
+  - id: trend_001
+    expected_chart: line
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "canonical trend; line perceptual=0.95 is second-highest after bar"
+
+  - id: trend_002
+    expected_chart: line
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "Spanish trend — same perceptual hierarchy"
+
+  - id: trend_003
+    expected_chart: line
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "COUNT-based trend; line position encoding dominates perceptual dim"
+
+  - id: trend_004
+    expected_chart: line
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "created_at temporal — line wins with high perceptual accuracy"
+
+  - id: trend_005
+    expected_chart: line
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "VARCHAR quarter — temporal dict fires; line selected"
+
+  - id: trend_006
+    expected_chart: line
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "multi-metric trend; semantic_fit still overrides n_series penalty"
+
+  # ── Comparison ───────────────────────────────────────────────────────────
+  - id: comparison_001
+    expected_chart: bar
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "canonical comparison; bar perceptual=0.90, task_fit=1.0"
+
+  - id: comparison_002
+    expected_chart: bar
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "Spanish categoria comparison"
+
+  - id: comparison_003
+    expected_chart: bar
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "AVG salary comparison"
+
+  - id: comparison_004
+    expected_chart: bar
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "browser comparison — 4 categories, no cardinality penalty"
+
+  - id: comparison_005
+    expected_chart: bar
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "geographic comparison; bar wins over pie due to no composition signal"
+
+  # ── Ranking ──────────────────────────────────────────────────────────────
+  - id: ranking_001
+    expected_chart: bar_horizontal
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "canonical ranking; bar_horizontal task_fit=1.0 for ranking intent"
+
+  - id: ranking_002
+    expected_chart: bar_horizontal
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "Spanish ranking — same dominant pattern"
+
+  - id: ranking_003
+    expected_chart: bar_horizontal
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "top customers — LIMIT 20, bar_horizontal handles long labels well"
+
+  - id: ranking_004
+    expected_chart: bar_horizontal
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "ORDER BY alias — ranking pattern fires"
+
+  - id: ranking_005
+    expected_chart: bar
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "ASC bottom-N detected as comparison, not ranking; bar wins"
+
+  # ── Composition / Distribution ────────────────────────────────────────────
+  - id: composition_001
+    expected_chart: pie
+    top_dimensions: [semantic_fit, task_fit, readability]
+    rationale: "pie perceptual=0.60 < readability=0.88; 3 slices no heavy legibility hit"
+
+  - id: composition_002
+    expected_chart: pie
+    top_dimensions: [semantic_fit, task_fit, readability]
+    rationale: "3-category subscription tiers; pie readability exceeds perceptual accuracy"
+
+  - id: distribution_001
+    expected_chart: histogram
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "single numeric column distribution; histogram perceptual=0.85"
+
+  - id: distribution_002
+    expected_chart: histogram
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "demographic distribution; histogram task_fit=1.0 for distribution intent"
+
+  # ── Correlation ──────────────────────────────────────────────────────────
+  - id: correlation_001
+    expected_chart: scatter
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "two numeric columns, no GROUP BY — scatter task_fit=1.0"
+
+  - id: correlation_002
+    expected_chart: scatter
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "marketing_spend vs revenue — business correlation; scatter wins"
+
+  # ── Detail ───────────────────────────────────────────────────────────────
+  - id: detail_001
+    expected_chart: table
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "wide table, no aggregation — table perceptual=0.80 edges out readability"
+
+  - id: detail_002
+    expected_chart: table
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "filtered detail query — table always wins for detail intent"
+
+  - id: detail_003
+    expected_chart: table
+    top_dimensions: [semantic_fit, task_fit, perceptual_accuracy]
+    rationale: "LIMIT 100 without ORDER BY DESC — detail not ranking; table wins"

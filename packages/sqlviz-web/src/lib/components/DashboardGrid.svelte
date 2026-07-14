@@ -7,11 +7,14 @@
      * Rendered in the exact order received — NO client-side layout logic.
      * (DOC6 §1.1: "The frontend NEVER infers. The frontend ONLY renders.")
      */
-    let { layout, onEditSQL, onExplain, onDelete }: {
+    let { layout, onEditSQL, onExplain, onDelete, onChartOverride, onWidthOverride, onHeightOverride }: {
         layout: DashboardLayout;
         onEditSQL?: (id: string) => void;
         onExplain?: (id: string) => void;
         onDelete?: (id: string) => void;
+        onChartOverride?: (panelId: string, chartType: string) => void;
+        onWidthOverride?: (panelId: string, cols: number | null) => void;
+        onHeightOverride?: (panelId: string, px: number | null) => void;
     } = $props();
 </script>
 
@@ -23,6 +26,8 @@
     No grid-auto-rows — heights are explicit per panel, not driven by row multipliers.
     panel.col_offset > 0 on the first panel of a KPI row — rendered as a spacer div
     so the row appears visually centered in the 12-column grid.
+
+    id="panel-{panel_id}" on each panel div enables DashboardSidebar scroll-to (DOC6 §12).
 -->
 <div class="dashboard-grid">
     {#each layout.rows as row (row.panels[0]?.panel_id ?? Math.random())}
@@ -31,11 +36,20 @@
                 <div class="kpi-spacer" style="grid-column: span {panel.col_offset}"></div>
             {/if}
             <div
+                id="panel-{panel.panel_id}"
                 class="dashboard-panel"
                 style="--panel-col-span: {panel.final_col_span};
                        --panel-height: {panel.inference_result.panel_height_px}px"
             >
-                <PanelRenderer {panel} {onEditSQL} {onExplain} {onDelete} />
+                <PanelRenderer
+                    {panel}
+                    {onEditSQL}
+                    {onExplain}
+                    {onDelete}
+                    {onChartOverride}
+                    {onWidthOverride}
+                    {onHeightOverride}
+                />
             </div>
         {/each}
     {/each}

@@ -311,3 +311,466 @@ cases:
     expected_chart: table
     min_quality: medium
     notes: "LIMIT without ORDER BY DESC — not a ranking pattern, still detail"
+
+  # ── Fase G: Doctoral benchmark extension (22 cases) ───────────────────────
+  # DOC10 §Fase G — 8 patterns: comparison/composition boundary, ranking without
+  # LIMIT, YYYYMM as INTEGER, percentages not summing to 100, real histogram vs
+  # bucket table, funnel vs grouped count, scatter with genuine metrics, wide table
+
+  # Comparison vs Composition boundary (5 cases)
+
+  - id: gc_g_001
+    sql: "SELECT payment_method, COUNT(*) AS orders FROM payments GROUP BY payment_method"
+    schema:
+      - {name: payment_method, type: VARCHAR}
+      - {name: orders, type: BIGINT}
+    data:
+      - {payment_method: "Credit card", orders: 4200}
+      - {payment_method: "Bank transfer", orders: 1800}
+    expected_intent: composition
+    expected_chart: pie
+    min_quality: medium
+    notes: "2 binary categories — low_cardinality fires (≤3) → composition wins → pie"
+
+  - id: gc_g_002
+    sql: "SELECT plan_type, COUNT(*) AS accounts FROM subscriptions GROUP BY plan_type"
+    schema:
+      - {name: plan_type, type: VARCHAR}
+      - {name: accounts, type: BIGINT}
+    data:
+      - {plan_type: "Free", accounts: 5000}
+      - {plan_type: "Pro", accounts: 1200}
+      - {plan_type: "Enterprise", accounts: 300}
+    expected_intent: composition
+    expected_chart: pie
+    min_quality: medium
+    notes: "3 plan types — low_cardinality fires (≤3) → composition/pie not comparison"
+
+  - id: gc_g_003
+    sql: "SELECT department, SUM(budget) AS total_budget FROM budgets GROUP BY department"
+    schema:
+      - {name: department, type: VARCHAR}
+      - {name: total_budget, type: DOUBLE}
+    data:
+      - {department: "Engineering", total_budget: 450000}
+      - {department: "Marketing", total_budget: 280000}
+      - {department: "Sales", total_budget: 380000}
+      - {department: "Operations", total_budget: 210000}
+      - {department: "Finance", total_budget: 190000}
+      - {department: "HR", total_budget: 120000}
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: medium
+    notes: "6 departments SUM budget — cardinality 6 > 3, low_cardinality does not fire, comparison wins"
+
+  - id: gc_g_004
+    sql: "SELECT category, SUM(sales) AS total_sales FROM products GROUP BY category"
+    schema:
+      - {name: category, type: VARCHAR}
+      - {name: total_sales, type: DOUBLE}
+    data:
+      - {category: "Electronics", total_sales: 120000}
+      - {category: "Clothing", total_sales: 85000}
+      - {category: "Food", total_sales: 95000}
+      - {category: "Sports", total_sales: 62000}
+      - {category: "Toys", total_sales: 43000}
+      - {category: "Books", total_sales: 38000}
+      - {category: "Home", total_sales: 71000}
+      - {category: "Beauty", total_sales: 52000}
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: medium
+    notes: "8 categories — cardinality 8 > 3, low_cardinality off; pie_high_cardinality hard rule fires at >7 → pie eliminated"
+
+  - id: gc_g_005
+    sql: "SELECT segment, AVG(nps_score) AS avg_nps FROM surveys GROUP BY segment"
+    schema:
+      - {name: segment, type: VARCHAR}
+      - {name: avg_nps, type: DOUBLE}
+    data:
+      - {segment: "Enterprise", avg_nps: 42.0}
+      - {segment: "Mid-Market", avg_nps: 35.0}
+      - {segment: "SMB", avg_nps: 28.0}
+      - {segment: "Consumer", avg_nps: 31.0}
+      - {segment: "Partner", avg_nps: 45.0}
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: medium
+    notes: "5 segments with AVG NPS — percentages not summing to 100; has_avg penalty suppresses composition → comparison wins"
+
+  # YYYYMM as INTEGER temporal (3 cases)
+
+  - id: gc_g_006
+    sql: "SELECT year_month, SUM(revenue) AS monthly_revenue FROM sales GROUP BY year_month ORDER BY year_month"
+    schema:
+      - {name: year_month, type: INTEGER}
+      - {name: monthly_revenue, type: DOUBLE}
+    data:
+      - {year_month: 202401, monthly_revenue: 85000}
+      - {year_month: 202402, monthly_revenue: 92000}
+      - {year_month: 202403, monthly_revenue: 88000}
+      - {year_month: 202404, monthly_revenue: 97000}
+      - {year_month: 202405, monthly_revenue: 103000}
+      - {year_month: 202406, monthly_revenue: 98000}
+    expected_intent: trend
+    expected_chart: line
+    min_quality: medium
+    notes: "year_month INTEGER YYYYMM — token split gives {year, month}, both in TEMPORAL_DIMENSION.contains → temporal detected for INTEGER column"
+
+  - id: gc_g_007
+    sql: "SELECT periodo, SUM(ventas) AS ventas_periodo FROM ventas GROUP BY periodo ORDER BY periodo"
+    schema:
+      - {name: periodo, type: INTEGER}
+      - {name: ventas_periodo, type: DOUBLE}
+    data:
+      - {periodo: 202401, ventas_periodo: 120000}
+      - {periodo: 202402, ventas_periodo: 135000}
+      - {periodo: 202403, ventas_periodo: 118000}
+      - {periodo: 202404, ventas_periodo: 142000}
+      - {periodo: 202405, ventas_periodo: 158000}
+      - {periodo: 202406, ventas_periodo: 147000}
+      - {periodo: 202407, ventas_periodo: 163000}
+      - {periodo: 202408, ventas_periodo: 171000}
+    expected_intent: trend
+    expected_chart: line
+    min_quality: medium
+    notes: "periodo INTEGER — exact match in TEMPORAL_DIMENSION.exact set → temporal fires for INTEGER → trend/line"
+
+  - id: gc_g_008
+    sql: "SELECT month_year, SUM(orders) AS total_orders FROM orders GROUP BY month_year ORDER BY month_year"
+    schema:
+      - {name: month_year, type: INTEGER}
+      - {name: total_orders, type: BIGINT}
+    data:
+      - {month_year: 202401, total_orders: 3400}
+      - {month_year: 202402, total_orders: 2900}
+      - {month_year: 202403, total_orders: 3700}
+      - {month_year: 202404, total_orders: 4100}
+      - {month_year: 202405, total_orders: 3800}
+      - {month_year: 202406, total_orders: 4300}
+      - {month_year: 202407, total_orders: 4600}
+      - {month_year: 202408, total_orders: 4900}
+    expected_intent: trend
+    expected_chart: line
+    min_quality: medium
+    notes: "month_year INTEGER — token split gives {month, year}, both in TEMPORAL_DIMENSION.contains → temporal fires even for INTEGER type"
+
+  # Real histogram vs bucket table (4 cases)
+
+  - id: gc_g_009
+    sql: "SELECT salary_annual FROM employees"
+    schema:
+      - {name: salary_annual, type: DOUBLE}
+    data:
+      - {salary_annual: 32000}
+      - {salary_annual: 35000}
+      - {salary_annual: 37000}
+      - {salary_annual: 40000}
+      - {salary_annual: 41000}
+      - {salary_annual: 43000}
+      - {salary_annual: 45000}
+      - {salary_annual: 47000}
+      - {salary_annual: 48000}
+      - {salary_annual: 50000}
+      - {salary_annual: 52000}
+      - {salary_annual: 53000}
+      - {salary_annual: 55000}
+      - {salary_annual: 57000}
+      - {salary_annual: 58000}
+      - {salary_annual: 60000}
+      - {salary_annual: 62000}
+      - {salary_annual: 65000}
+      - {salary_annual: 67000}
+      - {salary_annual: 70000}
+      - {salary_annual: 72000}
+      - {salary_annual: 75000}
+      - {salary_annual: 78000}
+      - {salary_annual: 82000}
+      - {salary_annual: 90000}
+    expected_intent: distribution
+    expected_chart: histogram
+    min_quality: medium
+    notes: "Raw salary data — single DOUBLE column, 25 rows, no GROUP BY → real distribution/histogram"
+
+  - id: gc_g_010
+    sql: "SELECT test_score FROM exam_results"
+    schema:
+      - {name: test_score, type: DOUBLE}
+    data:
+      - {test_score: 51.0}
+      - {test_score: 54.0}
+      - {test_score: 57.0}
+      - {test_score: 59.0}
+      - {test_score: 62.0}
+      - {test_score: 63.0}
+      - {test_score: 65.0}
+      - {test_score: 67.0}
+      - {test_score: 68.0}
+      - {test_score: 70.0}
+      - {test_score: 71.0}
+      - {test_score: 73.0}
+      - {test_score: 75.0}
+      - {test_score: 76.0}
+      - {test_score: 78.0}
+      - {test_score: 79.0}
+      - {test_score: 80.0}
+      - {test_score: 82.0}
+      - {test_score: 83.0}
+      - {test_score: 85.0}
+      - {test_score: 87.0}
+      - {test_score: 89.0}
+      - {test_score: 91.0}
+      - {test_score: 94.0}
+      - {test_score: 98.0}
+    expected_intent: distribution
+    expected_chart: histogram
+    min_quality: medium
+    notes: "Raw test scores — single DOUBLE column, 25 rows → real distribution/histogram"
+
+  - id: gc_g_011
+    sql: "SELECT age_range, COUNT(*) AS customers FROM customers GROUP BY age_range ORDER BY age_range"
+    schema:
+      - {name: age_range, type: VARCHAR}
+      - {name: customers, type: BIGINT}
+    data:
+      - {age_range: "18-25", customers: 1200}
+      - {age_range: "26-35", customers: 2800}
+      - {age_range: "36-45", customers: 2100}
+      - {age_range: "46-55", customers: 1500}
+      - {age_range: "56+", customers: 900}
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: medium
+    notes: "Pre-aggregated VARCHAR age buckets WITH GROUP BY — SQL already bucketed → comparison/bar (not histogram)"
+
+  - id: gc_g_012
+    sql: "SELECT score_range, COUNT(*) AS total FROM exams GROUP BY score_range ORDER BY score_range"
+    schema:
+      - {name: score_range, type: VARCHAR}
+      - {name: total, type: INTEGER}
+    data:
+      - {score_range: "0-20", total: 45}
+      - {score_range: "21-40", total: 120}
+      - {score_range: "41-60", total: 280}
+      - {score_range: "61-80", total: 310}
+      - {score_range: "81-100", total: 95}
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: medium
+    notes: "Pre-aggregated score range buckets WITH GROUP BY — VARCHAR ranges + GROUP BY → comparison/bar not histogram"
+
+  # Funnel patterns (2 cases)
+
+  - id: gc_g_013
+    sql: "SELECT CASE WHEN step=1 THEN 'Captacion' WHEN step=2 THEN 'Calificacion' WHEN step=3 THEN 'Propuesta' ELSE 'Cierre' END AS fase, COUNT(*) AS leads FROM pipeline GROUP BY 1"
+    schema:
+      - {name: fase, type: VARCHAR}
+      - {name: leads, type: BIGINT}
+    data:
+      - {fase: "Captacion", leads: 5000}
+      - {fase: "Calificacion", leads: 2000}
+      - {fase: "Propuesta", leads: 800}
+      - {fase: "Cierre", leads: 200}
+    expected_intent: funnel
+    expected_chart: bar_horizontal
+    min_quality: medium
+    notes: "CASE WHEN 4-stage funnel — has_case_when=1 → funnel intent wins; label 'Calificacion' (12 chars) triggers bar_horizontal"
+
+  - id: gc_g_014
+    sql: "SELECT etapa_proceso, COUNT(*) AS total FROM leads GROUP BY etapa_proceso ORDER BY total DESC"
+    schema:
+      - {name: etapa_proceso, type: VARCHAR}
+      - {name: total, type: BIGINT}
+    data:
+      - {etapa_proceso: "Captacion", total: 5000}
+      - {etapa_proceso: "Calificacion", total: 2000}
+      - {etapa_proceso: "Propuesta", total: 800}
+      - {etapa_proceso: "Cierre", total: 300}
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: medium
+    notes: "Stage column WITHOUT CASE WHEN — has_case_when=0 → no_case_when penalty fires → funnel eliminated → comparison/bar"
+
+  # Scatter with genuine metric columns (2 cases)
+
+  - id: gc_g_015
+    sql: "SELECT session_minutes, page_views FROM sessions"
+    schema:
+      - {name: session_minutes, type: INTEGER}
+      - {name: page_views, type: INTEGER}
+    data:
+      - {session_minutes: 5,  page_views: 3}
+      - {session_minutes: 8,  page_views: 5}
+      - {session_minutes: 11, page_views: 7}
+      - {session_minutes: 14, page_views: 8}
+      - {session_minutes: 17, page_views: 9}
+      - {session_minutes: 20, page_views: 10}
+      - {session_minutes: 23, page_views: 12}
+      - {session_minutes: 26, page_views: 14}
+      - {session_minutes: 29, page_views: 15}
+      - {session_minutes: 32, page_views: 16}
+      - {session_minutes: 35, page_views: 18}
+      - {session_minutes: 38, page_views: 19}
+      - {session_minutes: 41, page_views: 20}
+      - {session_minutes: 44, page_views: 22}
+      - {session_minutes: 47, page_views: 23}
+      - {session_minutes: 50, page_views: 25}
+      - {session_minutes: 53, page_views: 26}
+      - {session_minutes: 56, page_views: 27}
+      - {session_minutes: 59, page_views: 28}
+      - {session_minutes: 62, page_views: 30}
+    expected_intent: correlation
+    expected_chart: scatter
+    min_quality: medium
+    notes: "Two genuine metric columns — no _id/_rate/_pct suffix → both role=metric → scatter_insufficient_metrics does NOT fire → correlation/scatter"
+
+  - id: gc_g_016
+    sql: "SELECT clicks, impressions FROM campaigns"
+    schema:
+      - {name: clicks, type: BIGINT}
+      - {name: impressions, type: BIGINT}
+    data:
+      - {clicks: 100,  impressions: 1000}
+      - {clicks: 150,  impressions: 1200}
+      - {clicks: 200,  impressions: 1400}
+      - {clicks: 250,  impressions: 1600}
+      - {clicks: 300,  impressions: 1800}
+      - {clicks: 350,  impressions: 2000}
+      - {clicks: 400,  impressions: 2200}
+      - {clicks: 450,  impressions: 2400}
+      - {clicks: 500,  impressions: 2600}
+      - {clicks: 550,  impressions: 2800}
+      - {clicks: 600,  impressions: 3000}
+      - {clicks: 650,  impressions: 3200}
+      - {clicks: 700,  impressions: 3400}
+      - {clicks: 750,  impressions: 3600}
+      - {clicks: 800,  impressions: 3800}
+      - {clicks: 850,  impressions: 4000}
+      - {clicks: 900,  impressions: 4200}
+      - {clicks: 950,  impressions: 4400}
+      - {clicks: 1000, impressions: 4600}
+      - {clicks: 1050, impressions: 4800}
+    expected_intent: correlation
+    expected_chart: scatter
+    min_quality: medium
+    notes: "clicks + impressions BIGINT — no special suffixes → both metric role → correlation/scatter"
+
+  # Wide table detection (3 cases)
+
+  - id: gc_g_017
+    sql: "SELECT kpi, jan, feb, mar, apr, may FROM kpi_summary"
+    schema:
+      - {name: kpi, type: VARCHAR}
+      - {name: jan, type: DOUBLE}
+      - {name: feb, type: DOUBLE}
+      - {name: mar, type: DOUBLE}
+      - {name: apr, type: DOUBLE}
+      - {name: may, type: DOUBLE}
+    data:
+      - {kpi: "Revenue", jan: 85000, feb: 92000, mar: 88000, apr: 97000, may: 103000}
+      - {kpi: "Cost",    jan: 52000, feb: 58000, mar: 55000, apr: 61000, may: 64000}
+    expected_intent: detail
+    expected_chart: table
+    min_quality: medium
+    notes: "Wide KPI table — VARCHAR label + 5 DOUBLE month cols → has_string_column=1 → correlation penalized → detail/table"
+
+  - id: gc_g_018
+    sql: "SELECT id, col1, col2, col3, col4, col5, col6, col7, col8 FROM config"
+    schema:
+      - {name: id,   type: INTEGER}
+      - {name: col1, type: VARCHAR}
+      - {name: col2, type: VARCHAR}
+      - {name: col3, type: VARCHAR}
+      - {name: col4, type: VARCHAR}
+      - {name: col5, type: VARCHAR}
+      - {name: col6, type: VARCHAR}
+      - {name: col7, type: VARCHAR}
+      - {name: col8, type: VARCHAR}
+    data:
+      - {id: 1, col1: "a", col2: "b", col3: "c", col4: "d", col5: "e", col6: "f", col7: "g", col8: "h"}
+    expected_intent: detail
+    expected_chart: table
+    min_quality: medium
+    notes: "9-column config table (8 VARCHAR) — high_col_count + no_aggregation → detail wins → table"
+
+  - id: gc_g_022
+    sql: "SELECT account_name, jan, feb, mar, apr, may, jun, jul, aug FROM monthly_revenue"
+    schema:
+      - {name: account_name, type: VARCHAR}
+      - {name: jan, type: DOUBLE}
+      - {name: feb, type: DOUBLE}
+      - {name: mar, type: DOUBLE}
+      - {name: apr, type: DOUBLE}
+      - {name: may, type: DOUBLE}
+      - {name: jun, type: DOUBLE}
+      - {name: jul, type: DOUBLE}
+      - {name: aug, type: DOUBLE}
+    data:
+      - {account_name: "Acct A", jan: 100, feb: 110, mar: 95,  apr: 120, may: 130, jun: 105, jul: 115, aug: 125}
+      - {account_name: "Acct B", jan: 80,  feb: 90,  mar: 75,  apr: 100, may: 110, jun: 85,  jul: 95,  aug: 105}
+      - {account_name: "Acct C", jan: 60,  feb: 70,  mar: 55,  apr: 80,  may: 90,  jun: 65,  jul: 75,  aug: 85}
+      - {account_name: "Acct D", jan: 40,  feb: 50,  mar: 35,  apr: 60,  may: 70,  jun: 45,  jul: 55,  aug: 65}
+    expected_intent: detail
+    expected_chart: table
+    min_quality: medium
+    notes: "Wide account report — VARCHAR label + 8 DOUBLE month cols, 4 rows → has_string_column → correlation penalized → detail/table"
+
+  # Ranking patterns (2 cases)
+
+  - id: gc_g_019
+    sql: "SELECT customer_name, SUM(lifetime_value) AS ltv FROM customers GROUP BY customer_name ORDER BY ltv DESC LIMIT 10"
+    schema:
+      - {name: customer_name, type: VARCHAR}
+      - {name: ltv, type: DOUBLE}
+    data:
+      - {customer_name: "Enterprise Solutions LLC",     ltv: 485000}
+      - {customer_name: "Global Tech Partners",         ltv: 412000}
+      - {customer_name: "Strategic Consulting Group",   ltv: 378000}
+      - {customer_name: "Innovation Capital Fund",      ltv: 341000}
+      - {customer_name: "Advanced Systems Corp",        ltv: 298000}
+      - {customer_name: "Digital Transformation Inc",  ltv: 267000}
+      - {customer_name: "Premium Services Ltd",         ltv: 245000}
+      - {customer_name: "NextGen Solutions",            ltv: 218000}
+      - {customer_name: "Apex Industries Group",        ltv: 195000}
+      - {customer_name: "Momentum Partners",            ltv: 178000}
+    expected_intent: ranking
+    expected_chart: bar_horizontal
+    min_quality: high
+    notes: "TOP 10 by LTV — ORDER BY DESC + LIMIT 10 → ranking boost fires (1.50×); long labels → bar_horizontal"
+
+  - id: gc_g_020
+    sql: "SELECT product_name, revenue, RANK() OVER (ORDER BY revenue DESC) AS revenue_rank FROM top_sellers"
+    schema:
+      - {name: product_name,  type: VARCHAR}
+      - {name: revenue,       type: DOUBLE}
+      - {name: revenue_rank,  type: INTEGER}
+    data:
+      - {product_name: "Producto Alpha",   revenue: 950000, revenue_rank: 1}
+      - {product_name: "Producto Beta",    revenue: 870000, revenue_rank: 2}
+      - {product_name: "Producto Gamma",   revenue: 790000, revenue_rank: 3}
+      - {product_name: "Producto Delta",   revenue: 710000, revenue_rank: 4}
+      - {product_name: "Producto Epsilon", revenue: 630000, revenue_rank: 5}
+      - {product_name: "Producto Zeta",    revenue: 550000, revenue_rank: 6}
+      - {product_name: "Producto Eta",     revenue: 470000, revenue_rank: 7}
+      - {product_name: "Producto Theta",   revenue: 390000, revenue_rank: 8}
+    expected_intent: ranking
+    expected_chart: bar_horizontal
+    min_quality: medium
+    notes: "RANK() OVER (ORDER BY revenue DESC) without outer LIMIT — OVER clause DESC fires has_order_by_desc=1 → ranking wins as valid ranking evidence"
+
+  # Additional comparison cases (1 case)
+
+  - id: gc_g_021
+    sql: "SELECT channel, AVG(conversion_rate) AS avg_conversion FROM campaigns GROUP BY channel"
+    schema:
+      - {name: channel,         type: VARCHAR}
+      - {name: avg_conversion,  type: DOUBLE}
+    data:
+      - {channel: "Email",   avg_conversion: 0.12}
+      - {channel: "Social",  avg_conversion: 0.08}
+      - {channel: "Paid",    avg_conversion: 0.15}
+      - {channel: "Organic", avg_conversion: 0.06}
+    expected_intent: comparison
+    expected_chart: bar
+    min_quality: medium
+    notes: "4 channels with AVG conversion rates not summing to 100 — has_avg + GROUP BY → comparison wins"

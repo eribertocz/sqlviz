@@ -233,6 +233,7 @@ class TestSchemaColumns:
         assert _column_names(conn, "dashboards") == [
             "id", "name", "folder_id", "connection_id",
             "sql_content", "sort_order", "created_at", "updated_at",
+            "dashboard_hint", "dashboard_domain",
         ]
 
     def test_shares_columns(self, conn: duckdb.DuckDBPyConnection) -> None:

@@ -86,7 +86,7 @@ class TestGetBrainConnection:
         row = conn.execute(
             "SELECT value FROM _brain_meta WHERE key = 'version'"
         ).fetchone()
-        assert row is not None and row[0] == "0.1.0"
+        assert row is not None and row[0] == "0.2.0"
 
     def test_brain_meta_persists_after_reopen(
         self, brain_path: Path, monkeypatch: pytest.MonkeyPatch

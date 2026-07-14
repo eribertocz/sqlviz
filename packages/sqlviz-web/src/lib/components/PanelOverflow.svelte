@@ -1,9 +1,11 @@
 <script lang="ts">
-    let { panelId, onEditSQL, onExplain, onDelete }: {
+    let { panelId, onEditSQL, onExplain, onDelete, onOpenChart, onOpenLayout }: {
         panelId: string;
         onEditSQL?: (id: string) => void;
         onExplain?: (id: string) => void;
         onDelete?: (id: string) => void;
+        onOpenChart?: () => void;
+        onOpenLayout?: () => void;
     } = $props();
 
     let open = $state(false);
@@ -34,9 +36,20 @@
         open = false;
         onDelete?.(panelId);
     }
+
+    function handleOpenChart(e: MouseEvent) {
+        e.stopPropagation();
+        open = false;
+        onOpenChart?.();
+    }
+
+    function handleOpenLayout(e: MouseEvent) {
+        e.stopPropagation();
+        open = false;
+        onOpenLayout?.();
+    }
 </script>
 
-<!-- Close the menu when anything outside the component is clicked -->
 <svelte:window onclick={closeMenu} />
 
 <div class="overflow-host">
@@ -49,8 +62,20 @@
     >···</button>
 
     {#if open}
-        <!-- stopPropagation on the menu so window click doesn't immediately close it -->
         <div class="overflow-menu" role="menu" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
+            {#if onOpenChart}
+                <button class="menu-item" onclick={handleOpenChart}>
+                    Chart type…
+                </button>
+            {/if}
+            {#if onOpenLayout}
+                <button class="menu-item" onclick={handleOpenLayout}>
+                    Layout…
+                </button>
+            {/if}
+            {#if onOpenChart || onOpenLayout}
+                <div class="menu-divider"></div>
+            {/if}
             <button class="menu-item" onclick={handleEditSQL}>
                 Edit SQL
             </button>
@@ -95,7 +120,7 @@
         position: absolute;
         top: calc(100% + 4px);
         right: 0;
-        min-width: 140px;
+        min-width: 150px;
         background: var(--sqlviz-bg-surface);
         border: 1px solid var(--sqlviz-border);
         border-radius: var(--sqlviz-radius-lg);

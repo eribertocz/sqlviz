@@ -36,6 +36,41 @@ MIGRATIONS: list[tuple[str, str]] = [
         "0001_shares_add_nonce",
         "ALTER TABLE shares ADD COLUMN nonce VARCHAR DEFAULT ''",
     ),
+    # 0002–0011: V0.2 Fase E — override columns on panels (DOC10 §6.14).
+    # fingerprint links panels to brain.duckdb patterns.
+    # inferred_* are written once on execute; never overwritten.
+    # selected_* starts equal to inferred_*; updated when user overrides.
+    # *_user_override is NULL until the user explicitly corrects a field.
+    ("0002_panels_add_fingerprint",
+     "ALTER TABLE panels ADD COLUMN fingerprint VARCHAR"),
+    ("0003_panels_add_inferred_chart_type",
+     "ALTER TABLE panels ADD COLUMN inferred_chart_type VARCHAR"),
+    ("0004_panels_add_selected_chart_type",
+     "ALTER TABLE panels ADD COLUMN selected_chart_type VARCHAR"),
+    ("0005_panels_add_chart_user_override",
+     "ALTER TABLE panels ADD COLUMN chart_user_override VARCHAR"),
+    ("0006_panels_add_inferred_col_span",
+     "ALTER TABLE panels ADD COLUMN inferred_col_span INTEGER"),
+    ("0007_panels_add_selected_col_span",
+     "ALTER TABLE panels ADD COLUMN selected_col_span INTEGER"),
+    ("0008_panels_add_col_span_user_override",
+     "ALTER TABLE panels ADD COLUMN col_span_user_override INTEGER"),
+    ("0009_panels_add_inferred_height_px",
+     "ALTER TABLE panels ADD COLUMN inferred_height_px INTEGER"),
+    ("0010_panels_add_selected_height_px",
+     "ALTER TABLE panels ADD COLUMN selected_height_px INTEGER"),
+    ("0011_panels_add_height_user_override",
+     "ALTER TABLE panels ADD COLUMN height_user_override INTEGER"),
+    # 0012–0013: dashboard classification (sidebar icons, DOC6 §12)
+    # dashboard_hint   — fine-grained semantic label (e.g. "user_retention")
+    # dashboard_domain — coarse category  (e.g. "product", "finance")
+    ("0012_dashboards_add_dashboard_hint",
+     "ALTER TABLE dashboards ADD COLUMN dashboard_hint VARCHAR"),
+    ("0013_dashboards_add_dashboard_domain",
+     "ALTER TABLE dashboards ADD COLUMN dashboard_domain VARCHAR"),
+    # 0014: store intent_winner per panel so the classifier can use it
+    ("0014_panels_add_inferred_intent_type",
+     "ALTER TABLE panels ADD COLUMN inferred_intent_type VARCHAR"),
 ]
 
 

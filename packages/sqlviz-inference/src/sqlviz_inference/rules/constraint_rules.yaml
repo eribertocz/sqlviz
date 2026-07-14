@@ -1,0 +1,19 @@
+# Soft constraint rules — penalize but never eliminate.
+# Hard rules live in constraint_engine.py.
+#
+# Schema per rule:
+#   name:       unique rule ID
+#   chart_type: target chart type
+#   condition:  { type: cardinality_range, min: N, max: M }
+#   penalty:    float [0.0, 1.0] — subtracted from score
+#   reason:     human-readable explanation for ExplanationEngine
+
+soft_rules:
+  - name: pie_medium_cardinality
+    chart_type: pie
+    condition:
+      type: cardinality_range
+      min: 5
+      max: 7
+    penalty: 0.15
+    reason: "pie with 5–7 categories reduces legibility; bar is preferred"

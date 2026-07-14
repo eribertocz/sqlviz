@@ -1,0 +1,24 @@
+# scoring_weights.yaml
+# Weights for ScoringModel's 10-dimension score.
+# Sum(positive) + Sum(negative) = 1.00 (positive weights all contribute,
+# negative weights are subtracted from the total).
+#
+# Design principles:
+#   semantic_fit dominates (0.45) — the V0.1 affinity signal is well-calibrated
+#   task_fit second (0.20) — analytical task alignment is the key discriminator
+#   perceptual/readability contribute meaningfully but cannot overturn semantic+task
+#   negative dimensions are small (avoid penalizing inherently fine charts)
+
+positive:
+  semantic_fit:       0.45   # V0.1 affinity (inherited signal, validated by benchmarks)
+  task_fit:           0.20   # analytical task alignment (task_fit_matrix.yaml)
+  perceptual_accuracy: 0.10  # Cleveland & McGill / Heer & Bostock perceptual hierarchy
+  readability:         0.08  # ReadabilityModel legibility_score
+  information_density: 0.06  # data shown per visual unit
+  business_relevance:  0.06  # alignment with common BI usage patterns
+
+negative:
+  cognitive_load:     0.02   # mental effort to interpret the chart
+  visual_clutter:     0.01   # visual noise from density or overlapping elements
+  ambiguity:          0.01   # uncertainty in perceptual encoding
+  interaction_cost:   0.01   # required user interaction (scrolling, zooming, hovering)

@@ -144,7 +144,7 @@ funnel:
     is_monotonic_decreasing: 0.03    # §16.29: ASC-ordered step-drop signal
   boosts: {}
   penalties:
-    no_case_when: 0.02               # was 0.50 — drastically reduced (§16.29)
+    no_case_when: 0.25               # §16.29 was 0.02; raised §FASE_G: max funnel_no_cw=0.74 < comparison_no_string=0.76
     no_group_by:  0.60               # funnel requires GROUP BY by step; without it, likely KPI
     no_count:     0.50               # funnel always counts step volumes; SUM-only → comparison
 

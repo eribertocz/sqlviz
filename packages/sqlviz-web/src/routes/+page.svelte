@@ -2,6 +2,8 @@
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
     import DashboardGrid from '$lib/components/DashboardGrid.svelte';
+    import DashboardScorePanel from '$lib/components/DashboardScorePanel.svelte';
+    import DashboardSidebar from '$lib/components/DashboardSidebar.svelte';
     import ExplainPanel from '$lib/components/ExplainPanel.svelte';
     import FilterBar from '$lib/components/FilterBar.svelte';
     import SQLEditor from '$lib/components/SQLEditor.svelte';
@@ -9,7 +11,7 @@
     import { editorRef } from '$lib/stores/editorRef';
     import { explainTarget } from '$lib/stores/explainStore';
     import { filterValues } from '$lib/stores/filterValues';
-    import type { DashboardLayout, FilterControl, InferenceResult } from '$lib/types';
+    import type { DashboardInfo, DashboardLayout, FilterControl, InferenceResult } from '$lib/types';
 
     // ── Core state ─────────────────────────────────────────────────────────────
     let sql        = $state('');
@@ -37,14 +39,28 @@
     let panelSQLs        = $state<string[]>([]);
     let executedResults  = $state<ExecResult[]>([]);
 
+    // ── V0.2 UI state ──────────────────────────────────────────────────────────
+    let showScorePanel       = $state(false);
+    let allDashboards        = $state<DashboardInfo[]>([]);
+    let creatingDashboard    = $state(false);
+    let newDashboardName     = $state('');
+
     // Toast for placeholder actions (e.g. Explain)
     let toast = $state<string | null>(null);
     let toastTimer = 0;
 
-    const hasLayout = $derived(layout !== null && layout.rows.length > 0);
+    const hasLayout          = $derived(layout !== null && layout.rows.length > 0);
+    const showSidebar        = $derived(allDashboards.length >= 2);
+    const activeDashboard    = $derived(allDashboards.find(d => d.id === dashboardId) ?? null);
+
+    // Score button: utility_score from DashboardLayout (DOC6 §12.3).
+    const utilityPct = $derived(
+        layout?.utility_score != null
+            ? Math.round(layout.utility_score * 100)
+            : null
+    );
 
     // ── Filter state ──────────────────────────────────────────────────────────
-    // Unique filter controls across all panels (by variable name).
     const allFilterControls = $derived.by(() => {
         const seen = new Set<string>();
         const controls: FilterControl[] = [];
@@ -105,6 +121,7 @@
         const layoutResponse = await apiPost<DashboardLayout>('/api/v1/compose', composeBody);
         const dataMap = new Map(results.map(r => [r.panel_id, r.data]));
         return {
+            ...layoutResponse,
             rows: layoutResponse.rows.map(row => ({
                 panels: row.panels.map(p => ({
                     ...p,
@@ -116,20 +133,17 @@
 
     // ── Load existing state on mount ───────────────────────────────────────────
     onMount(async () => {
-        // Restore saved theme before any render
         const savedTheme = localStorage.getItem('sqlviz-theme');
         if (savedTheme === 'light') {
             theme = 'light';
             document.documentElement.dataset.theme = 'light';
         }
 
-        // Auth guard — redirect to /login if no valid session
         const meResp = await fetch('/api/v1/auth/me');
         if (meResp.status === 401) {
             await goto('/login');
             return;
         }
-        // Demo mode: activate Edit mode automatically so Monaco is visible
         const meData = await meResp.json() as { status: string; demo: boolean };
         if (meData.demo) {
             editMode.set(true);
@@ -137,10 +151,10 @@
 
         try {
             const dashboards = await fetch('/api/v1/dashboards')
-                .then(r => r.json()) as Array<{ id: string }>;
+                .then(r => r.json()) as DashboardInfo[];
+            allDashboards = dashboards;
             if (dashboards.length === 0) {
                 if (meData.demo) {
-                    // Demo mode with no panels: auto-seed the example dashboard.
                     const { sql: demoSql } = await fetch('/api/v1/demo/sql')
                         .then(r => r.json()) as { sql: string };
                     sql = demoSql;
@@ -227,6 +241,12 @@
             statusMsg = 'Composing layout…';
             layout    = await recompose(results);
             statusMsg = null;
+
+            // Refresh dashboard list to pick up updated hint/domain from classifier.
+            try {
+                allDashboards = await fetch('/api/v1/dashboards')
+                    .then(r => r.json()) as DashboardInfo[];
+            } catch { /* non-critical */ }
         } catch (e: unknown) {
             errorMsg  = e instanceof Error ? e.message : String(e);
             statusMsg = null;
@@ -283,12 +303,118 @@
         explainTarget.set(result);
     }
 
+    // ── V0.2 UI handlers (DOC6 §12) ───────────────────────────────────────────
+
+    /** Create a new dashboard, then navigate to it. */
+    async function createDashboard() {
+        const name = newDashboardName.trim() || 'New Dashboard';
+        creatingDashboard = false;
+        newDashboardName = '';
+        try {
+            const dash = await apiPost<{ id: string; name: string }>('/api/v1/dashboards', {
+                name,
+                sort_order: allDashboards.length,
+            });
+            allDashboards = await fetch('/api/v1/dashboards')
+                .then(r => r.json()) as DashboardInfo[];
+            // Switch to the empty new dashboard without running anything.
+            dashboardId     = dash.id;
+            panelIds        = [];
+            panelSQLs       = [];
+            sql             = '';
+            executedResults = [];
+            layout          = null;
+        } catch (e: unknown) {
+            showToast(e instanceof Error ? e.message : 'Could not create dashboard.');
+        }
+    }
+
+    function cancelNewDashboard() {
+        creatingDashboard = false;
+        newDashboardName = '';
+    }
+
+    /** Switch to a different dashboard: load its panels and re-execute. */
+    async function loadDashboard(id: string) {
+        if (id === dashboardId || executing) return;
+
+        try {
+            const panels = await fetch(`/api/v1/panels?dashboard_id=${id}`)
+                .then(r => r.json()) as Array<{ id: string; sql_content: string; sort_order: number }>;
+            panels.sort((a, b) => a.sort_order - b.sort_order);
+
+            dashboardId = id;
+            panelIds    = panels.map(p => p.id);
+            panelSQLs   = panels.map(p => p.sql_content);
+            sql         = panelSQLs.join(';\n\n');
+            executedResults = [];
+            layout      = null;
+
+            if (panels.length > 0) run();
+        } catch (e: unknown) {
+            showToast(e instanceof Error ? e.message : 'Could not load dashboard.');
+        }
+    }
+
+    /** Chart type override: PATCH → re-execute → recompose (DOC6 §12.1). */
+    async function handleChartOverride(panelId: string, chartType: string) {
+        try {
+            await apiPatch(`/api/v1/panels/${panelId}/override`, {
+                field_name: 'chart_type',
+                user_value: chartType,
+            });
+            const exec = await apiPost<{ inference_result: InferenceResult; data: Record<string, unknown>[] }>(
+                `/api/v1/panels/${panelId}/execute`
+            );
+            executedResults = executedResults.map(r =>
+                r.panel_id === panelId
+                    ? { panel_id: panelId, inference_result: exec.inference_result, data: exec.data }
+                    : r
+            );
+            layout = await recompose(executedResults);
+        } catch (e: unknown) {
+            showToast(e instanceof Error ? e.message : 'Chart override failed.');
+        }
+    }
+
+    /** Local col_span override — updates layout reactively (session-only). */
+    function handleWidthOverride(panelId: string, cols: number | null) {
+        if (!layout) return;
+        layout = {
+            ...layout,
+            rows: layout.rows.map(row => ({
+                panels: row.panels.map(p => {
+                    if (p.panel_id !== panelId) return p;
+                    return {
+                        ...p,
+                        final_col_span: cols ?? p.inference_result.col_span,
+                    };
+                }),
+            })),
+        };
+    }
+
+    /** Local panel_height_px override — updates layout reactively (session-only). */
+    function handleHeightOverride(panelId: string, px: number | null) {
+        if (!layout) return;
+        layout = {
+            ...layout,
+            rows: layout.rows.map(row => ({
+                panels: row.panels.map(p => {
+                    if (p.panel_id !== panelId) return p;
+                    return {
+                        ...p,
+                        inference_result: {
+                            ...p.inference_result,
+                            panel_height_px: px ?? p.inference_result.panel_height_px,
+                        },
+                    };
+                }),
+            })),
+        };
+    }
+
     // ── Filter execution ───────────────────────────────────────────────────────
-    /**
-     * Re-execute only the panels that use `changedVar`, and only when all of
-     * the panel's $variables have values in `currentFV`.
-     * Other panels are left unchanged.
-     */
     async function executeFilteredPanels(
         changedVar: string,
         currentFV: Record<string, unknown>,
@@ -302,10 +428,8 @@
                 fc.variable.split(',').map(v => v.trim())
             );
 
-            // Only process panels that actually use changedVar
             if (!panelVars.includes(changedVar)) continue;
 
-            // Skip if any required variable is missing or empty
             const allProvided = panelVars.every(v => {
                 const val = currentFV[v];
                 return val !== undefined && val !== '' && val !== null;
@@ -323,7 +447,7 @@
                 updatedResults[i] = { panel_id: panelId, ...exec };
                 anyChanged = true;
             } catch {
-                // Keep existing result; don't propagate to avoid disrupting UX
+                // Keep existing result
             }
         }
 
@@ -339,7 +463,6 @@
     function handleFilterChange(varName: string, value: unknown) {
         filterValues.update(fv => ({ ...fv, [varName]: value }));
 
-        // Debounce to avoid re-executing on every keystroke (search / numeric)
         clearTimeout(filterDebounceTimer);
         filterDebounceTimer = window.setTimeout(() => {
             const currentFV = { ...$filterValues, [varName]: value };
@@ -358,9 +481,51 @@
 <div class="app-shell">
     <!-- App bar -->
     <header class="app-bar">
-        <span class="app-logo">SQLviz</span>
+        <div class="bar-left">
+            <span class="app-logo">SQLviz</span>
+
+            {#if activeDashboard}
+                <span class="dash-name" title={activeDashboard.name}>{activeDashboard.name}</span>
+            {/if}
+
+            {#if creatingDashboard}
+                <form
+                    class="new-dash-form"
+                    onsubmit={(e) => { e.preventDefault(); createDashboard(); }}
+                >
+                    <input
+                        class="new-dash-input"
+                        bind:value={newDashboardName}
+                        placeholder="Dashboard name"
+                        onkeydown={(e) => { if (e.key === 'Escape') cancelNewDashboard(); }}
+                        autofocus
+                    />
+                    <button type="submit" class="new-dash-confirm">Create</button>
+                    <button type="button" class="new-dash-cancel" onclick={cancelNewDashboard}>✕</button>
+                </form>
+            {:else}
+                <button
+                    class="new-dash-btn"
+                    onclick={() => { creatingDashboard = true; }}
+                    title="New dashboard"
+                >+ New</button>
+            {/if}
+        </div>
 
         <div class="bar-right">
+            <!-- Dashboard Score button (DOC6 §12.3, edit mode only) -->
+            {#if $editMode}
+                <button
+                    class="score-btn"
+                    class:active={showScorePanel}
+                    onclick={() => showScorePanel = !showScorePanel}
+                    title="Dashboard Score"
+                >
+                    Score{utilityPct != null ? `: ${utilityPct}` : ''}
+                    {showScorePanel ? '▼' : '▲'}
+                </button>
+            {/if}
+
             <div class="mode-toggle" role="group" aria-label="Dashboard mode">
                 <button
                     class="mode-btn"
@@ -383,68 +548,96 @@
         </div>
     </header>
 
-    <!-- Filter bar — visible in both Preview and Edit modes when panels have $variables -->
-    {#if hasFilters}
-        <FilterBar
-            controls={allFilterControls}
-            filterVals={$filterValues}
-            onChange={handleFilterChange}
-        />
-    {/if}
+    <!-- Body: sidebar + main content + optional score panel -->
+    <div class="app-body">
 
-    <!-- Editor section — hidden in Preview mode -->
-    {#if $editMode}
-        <div class="editor-section">
-            <div class="editor-toolbar">
-                <button class="run-btn" onclick={run} disabled={executing}>
-                    <span class="run-icon" class:spinning={executing}>▶</span>
-                    {executing ? (statusMsg ?? 'Running…') : 'Run'}
-                </button>
-                <kbd class="shortcut">Ctrl+Enter</kbd>
-
-                {#if errorMsg}
-                    <div class="error-chip" title={errorMsg}>
-                        <span>✕</span>
-                        <span class="error-text">{errorMsg}</span>
-                    </div>
-                {:else if executing && statusMsg && hasLayout}
-                    <span class="exec-inline">{statusMsg}</span>
-                {/if}
-            </div>
-
-            <div class="editor-wrapper">
-                <SQLEditor bind:value={sql} onRun={run} disabled={executing} {theme} />
-            </div>
-        </div>
-    {/if}
-
-    <!-- Dashboard area -->
-    <div class="dashboard-area" class:empty={!hasLayout && !executing}>
-        {#if executing && !hasLayout}
-            <div class="state-msg">
-                <span class="spinner">⟳</span>
-                <span>{statusMsg ?? 'Executing…'}</span>
-            </div>
-        {:else if !hasLayout}
-            <div class="empty-state">
-                <div class="empty-arrow">⬇</div>
-                <p>
-                    {$editMode
-                        ? 'Press Ctrl+Enter to run and see results here'
-                        : 'Switch to Edit mode to write SQL and create panels'}
-                </p>
-                {#if $editMode}
-                    <p class="hint">Separate multiple queries with <code>;</code> — each becomes a panel</p>
-                {/if}
-            </div>
-        {:else if layout}
-            <DashboardGrid
-                {layout}
-                onEditSQL={handleEditSQL}
-                onExplain={handleExplain}
-                onDelete={handleDelete}
+        <!-- Dynamic sidebar — appears when 2+ dashboards exist (DOC6 §12) -->
+        {#if showSidebar}
+            <DashboardSidebar
+                items={allDashboards}
+                activeId={dashboardId}
+                onSelect={loadDashboard}
             />
         {/if}
+
+        <!-- Main content column -->
+        <div class="app-main">
+            <!-- Filter bar — both modes when panels have $variables -->
+            {#if hasFilters}
+                <FilterBar
+                    controls={allFilterControls}
+                    filterVals={$filterValues}
+                    onChange={handleFilterChange}
+                />
+            {/if}
+
+            <!-- Editor section — hidden in Preview mode -->
+            {#if $editMode}
+                <div class="editor-section">
+                    <div class="editor-toolbar">
+                        <button class="run-btn" onclick={run} disabled={executing}>
+                            <span class="run-icon" class:spinning={executing}>▶</span>
+                            {executing ? (statusMsg ?? 'Running…') : 'Run'}
+                        </button>
+                        <kbd class="shortcut">Ctrl+Enter</kbd>
+
+                        {#if errorMsg}
+                            <div class="error-chip" title={errorMsg}>
+                                <span>✕</span>
+                                <span class="error-text">{errorMsg}</span>
+                            </div>
+                        {:else if executing && statusMsg && hasLayout}
+                            <span class="exec-inline">{statusMsg}</span>
+                        {/if}
+                    </div>
+
+                    <div class="editor-wrapper">
+                        <SQLEditor bind:value={sql} onRun={run} disabled={executing} {theme} />
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Dashboard area -->
+            <div class="dashboard-area" class:empty={!hasLayout && !executing}>
+                {#if executing && !hasLayout}
+                    <div class="state-msg">
+                        <span class="spinner">⟳</span>
+                        <span>{statusMsg ?? 'Executing…'}</span>
+                    </div>
+                {:else if !hasLayout}
+                    <div class="empty-state">
+                        <div class="empty-arrow">⬇</div>
+                        <p>
+                            {$editMode
+                                ? 'Press Ctrl+Enter to run and see results here'
+                                : 'Switch to Edit mode to write SQL and create panels'}
+                        </p>
+                        {#if $editMode}
+                            <p class="hint">Separate multiple queries with <code>;</code> — each becomes a panel</p>
+                        {/if}
+                    </div>
+                {:else if layout}
+                    <DashboardGrid
+                        {layout}
+                        onEditSQL={handleEditSQL}
+                        onExplain={handleExplain}
+                        onDelete={handleDelete}
+                        onChartOverride={handleChartOverride}
+                        onWidthOverride={handleWidthOverride}
+                        onHeightOverride={handleHeightOverride}
+                    />
+                {/if}
+            </div>
+        </div>
+
+        <!-- Dashboard Score Panel slide-in (DOC6 §12.3, edit mode only) -->
+        {#if $editMode && showScorePanel && layout}
+            <DashboardScorePanel
+                {layout}
+                onClose={() => showScorePanel = false}
+            />
+        {/if}
+
     </div>
 </div>
 
@@ -453,7 +646,7 @@
     <div class="toast" role="status" aria-live="polite">{toast}</div>
 {/if}
 
-<!-- Explainability drawer (Phase 5.6) — always mounted, visible when explainTarget is set -->
+<!-- Explainability drawer (Phase 5.6) -->
 <ExplainPanel />
 
 <style>
@@ -465,7 +658,7 @@
         overflow: hidden;
     }
 
-    /* ── App bar ──────────────────────────────────────────────── */
+    /* ── App bar ──────────────────────────────────────── */
     .app-bar {
         height: 48px;
         display: flex;
@@ -477,11 +670,104 @@
         flex-shrink: 0;
     }
 
+    .bar-left {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        min-width: 0;
+    }
+
     .app-logo {
         font-size: 1rem;
         font-weight: 700;
         color: var(--sqlviz-primary);
         letter-spacing: -0.02em;
+        flex-shrink: 0;
+    }
+
+    /* Active dashboard name */
+    .dash-name {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--sqlviz-text-muted);
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        border-left: 1px solid var(--sqlviz-border);
+        padding-left: 0.625rem;
+    }
+
+    /* New dashboard inline form */
+    .new-dash-form {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .new-dash-input {
+        height: 28px;
+        padding: 0 0.5rem;
+        background: var(--sqlviz-bg-base);
+        border: 1px solid var(--sqlviz-primary);
+        border-radius: var(--sqlviz-radius);
+        color: var(--sqlviz-text);
+        font-size: 0.8125rem;
+        outline: none;
+        width: 160px;
+    }
+
+    .new-dash-confirm {
+        height: 28px;
+        padding: 0 0.625rem;
+        background: var(--sqlviz-primary);
+        border: none;
+        border-radius: var(--sqlviz-radius);
+        color: #fff;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .new-dash-confirm:hover { filter: brightness(1.1); }
+
+    .new-dash-cancel {
+        height: 28px;
+        width: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: 1px solid var(--sqlviz-border);
+        border-radius: var(--sqlviz-radius);
+        color: var(--sqlviz-text-muted);
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: color 0.12s, border-color 0.12s;
+    }
+    .new-dash-cancel:hover {
+        color: var(--sqlviz-text);
+        border-color: var(--sqlviz-text-muted);
+    }
+
+    .new-dash-btn {
+        height: 28px;
+        padding: 0 0.625rem;
+        background: none;
+        border: 1px solid var(--sqlviz-border);
+        border-radius: var(--sqlviz-radius);
+        color: var(--sqlviz-text-muted);
+        font-size: 0.8125rem;
+        font-weight: 500;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: color 0.12s, border-color 0.12s, background 0.12s;
+        flex-shrink: 0;
+    }
+    .new-dash-btn:hover {
+        color: var(--sqlviz-primary);
+        border-color: var(--sqlviz-primary);
+        background: color-mix(in srgb, var(--sqlviz-primary) 8%, transparent);
     }
 
     .mode-toggle {
@@ -518,6 +804,25 @@
         gap: 0.5rem;
     }
 
+    /* Score button (DOC6 §12.3, edit mode) */
+    .score-btn {
+        padding: 0.25rem 0.75rem;
+        background: none;
+        border: 1px solid var(--sqlviz-border);
+        border-radius: var(--sqlviz-radius);
+        cursor: pointer;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--sqlviz-text-muted);
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+        white-space: nowrap;
+    }
+    .score-btn:hover, .score-btn.active {
+        background: var(--sqlviz-bg-base);
+        color: var(--sqlviz-text);
+        border-color: var(--sqlviz-primary);
+    }
+
     .theme-btn {
         width: 32px;
         height: 32px;
@@ -540,7 +845,25 @@
         border-color: var(--sqlviz-primary);
     }
 
-    /* ── Dashboard area ──────────────────────────────────────── */
+    /* ── App body: sidebar + main + score panel ──────── */
+    .app-body {
+        flex: 1;
+        display: flex;
+        flex-direction: row;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    /* ── Main content column ─────────────────────────── */
+    .app-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    /* ── Dashboard area ──────────────────────────────── */
     .dashboard-area {
         flex: 1;
         overflow-y: auto;
@@ -595,7 +918,7 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Editor section ──────────────────────────────────────── */
+    /* ── Editor section ──────────────────────────────── */
     .editor-section {
         height: 300px;
         flex-shrink: 0;
@@ -680,7 +1003,7 @@
         min-height: 0;
     }
 
-    /* ── Toast ───────────────────────────────────────────────── */
+    /* ── Toast ───────────────────────────────────────── */
     .toast {
         position: fixed;
         bottom: 1.25rem;

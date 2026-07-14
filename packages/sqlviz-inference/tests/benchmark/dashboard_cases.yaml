@@ -1,0 +1,290 @@
+# dashboard_cases.yaml — DOC10 Fase D
+# Multi-panel dashboard benchmark: 10 cases with expected DashboardRole
+# per panel and expected row placement constraints.
+#
+# Each case defines:
+#   panels: list of SQL + schema (same inputs as the gold benchmark)
+#   expected_roles: expected DashboardRole.role per panel_id
+#   layout_constraints: ordering invariants (e.g., kpi_before_others)
+
+cases:
+
+  # ── Case 1: Classic BI dashboard (KPI + Trend + Comparison) ──────────────
+  - id: dash_001
+    description: "3-panel BI starter: summary KPI, revenue trend, category comparison"
+    panels:
+      - panel_id: kpi_revenue
+        sql: "SELECT SUM(revenue) AS total_revenue FROM sales"
+        data: [{total_revenue: 450000}]
+        schema: [{name: total_revenue, type: DOUBLE}]
+      - panel_id: trend_monthly
+        sql: "SELECT month, SUM(revenue) FROM sales GROUP BY month ORDER BY month"
+        schema: [{name: month, type: DATE}, {name: revenue, type: DOUBLE}]
+      - panel_id: compare_region
+        sql: "SELECT region, SUM(revenue) FROM sales GROUP BY region"
+        schema: [{name: region, type: VARCHAR}, {name: revenue, type: DOUBLE}]
+    expected_roles:
+      kpi_revenue: resumen_ejecutivo
+      trend_monthly: historia_principal
+      compare_region: historia_principal
+    layout_constraints:
+      kpi_before_others: true
+
+  # ── Case 2: Sales KPI dashboard (2 KPIs + 1 Ranking) ────────────────────
+  - id: dash_002
+    description: "2 KPIs + 1 ranking: top-products below KPI shelf"
+    panels:
+      - panel_id: kpi_orders
+        sql: "SELECT COUNT(*) AS total_orders FROM orders"
+        data: [{total_orders: 3420}]
+        schema: [{name: total_orders, type: BIGINT}]
+      - panel_id: kpi_aov
+        sql: "SELECT AVG(order_value) AS avg_order FROM orders"
+        data: [{avg_order: 87.50}]
+        schema: [{name: avg_order, type: DOUBLE}]
+      - panel_id: rank_products
+        sql: "SELECT product, SUM(revenue) FROM sales GROUP BY product ORDER BY 2 DESC LIMIT 10"
+        schema: [{name: product, type: VARCHAR}, {name: revenue, type: DOUBLE}]
+    expected_roles:
+      kpi_orders: resumen_ejecutivo
+      kpi_aov: resumen_ejecutivo
+      rank_products: explicacion_secundaria
+    layout_constraints:
+      kpi_before_others: true
+
+  # ── Case 3: Marketing analytics (KPI + Line + Pie + Bar) ─────────────────
+  - id: dash_003
+    description: "4-panel marketing: 1 KPI, 1 trend, 1 composition, 1 comparison"
+    panels:
+      - panel_id: kpi_leads
+        sql: "SELECT COUNT(*) AS total_leads FROM leads"
+        data: [{total_leads: 1250}]
+        schema: [{name: total_leads, type: BIGINT}]
+      - panel_id: trend_signups
+        sql: "SELECT week, COUNT(*) FROM signups GROUP BY week ORDER BY week"
+        schema: [{name: week, type: DATE}, {name: count, type: BIGINT}]
+      - panel_id: pie_channels
+        sql: "SELECT channel, COUNT(*) FROM leads GROUP BY channel"
+        data:
+          - {channel: "Organic", count: 600}
+          - {channel: "Paid", count: 400}
+          - {channel: "Referral", count: 250}
+        schema: [{name: channel, type: VARCHAR}, {name: count, type: BIGINT}]
+      - panel_id: bar_campaign
+        sql: "SELECT campaign, SUM(conversions) FROM leads GROUP BY campaign"
+        schema: [{name: campaign, type: VARCHAR}, {name: conversions, type: BIGINT}]
+    expected_roles:
+      kpi_leads: resumen_ejecutivo
+      trend_signups: historia_principal
+      pie_channels: explicacion_secundaria
+      bar_campaign: historia_principal
+    layout_constraints:
+      kpi_before_others: true
+
+  # ── Case 4: Operations dashboard (2 KPIs + Trend + Histogram) ────────────
+  - id: dash_004
+    description: "Operations: 2 KPIs + SLA trend + delivery time distribution"
+    panels:
+      - panel_id: kpi_deliveries
+        sql: "SELECT COUNT(*) AS deliveries FROM orders WHERE delivered=1"
+        data: [{deliveries: 892}]
+        schema: [{name: deliveries, type: BIGINT}]
+      - panel_id: kpi_on_time
+        sql: "SELECT AVG(on_time_rate) AS avg_rate FROM sla_metrics"
+        data: [{avg_rate: 0.94}]
+        schema: [{name: avg_rate, type: DOUBLE}]
+      - panel_id: trend_sla
+        sql: "SELECT week, AVG(on_time_rate) FROM sla_metrics GROUP BY week ORDER BY week"
+        schema: [{name: week, type: DATE}, {name: on_time_rate, type: DOUBLE}]
+      - panel_id: dist_delivery_time
+        sql: "SELECT delivery_time_hours FROM orders"
+        schema: [{name: delivery_time_hours, type: DOUBLE}]
+    expected_roles:
+      kpi_deliveries: resumen_ejecutivo
+      kpi_on_time: resumen_ejecutivo
+      trend_sla: historia_principal
+      dist_delivery_time: diagnostico
+    layout_constraints:
+      kpi_before_others: true
+
+  # ── Case 5: Product analytics (no KPI — all narrative panels) ────────────
+  - id: dash_005
+    description: "Product: 3 narrative panels, no KPI summary"
+    panels:
+      - panel_id: trend_dau
+        sql: "SELECT date, COUNT(DISTINCT user_id) FROM sessions GROUP BY date ORDER BY date"
+        schema: [{name: date, type: DATE}, {name: user_count, type: BIGINT}]
+      - panel_id: rank_features
+        sql: "SELECT feature, COUNT(*) FROM usage_events GROUP BY feature ORDER BY 2 DESC LIMIT 10"
+        schema: [{name: feature, type: VARCHAR}, {name: count, type: BIGINT}]
+      - panel_id: scatter_retention
+        sql: "SELECT session_count, revenue_per_user FROM user_cohorts"
+        schema: [{name: session_count, type: INTEGER}, {name: revenue_per_user, type: DOUBLE}]
+    expected_roles:
+      trend_dau: historia_principal
+      rank_features: explicacion_secundaria
+      scatter_retention: diagnostico
+    layout_constraints:
+      kpi_before_others: false
+
+  # ── Case 6: Finance dashboard (3 KPIs + Line + Ranking) ──────────────────
+  - id: dash_006
+    description: "Finance: 3 KPIs in shelf + trend + top entities"
+    panels:
+      - panel_id: kpi_revenue
+        sql: "SELECT SUM(revenue) AS total FROM transactions"
+        data: [{total: 1200000}]
+        schema: [{name: total, type: DOUBLE}]
+      - panel_id: kpi_expenses
+        sql: "SELECT SUM(amount) AS expenses FROM expenses"
+        data: [{expenses: 800000}]
+        schema: [{name: expenses, type: DOUBLE}]
+      - panel_id: kpi_margin
+        sql: "SELECT AVG(margin_pct) AS avg_margin FROM transactions"
+        data: [{avg_margin: 0.33}]
+        schema: [{name: avg_margin, type: DOUBLE}]
+      - panel_id: trend_revenue
+        sql: "SELECT month, SUM(revenue) FROM transactions GROUP BY month ORDER BY month"
+        schema: [{name: month, type: DATE}, {name: revenue, type: DOUBLE}]
+      - panel_id: rank_customers
+        sql: "SELECT customer, SUM(revenue) FROM transactions GROUP BY customer ORDER BY 2 DESC LIMIT 10"
+        schema: [{name: customer, type: VARCHAR}, {name: revenue, type: DOUBLE}]
+    expected_roles:
+      kpi_revenue: resumen_ejecutivo
+      kpi_expenses: resumen_ejecutivo
+      kpi_margin: resumen_ejecutivo
+      trend_revenue: historia_principal
+      rank_customers: explicacion_secundaria
+    layout_constraints:
+      kpi_before_others: true
+
+  # ── Case 7: HR analytics (KPI + Comparison + Histogram + Table) ──────────
+  - id: dash_007
+    description: "HR: headcount KPI + department comparison + salary distribution + detail"
+    panels:
+      - panel_id: kpi_headcount
+        sql: "SELECT COUNT(*) AS headcount FROM employees"
+        data: [{headcount: 342}]
+        schema: [{name: headcount, type: BIGINT}]
+      - panel_id: bar_dept
+        sql: "SELECT department, COUNT(*) FROM employees GROUP BY department"
+        schema: [{name: department, type: VARCHAR}, {name: count, type: BIGINT}]
+      - panel_id: hist_salary
+        sql: "SELECT salary FROM employees"
+        schema: [{name: salary, type: DOUBLE}]
+      - panel_id: table_new_hires
+        sql: "SELECT id, name, start_date, department, title FROM employees WHERE start_date > '2025-01-01'"
+        schema:
+          - {name: id, type: INTEGER}
+          - {name: name, type: VARCHAR}
+          - {name: start_date, type: DATE}
+          - {name: department, type: VARCHAR}
+          - {name: title, type: VARCHAR}
+    expected_roles:
+      kpi_headcount: resumen_ejecutivo
+      bar_dept: historia_principal
+      hist_salary: diagnostico
+      table_new_hires: tabla_de_detalle
+    layout_constraints:
+      kpi_before_others: true
+
+  # ── Case 8: E-commerce (4 KPIs + Trend + Ranking) ────────────────────────
+  - id: dash_008
+    description: "E-commerce: 4 KPIs in shelf + monthly trend + top products"
+    panels:
+      - panel_id: kpi_gmv
+        sql: "SELECT SUM(gmv) AS total_gmv FROM orders"
+        data: [{total_gmv: 280000}]
+        schema: [{name: total_gmv, type: DOUBLE}]
+      - panel_id: kpi_orders
+        sql: "SELECT COUNT(*) AS orders FROM orders"
+        data: [{orders: 5200}]
+        schema: [{name: orders, type: BIGINT}]
+      - panel_id: kpi_aov
+        sql: "SELECT AVG(order_value) AS aov FROM orders"
+        data: [{aov: 53.8}]
+        schema: [{name: aov, type: DOUBLE}]
+      - panel_id: kpi_returns
+        sql: "SELECT COUNT(*) AS returns FROM returns"
+        data: [{returns: 312}]
+        schema: [{name: returns, type: BIGINT}]
+      - panel_id: trend_gmv
+        sql: "SELECT month, SUM(gmv) FROM orders GROUP BY month ORDER BY month"
+        schema: [{name: month, type: DATE}, {name: gmv, type: DOUBLE}]
+      - panel_id: rank_products
+        sql: "SELECT product_name, SUM(quantity) FROM order_items GROUP BY product_name ORDER BY 2 DESC LIMIT 10"
+        schema: [{name: product_name, type: VARCHAR}, {name: quantity, type: BIGINT}]
+    expected_roles:
+      kpi_gmv: resumen_ejecutivo
+      kpi_orders: resumen_ejecutivo
+      kpi_aov: resumen_ejecutivo
+      kpi_returns: resumen_ejecutivo
+      trend_gmv: historia_principal
+      rank_products: explicacion_secundaria
+    layout_constraints:
+      kpi_before_others: true
+
+  # ── Case 9: Scatter + Histogram + Detail (no KPI, all diagnostic) ────────
+  - id: dash_009
+    description: "Data science view: correlation + distribution + raw data"
+    panels:
+      - panel_id: scatter_corr
+        sql: "SELECT price, quantity FROM products"
+        schema: [{name: price, type: DOUBLE}, {name: quantity, type: INTEGER}]
+      - panel_id: hist_price
+        sql: "SELECT price FROM products"
+        schema: [{name: price, type: DOUBLE}]
+      - panel_id: table_products
+        sql: "SELECT id, name, price, category FROM products"
+        schema:
+          - {name: id, type: INTEGER}
+          - {name: name, type: VARCHAR}
+          - {name: price, type: DOUBLE}
+          - {name: category, type: VARCHAR}
+    expected_roles:
+      scatter_corr: diagnostico
+      hist_price: diagnostico
+      table_products: tabla_de_detalle
+    layout_constraints:
+      kpi_before_others: false
+
+  # ── Case 10: 6-panel full dashboard (all roles present) ──────────────────
+  - id: dash_010
+    description: "Full 6-panel: all 5 roles covered except control"
+    panels:
+      - panel_id: kpi_total
+        sql: "SELECT SUM(revenue) AS total FROM sales"
+        data: [{total: 900000}]
+        schema: [{name: total, type: DOUBLE}]
+      - panel_id: trend_main
+        sql: "SELECT month, SUM(revenue) FROM sales GROUP BY month ORDER BY month"
+        schema: [{name: month, type: DATE}, {name: revenue, type: DOUBLE}]
+      - panel_id: rank_secondary
+        sql: "SELECT product, SUM(revenue) FROM sales GROUP BY product ORDER BY 2 DESC LIMIT 10"
+        schema: [{name: product, type: VARCHAR}, {name: revenue, type: DOUBLE}]
+      - panel_id: pie_composition
+        sql: "SELECT category, COUNT(*) FROM products GROUP BY category"
+        data:
+          - {category: "Electronics", count: 500}
+          - {category: "Clothing", count: 300}
+          - {category: "Food", count: 200}
+        schema: [{name: category, type: VARCHAR}, {name: count, type: BIGINT}]
+      - panel_id: hist_diagnostic
+        sql: "SELECT order_value FROM orders"
+        schema: [{name: order_value, type: DOUBLE}]
+      - panel_id: table_detail
+        sql: "SELECT order_id, customer_name, total, status FROM orders"
+        schema:
+          - {name: order_id, type: INTEGER}
+          - {name: customer_name, type: VARCHAR}
+          - {name: total, type: DOUBLE}
+          - {name: status, type: VARCHAR}
+    expected_roles:
+      kpi_total: resumen_ejecutivo
+      trend_main: historia_principal
+      rank_secondary: explicacion_secundaria
+      pie_composition: explicacion_secundaria
+      hist_diagnostic: diagnostico
+      table_detail: tabla_de_detalle
+    layout_constraints:
+      kpi_before_others: true

@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .context import RuntimeContext
+
+if TYPE_CHECKING:
+    from .contracts.explanation import Explanation
+    from .contracts.layout import DashboardRole, LayoutDeclaration
+    from .profile.data_profile import DataProfile
+    from .spec.visual_spec import VisualSpec
 
 
 @dataclass
@@ -66,6 +72,17 @@ class InferenceResult:
     # ── Diagnostics ───────────────────────────────────────────
     errors: list[str]
     elapsed_ms: float
+
+    # ── V0.2 Fase 0 — new contracts (Optional for backwards compat) ───────
+    data_profile: DataProfile | None = None
+    visual_spec: VisualSpec | None = None
+
+    # ── V0.2 Fase D — layout declaration + dashboard role ─────────────────
+    layout_declaration: LayoutDeclaration | None = None
+    dashboard_role: DashboardRole | None = None
+
+    # ── V0.2 Fase F — ExplanationEngine V2 ───────────────────────────────
+    explanation_v2: Explanation | None = None
 
     @classmethod
     def from_context(cls, context: RuntimeContext) -> InferenceResult:
@@ -147,6 +164,14 @@ class InferenceResult:
             elapsed_ms=float(
                 context.score_trace.get("pipeline", {}).get("elapsed_ms", 0.0)
             ),
+
+            data_profile=context.data_profile,
+            visual_spec=context.visual_spec,
+
+            layout_declaration=context.layout_declaration,
+            dashboard_role=context.dashboard_role,
+
+            explanation_v2=context.explanation_v2,
         )
 
     def to_dict(self) -> dict[str, Any]:

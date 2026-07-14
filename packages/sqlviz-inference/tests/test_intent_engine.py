@@ -261,7 +261,9 @@ class TestFunnelIntent:
         assert ctx.intent_winner == "funnel"
 
     def test_monotonic_decreasing_funnel_d2(self) -> None:
-        """§16.29: no CASE WHEN, ORDER BY ASC step order, monotonic data → funnel."""
+        """§FASE_G: no CASE WHEN → comparison wins even with monotone data.
+        Policy: CASE WHEN is required for funnel; monotone data alone is insufficient
+        (would false-positive on age buckets, salary distributions, etc.)."""
         ctx = infer_intent(
             sql="SELECT step, COUNT(*) FROM events GROUP BY step ORDER BY MIN(step_order)",
             schema_defs=[("step", "VARCHAR"), ("count", "BIGINT")],
@@ -273,8 +275,7 @@ class TestFunnelIntent:
                 {"step": "Repeat",   "count": 90},
             ],
         )
-        assert ctx.intent_winner == "funnel"
-        assert ctx.intent_raw_score > 0.90
+        assert ctx.intent_winner == "comparison"
 
     def test_comparison_wins_no_case_when_order_by_desc(self) -> None:
         """§16.29 guard: no CASE WHEN + ORDER BY DESC → comparison, not funnel."""

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import warnings
+from typing import Any
 
 from sqlviz_core.models import ColumnSchema
 
@@ -24,31 +25,26 @@ def infer(
     sql: str,
     data: list[dict[str, object]] | None = None,
     schema: list[ColumnSchema] | None = None,
+    brain_conn: Any = None,
 ) -> InferenceResult:
     """
     The single public function of the Inference Engine.
 
     Args:
-        sql:    SQL query string to analyze
-        data:   Optional — query result rows (list of dicts).
-                If not provided, data statistics default to 0.0.
-        schema: Optional — column schema (list of ColumnSchema or dicts).
-                If not provided, column features default to 0.0.
+        sql:        SQL query string to analyze
+        data:       Optional — query result rows (list of dicts).
+        schema:     Optional — column schema (list of ColumnSchema).
+        brain_conn: Optional — open brain.duckdb connection for learned
+                    override consultation (Fase E, DOC10 §6.14).
 
     Returns:
         InferenceResult — complete inference output
-
-    Example:
-        result = infer(
-            sql="SELECT month, SUM(revenue) FROM sales GROUP BY month",
-        )
-        assert result.chart_winner  == "line"
-        assert result.intent_winner == "trend"
     """
     context = RuntimeContext(
         sql=sql,
         data=data or [],
         schema=schema or [],
+        brain_conn=brain_conn,
     )
     context = _pipeline.run(context)
     return InferenceResult.from_context(context)

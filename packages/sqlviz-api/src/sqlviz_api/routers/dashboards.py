@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -13,7 +14,8 @@ from sqlviz_api.models import DashboardCreate, DashboardResponse, DashboardUpdat
 router = APIRouter(prefix="/api/v1/dashboards", tags=["dashboards"])
 
 _SELECT = (
-    "SELECT id, name, folder_id, connection_id, sort_order, created_at, updated_at "
+    "SELECT id, name, folder_id, connection_id, sort_order, created_at, updated_at,"
+    " dashboard_hint, dashboard_domain "
     "FROM dashboards"
 )
 
@@ -22,9 +24,7 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def _row_to_response(
-    row: tuple[str, str, str | None, str | None, int, str, str]
-) -> DashboardResponse:
+def _row_to_response(row: tuple[Any, ...]) -> DashboardResponse:
     return DashboardResponse(
         id=row[0],
         name=row[1],
@@ -33,6 +33,8 @@ def _row_to_response(
         sort_order=row[4],
         created_at=row[5],
         updated_at=row[6],
+        dashboard_hint=row[7],
+        dashboard_domain=row[8],
     )
 
 

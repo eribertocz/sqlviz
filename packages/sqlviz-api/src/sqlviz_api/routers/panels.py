@@ -21,9 +21,17 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlviz_core.models import ColumnSchema
+from sqlviz_inference.dashboard.dashboard_classifier import classify_dashboard
+from sqlviz_storage.brain_db import get_brain_connection
+from sqlviz_storage.override_system import apply_override, store_inference
 
 from sqlviz_api.dependencies import DbDep
-from sqlviz_api.models import PanelCreate, PanelResponse, PanelUpdate
+from sqlviz_api.models import (
+    PanelCreate,
+    PanelOverrideRequest,
+    PanelResponse,
+    PanelUpdate,
+)
 from sqlviz_api.serialization import json_safe
 
 _VARIABLE_RE = re.compile(r"\$(\w+)")
@@ -35,7 +43,11 @@ class ExecuteBody(BaseModel):
 router = APIRouter(prefix="/api/v1/panels", tags=["panels"])
 
 _SELECT = (
-    "SELECT id, dashboard_id, name, sql_content, sort_order, created_at, updated_at "
+    "SELECT id, dashboard_id, name, sql_content, sort_order, created_at, updated_at,"
+    " fingerprint,"
+    " inferred_chart_type, selected_chart_type, chart_user_override,"
+    " inferred_col_span,   selected_col_span,   col_span_user_override,"
+    " inferred_height_px,  selected_height_px,  height_user_override "
     "FROM panels"
 )
 
@@ -45,9 +57,7 @@ def _now() -> str:
 
 
 
-def _row_to_response(
-    row: tuple[str, str, str, str, int, str, str]
-) -> PanelResponse:
+def _row_to_response(row: tuple[Any, ...]) -> PanelResponse:
     return PanelResponse(
         id=row[0],
         dashboard_id=row[1],
@@ -56,6 +66,16 @@ def _row_to_response(
         sort_order=row[4],
         created_at=row[5],
         updated_at=row[6],
+        fingerprint=row[7],
+        inferred_chart_type=row[8],
+        selected_chart_type=row[9],
+        chart_user_override=row[10],
+        inferred_col_span=row[11],
+        selected_col_span=row[12],
+        col_span_user_override=row[13],
+        inferred_height_px=row[14],
+        selected_height_px=row[15],
+        height_user_override=row[16],
     )
 
 
@@ -152,6 +172,48 @@ def delete_panel(panel_id: str, db: DbDep) -> None:
     db.execute("DELETE FROM panels WHERE id = ?", [panel_id])
 
 
+def _update_dashboard_classification(
+    db: DbDep,
+    panel_id: str,
+    col_names: list[str],
+) -> None:
+    """Classify the parent dashboard from all its executed panels.
+
+    Runs after every successful panel execution so the sidebar icon stays
+    current.  Errors are swallowed — classification is best-effort.
+    """
+    try:
+        row = db.execute(
+            "SELECT dashboard_id FROM panels WHERE id = ?", [panel_id]
+        ).fetchone()
+        if not row:
+            return
+        dashboard_id: str = row[0]
+
+        # Collect intent_winner for all panels that have been executed.
+        panel_rows = db.execute(
+            "SELECT inferred_intent_type, sql_content "
+            "FROM panels WHERE dashboard_id = ? AND inferred_intent_type IS NOT NULL",
+            [dashboard_id],
+        ).fetchall()
+
+        panel_intents = [r[0] for r in panel_rows]
+        all_sql = " ".join(r[1] or "" for r in panel_rows)
+
+        if not panel_intents:
+            return
+
+        classification = classify_dashboard(panel_intents, col_names, all_sql)
+        db.execute(
+            "UPDATE dashboards "
+            "SET dashboard_hint = ?, dashboard_domain = ?, updated_at = ? "
+            "WHERE id = ?",
+            [classification.hint, classification.domain, _now(), dashboard_id],
+        )
+    except Exception:
+        pass  # classification is non-critical; never block the execute response
+
+
 @router.post("/{panel_id}/execute")
 def execute_panel(
     panel_id: str,
@@ -174,10 +236,12 @@ def execute_panel(
     sql = panel.sql_content
     variables: dict[str, Any] = body.variables if body else {}
 
+    brain = get_brain_connection()
+
     # If SQL has $params but no values are provided, run inference-only so the
     # frontend can display the filter bar before any data is fetched.
     if _VARIABLE_RE.search(sql) and not variables:
-        result = sqlviz_inference.infer(sql)
+        result = sqlviz_inference.infer(sql, brain_conn=brain)
         result = dataclasses.replace(
             result,
             fallback_applied=True,
@@ -191,7 +255,7 @@ def execute_panel(
         else:
             db.execute(sql)
     except duckdb.ParserException:
-        result = sqlviz_inference.infer(sql)
+        result = sqlviz_inference.infer(sql, brain_conn=brain)
         result = dataclasses.replace(
             result,
             fallback_applied=True,
@@ -213,5 +277,48 @@ def execute_panel(
     ]
     schema = [ColumnSchema(name=str(d[0]), type=str(d[1])) for d in desc]
 
-    result = sqlviz_inference.infer(sql, data=data, schema=schema)
+    result = sqlviz_inference.infer(sql, data=data, schema=schema, brain_conn=brain)
+
+    # Persist inferred values to panels table (never overwrites existing overrides)
+    store_inference(
+        db,
+        panel_id=panel_id,
+        fingerprint=result.fingerprint,
+        chart_type=result.chart_winner,
+        col_span=result.col_span,
+        height_px=result.panel_height_px,
+        intent_type=result.intent_winner,
+    )
+
+    # Re-classify the parent dashboard from all its executed panels.
+    _update_dashboard_classification(db, panel_id, col_names)
+
     return JSONResponse(content={"inference_result": result.to_dict(), "data": data})
+
+
+@router.patch("/{panel_id}/override", response_model=PanelResponse)
+def override_panel(
+    panel_id: str,
+    body: PanelOverrideRequest,
+    db: DbDep,
+) -> PanelResponse:
+    """Apply a user correction to a panel's inferred field.
+
+    Writes selected_* and *_user_override in the .sqlviz file.
+    Persists the pattern to brain.duckdb so future executions of the
+    same SQL fingerprint return the user-preferred value.
+
+    field_name: "chart_type" | "col_span" | "height_px"
+    user_value: the corrected value (always a string; cast in OverrideSystem)
+
+    Returns the updated PanelResponse.
+    """
+    _fetch_one(db, panel_id)  # raises 404 if missing
+    brain = get_brain_connection()
+    try:
+        apply_override(db, brain, panel_id, body.field_name, body.user_value)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return _fetch_one(db, panel_id)

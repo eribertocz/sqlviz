@@ -1,4 +1,21 @@
 /**
+ * Mirror of VisualSpec (spec/visual_spec.py).
+ * Complete render contract delivered by the backend.
+ * EChartsRenderer reads exclusively from this — it infers nothing.
+ */
+export interface VisualSpec {
+    chart_type: string;
+    x_field: string | null;
+    y_fields: string[];
+    orientation: 'vertical' | 'horizontal' | 'none';
+    sort_order: 'asc' | 'desc' | 'none';
+    color_field: string | null;
+    stack: boolean;
+    number_format: 'default' | 'percent' | 'currency';
+    tooltip_fields: string[];
+}
+
+/**
  * Mirror of FilterControl (filters/filter_engine.py).
  * Populated by the inference pipeline whenever the SQL contains $variables.
  * For range controls (date_range_picker, range_slider), `variable` is
@@ -80,6 +97,27 @@ export interface InferenceResult {
     // Diagnostics
     errors: string[];
     elapsed_ms: number;
+
+    // V0.2 Fase 0 — render contracts
+    data_profile: Record<string, unknown> | null;
+    visual_spec: VisualSpec | null;
+
+    // V0.2 UI — Cognitive Dashboard Compiler (DOC6 §12)
+    // Optional: populated by V0.2 ScoringModel backend; absent in V0.1 API.
+    chart_scores?: Record<string, {
+        pct: number;
+        breakdown?: {
+            semantic_fit: number;
+            readability: number;
+            perceptual_accuracy: number;
+            cognitive_load: number;
+            task_fit: number;
+        };
+    }>;
+    layout_constraints?: {
+        min_width: number;
+        max_height_px: number;
+    };
 }
 
 /** Mirror of DashboardPanel (dashboard_engine.py) plus query result data. */
@@ -100,4 +138,25 @@ export interface DashboardRow {
 /** Mirror of DashboardLayout (dashboard_engine.py, DOC5 §15.4). */
 export interface DashboardLayout {
     rows: DashboardRow[];
+
+    // V0.2 UI — Dashboard Score Panel (DOC6 §12.3)
+    // Optional: populated by V0.2 DashboardObjective backend; absent in V0.1 API.
+    utility_score?: number;
+    utility_breakdown?: Record<string, number>;
+    suggestions?: Array<{
+        panel_id: string;
+        panel_label?: string;
+        suggestion: string;
+        score_impact: number;
+        action: Record<string, unknown>;
+    }>;
+}
+
+/** Mirror of DashboardResponse from /api/v1/dashboards. */
+export interface DashboardInfo {
+    id: string;
+    name: string;
+    sort_order: number;
+    dashboard_hint: string | null;
+    dashboard_domain: string | null;
 }

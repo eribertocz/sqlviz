@@ -777,3 +777,225 @@ cases:
       Chart: ORDER BY DESC gives has_order_by_desc=1 → ranking raw=0.70 → bar_horizontal gets
       ranking×0.95 affinity boost → bar_horizontal (1.525) > bar (1.415). Both are semantically
       valid for funnels; bar_horizontal reflects the descending order signal.
+
+  # ── Fase G adversarial (10 cases) — Doctoral benchmark extension ──────────
+  # DOC10 §Fase G — boundary confusions for 8 patterns; 6 PASS + 4 BUG/FAIL.
+  # 4 failing cases (BUG §FASE_G) are within the 90% accuracy gate.
+
+  # G1: YYYYMM fused token — engine limitation
+  - id: adv_g_001
+    description: "yearmonth (fused, no underscore) — comparison not trend (V0 limitation)"
+    sql: "SELECT yearmonth, SUM(sales) AS total_sales FROM monthly GROUP BY yearmonth ORDER BY yearmonth"
+    schema:
+      - {name: yearmonth, type: INTEGER}
+      - {name: total_sales, type: DOUBLE}
+    data:
+      - {yearmonth: 202401, total_sales: 85000}
+      - {yearmonth: 202402, total_sales: 92000}
+      - {yearmonth: 202403, total_sales: 88000}
+      - {yearmonth: 202404, total_sales: 97000}
+      - {yearmonth: 202405, total_sales: 103000}
+      - {yearmonth: 202406, total_sales: 98000}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: low
+    reason: "V0 limitation: 'yearmonth' is ONE token (no underscore split) → not in temporal exact list → temporal NOT detected. Contrast with 'year_month' (splits to {year, month} → both in TEMPORAL_DIMENSION.contains → trend). Engine correctly gives comparison/bar for what it sees as integer GROUP BY."
+
+  # G2: High cardinality → comparison not pie
+  - id: adv_g_002
+    description: "7 categories — comparison/bar (pie soft-penalized at 5-7, hard rule fires above 7)"
+    sql: "SELECT region, SUM(revenue) AS total FROM sales GROUP BY region"
+    schema:
+      - {name: region,  type: VARCHAR}
+      - {name: revenue, type: DOUBLE}
+    data:
+      - {region: "Norte",    revenue: 120000}
+      - {region: "Sur",      revenue: 95000}
+      - {region: "Este",     revenue: 108000}
+      - {region: "Oeste",    revenue: 87000}
+      - {region: "Centro",   revenue: 142000}
+      - {region: "Noroeste", revenue: 73000}
+      - {region: "Sureste",  revenue: 65000}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "7 distinct regions — cardinality 7 is AT the threshold (pie_high_cardinality hard rule fires at >7, not at =7). Soft penalty fires for 5-7 range → chart affinity for pie drops. Comparison wins with bar."
+
+  # G3: _rate column prevents scatter
+  - id: adv_g_003
+    description: "conversion_rate + impressions — scatter eliminated by _rate suffix → percentage role"
+    sql: "SELECT conversion_rate, impressions FROM campaign_metrics"
+    schema:
+      - {name: conversion_rate, type: DOUBLE}
+      - {name: impressions,     type: BIGINT}
+    data:
+      - {conversion_rate: 0.06, impressions: 1000}
+      - {conversion_rate: 0.07, impressions: 1200}
+      - {conversion_rate: 0.08, impressions: 1400}
+      - {conversion_rate: 0.09, impressions: 1600}
+      - {conversion_rate: 0.10, impressions: 1800}
+      - {conversion_rate: 0.11, impressions: 2000}
+      - {conversion_rate: 0.12, impressions: 2200}
+      - {conversion_rate: 0.13, impressions: 2400}
+      - {conversion_rate: 0.09, impressions: 2600}
+      - {conversion_rate: 0.10, impressions: 2800}
+      - {conversion_rate: 0.11, impressions: 3000}
+      - {conversion_rate: 0.12, impressions: 3200}
+      - {conversion_rate: 0.13, impressions: 3400}
+      - {conversion_rate: 0.14, impressions: 3600}
+      - {conversion_rate: 0.10, impressions: 3800}
+      - {conversion_rate: 0.11, impressions: 4000}
+      - {conversion_rate: 0.12, impressions: 4200}
+      - {conversion_rate: 0.13, impressions: 4400}
+      - {conversion_rate: 0.14, impressions: 4600}
+      - {conversion_rate: 0.15, impressions: 4800}
+    expected_intent: correlation
+    expected_chart: histogram
+    expected_quality_min: low
+    reason: "conversion_rate ends in _rate → ColumnRoleDetector priority 5 (percentage) fires before metric → only 1 metric (impressions) remains → scatter_insufficient_metrics hard rule fires → scatter eliminated → correlation intent but histogram chart as fallback"
+
+  # G4: AVG + 2 numeric + GROUP BY → comparison not scatter
+  - id: adv_g_004
+    description: "AVG of 2 numeric cols with GROUP BY — comparison not scatter"
+    sql: "SELECT product, AVG(price) AS avg_price, AVG(rating) AS avg_rating FROM catalog GROUP BY product"
+    schema:
+      - {name: product,    type: VARCHAR}
+      - {name: avg_price,  type: DOUBLE}
+      - {name: avg_rating, type: DOUBLE}
+    data:
+      - {product: "Alpha",   avg_price: 29.99, avg_rating: 4.2}
+      - {product: "Beta",    avg_price: 49.99, avg_rating: 3.8}
+      - {product: "Gamma",   avg_price: 19.99, avg_rating: 4.5}
+      - {product: "Delta",   avg_price: 79.99, avg_rating: 3.6}
+      - {product: "Epsilon", avg_price: 34.99, avg_rating: 4.1}
+      - {product: "Zeta",    avg_price: 59.99, avg_rating: 3.9}
+      - {product: "Eta",     avg_price: 24.99, avg_rating: 4.3}
+      - {product: "Theta",   avg_price: 44.99, avg_rating: 4.0}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "GROUP BY + has_aggregation → correlation has_aggregation penalty (0.40) fires → correlation drops significantly despite 2 numeric columns → comparison wins"
+
+  # G5: Percentages not summing to 100 with GROUP BY → comparison
+  - id: adv_g_005
+    description: "5 channel avg conversion rates — comparison not composition (rates don't sum to 100)"
+    sql: "SELECT canal, AVG(tasa_conversion) AS promedio FROM metricas_canal GROUP BY canal"
+    schema:
+      - {name: canal,    type: VARCHAR}
+      - {name: promedio, type: DOUBLE}
+    data:
+      - {canal: "Email",     promedio: 0.118}
+      - {canal: "Social",    promedio: 0.087}
+      - {canal: "Pago",      promedio: 0.154}
+      - {canal: "Organico",  promedio: 0.063}
+      - {canal: "Afiliados", promedio: 0.109}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: medium
+    reason: "5 channels with AVG conversion rates not summing to 100 — has_avg penalty (0.25) suppresses composition → cardinality 5 > 3 → low_cardinality off → comparison wins"
+
+  # G6: 3-stage CASE WHEN funnel → low_cardinality trap (BUG)
+  - id: adv_g_006
+    description: "3-stage CASE WHEN funnel — composition/pie fires due to low cardinality (engine bug)"
+    sql: "SELECT CASE WHEN step=1 THEN 'Visita' WHEN step=2 THEN 'Registro' ELSE 'Compra' END AS etapa, COUNT(*) AS usuarios FROM journey GROUP BY 1"
+    schema:
+      - {name: etapa,    type: VARCHAR}
+      - {name: usuarios, type: BIGINT}
+    data:
+      - {etapa: "Visita",    usuarios: 8000}
+      - {etapa: "Registro",  usuarios: 3000}
+      - {etapa: "Compra",    usuarios: 1200}
+    expected_intent: funnel
+    expected_chart: bar
+    expected_quality_min: low
+    reason: "BUG §FASE_G: exactly 3 funnel stages → estimated_distinct=3 → low_cardinality fires (≤3 threshold) → composition gets large boost → composition/pie beats funnel intent despite CASE WHEN. Correct answer is funnel/bar. Fix (Fase H): add funnel minimum score when has_case_when=1 and n_stages ≤ 4."
+
+  # G7: ID + metric pair → wrong intent (BUG)
+  - id: adv_g_007
+    description: "customer_id + total_revenue — expected detail/table, engine gives correlation/histogram"
+    sql: "SELECT customer_id, total_revenue FROM customers"
+    schema:
+      - {name: customer_id,   type: INTEGER}
+      - {name: total_revenue, type: DOUBLE}
+    data:
+      - {customer_id: 1001, total_revenue: 450}
+      - {customer_id: 1002, total_revenue: 820}
+      - {customer_id: 1003, total_revenue: 310}
+      - {customer_id: 1004, total_revenue: 990}
+      - {customer_id: 1005, total_revenue: 640}
+      - {customer_id: 1006, total_revenue: 275}
+      - {customer_id: 1007, total_revenue: 1120}
+      - {customer_id: 1008, total_revenue: 530}
+      - {customer_id: 1009, total_revenue: 890}
+      - {customer_id: 1010, total_revenue: 420}
+      - {customer_id: 1011, total_revenue: 760}
+      - {customer_id: 1012, total_revenue: 340}
+      - {customer_id: 1013, total_revenue: 680}
+      - {customer_id: 1014, total_revenue: 510}
+      - {customer_id: 1015, total_revenue: 930}
+    expected_intent: detail
+    expected_chart: table
+    expected_quality_min: low
+    reason: "BUG §FASE_G: customer_id (INTEGER _id suffix) → ID role → not metric → scatter_insufficient_metrics fires → correlation falls back to histogram. Correct answer is detail/table (raw entity+metric records without GROUP BY or LIMIT) but engine does not detect 'ID+metric raw data' as a detail signal."
+
+  # G8: Pre-computed bucket table without GROUP BY → histogram (BUG)
+  - id: adv_g_008
+    description: "Pre-computed age bucket table without GROUP BY — expected comparison/bar, actual histogram"
+    sql: "SELECT rango_edad, total_usuarios FROM demo_distribucion ORDER BY rango_edad"
+    schema:
+      - {name: rango_edad,     type: VARCHAR}
+      - {name: total_usuarios, type: INTEGER}
+    data:
+      - {rango_edad: "18-25", total_usuarios: 1200}
+      - {rango_edad: "26-35", total_usuarios: 2800}
+      - {rango_edad: "36-45", total_usuarios: 2100}
+      - {rango_edad: "46-55", total_usuarios: 1500}
+      - {rango_edad: "56+",   total_usuarios: 900}
+    expected_intent: comparison
+    expected_chart: bar
+    expected_quality_min: low
+    reason: "BUG §FASE_G: pre-aggregated bucket table without GROUP BY — engine cannot detect pre-computed data. Without GROUP BY, distribution/histogram intent fires. Correct answer is comparison/bar (VARCHAR bucket labels + counts = categorical comparison), but engine gives distribution/histogram."
+
+  # G9: Wide table with all-DOUBLE columns → scatter (BUG)
+  - id: adv_g_009
+    description: "Wide config table (all DOUBLE cols) — expected detail/table, actual correlation/scatter"
+    sql: "SELECT id, a, b, c, d, e, f, g, h, i FROM config"
+    schema:
+      - {name: id, type: INTEGER}
+      - {name: a,  type: DOUBLE}
+      - {name: b,  type: DOUBLE}
+      - {name: c,  type: DOUBLE}
+      - {name: d,  type: DOUBLE}
+      - {name: e,  type: DOUBLE}
+      - {name: f,  type: DOUBLE}
+      - {name: g,  type: DOUBLE}
+      - {name: h,  type: DOUBLE}
+      - {name: i,  type: DOUBLE}
+    data:
+      - {id: 1, a: 1.0, b: 2.0, c: 3.0, d: 4.0, e: 5.0, f: 6.0, g: 7.0, h: 8.0, i: 9.0}
+    expected_intent: detail
+    expected_chart: table
+    expected_quality_min: low
+    reason: "BUG §FASE_G: wide config table with 9 DOUBLE columns — no VARCHAR → has_string_column=0 → no correlation penalty → has_two_numeric_columns fires → correlation intent wins → scatter (9 metrics ≥ 2 threshold). Correct answer is detail/table (1 row × 10 cols = config lookup). Fix: wide table (cols > rows) with 1 row should boost detail."
+
+  # G10: RANK() without LIMIT — ranking correctly identified (edge case PASS)
+  - id: adv_g_010
+    description: "RANK() OVER without outer LIMIT — ranking/bar_horizontal (correct; RANK() is valid ranking evidence)"
+    sql: "SELECT product_name, revenue, RANK() OVER (ORDER BY revenue DESC) AS revenue_rank FROM top_sellers"
+    schema:
+      - {name: product_name,  type: VARCHAR}
+      - {name: revenue,       type: DOUBLE}
+      - {name: revenue_rank,  type: INTEGER}
+    data:
+      - {product_name: "Product A", revenue: 950000, revenue_rank: 1}
+      - {product_name: "Product B", revenue: 870000, revenue_rank: 2}
+      - {product_name: "Product C", revenue: 790000, revenue_rank: 3}
+      - {product_name: "Product D", revenue: 710000, revenue_rank: 4}
+      - {product_name: "Product E", revenue: 630000, revenue_rank: 5}
+      - {product_name: "Product F", revenue: 550000, revenue_rank: 6}
+      - {product_name: "Product G", revenue: 470000, revenue_rank: 7}
+      - {product_name: "Product H", revenue: 390000, revenue_rank: 8}
+    expected_intent: ranking
+    expected_chart: bar_horizontal
+    expected_quality_min: medium
+    reason: "RANK() OVER (ORDER BY revenue DESC) without outer LIMIT — DESC inside the OVER clause fires has_order_by_desc=1 → ranking raw=0.40; string column penalty suppresses correlation; distribution penalized by has_window_function → ranking wins. RANK() is valid ranking evidence even without LIMIT."

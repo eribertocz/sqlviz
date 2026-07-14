@@ -1,0 +1,117 @@
+# task_fit_matrix.yaml
+# Maps (chart_type, primary_intent) → task fit score [0.0, 1.0].
+# Measures how well a chart type serves the analyst's analytical task
+# independently of the data signal (that's semantic_fit).
+# Based on visualization task taxonomy (Brehmer & Munzner 2013).
+
+kpi:
+  kpi:          1.00
+  trend:        0.00
+  comparison:   0.00
+  ranking:      0.00
+  distribution: 0.00
+  correlation:  0.00
+  composition:  0.00
+  anomaly:      0.00
+  cohort:       0.00
+  retention:    0.00
+  funnel:       0.00
+  detail:       0.00
+
+line:
+  trend:        1.00
+  anomaly:      0.85   # time-series anomaly detection uses line
+  cohort:       0.75   # cohort over time
+  retention:    0.70
+  comparison:   0.15   # can compare groups over time but not ideal
+  correlation:  0.00
+  distribution: 0.00
+  composition:  0.00
+  kpi:          0.00
+  ranking:      0.00
+  funnel:       0.00
+  detail:       0.05
+
+bar:
+  comparison:   1.00
+  funnel:       0.65
+  ranking:      0.45
+  cohort:       0.30
+  trend:        0.15
+  composition:  0.25
+  distribution: 0.15
+  correlation:  0.00
+  kpi:          0.00
+  anomaly:      0.10
+  retention:    0.05
+  detail:       0.10
+
+bar_horizontal:
+  ranking:      1.00
+  comparison:   0.80   # long labels → horizontal is better
+  funnel:       0.75
+  trend:        0.05
+  composition:  0.10
+  distribution: 0.10
+  correlation:  0.00
+  kpi:          0.00
+  anomaly:      0.05
+  cohort:       0.05
+  retention:    0.00
+  detail:       0.05
+
+pie:
+  composition:  1.00
+  comparison:   0.15   # part-to-whole comparison, not typical comparison
+  distribution: 0.10
+  kpi:          0.00
+  trend:        0.00
+  ranking:      0.00
+  correlation:  0.00
+  anomaly:      0.00
+  cohort:       0.00
+  retention:    0.00
+  funnel:       0.10
+  detail:       0.00
+
+scatter:
+  correlation:  1.00
+  distribution: 0.40   # shows spread of two variables
+  comparison:   0.10
+  trend:        0.05
+  kpi:          0.00
+  ranking:      0.00
+  composition:  0.00
+  anomaly:      0.20
+  cohort:       0.00
+  retention:    0.00
+  funnel:       0.00
+  detail:       0.00
+
+histogram:
+  distribution: 1.00
+  correlation:  0.30   # shows marginal distribution, useful for correlation context
+  comparison:   0.05
+  trend:        0.10
+  kpi:          0.00
+  ranking:      0.00
+  composition:  0.00
+  anomaly:      0.15
+  cohort:       0.00
+  retention:    0.00
+  funnel:       0.00
+  detail:       0.05
+
+table:
+  detail:       1.00
+  retention:    0.55   # pivot-like retention tables
+  cohort:       0.45
+  comparison:   0.20
+  ranking:      0.20
+  distribution: 0.20
+  trend:        0.10
+  kpi:          0.10
+  composition:  0.10
+  correlation:  0.10
+  anomaly:      0.10
+  funnel:       0.20

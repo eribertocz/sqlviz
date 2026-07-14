@@ -66,6 +66,8 @@ class DashboardResponse(BaseModel):
     sort_order: int
     created_at: str
     updated_at: str
+    dashboard_hint: str | None = None
+    dashboard_domain: str | None = None
 
 
 # ── Folder ───────────────────────────────────────────────────────────────────
@@ -113,3 +115,19 @@ class PanelResponse(BaseModel):
     sort_order: int
     created_at: str
     updated_at: str
+    # V0.2 Fase E — override fields (None when panel has never been executed)
+    fingerprint: str | None = None
+    inferred_chart_type: str | None = None
+    selected_chart_type: str | None = None
+    chart_user_override: str | None = None
+    inferred_col_span: int | None = None
+    selected_col_span: int | None = None
+    col_span_user_override: int | None = None
+    inferred_height_px: int | None = None
+    selected_height_px: int | None = None
+    height_user_override: int | None = None
+
+
+class PanelOverrideRequest(BaseModel):
+    field_name: str   # "chart_type" | "col_span" | "height_px"
+    user_value: str   # always passed as string; OverrideSystem casts as needed
