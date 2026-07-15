@@ -23,11 +23,11 @@ _TARGETS: list[tuple[str, str, str]] = [
     ("packages/sqlviz-cli/pyproject.toml",       r'^version = "[^"]+"', 'version = "{}"'),
     # package.json
     ("packages/sqlviz-web/package.json",         r'"version": "[^"]+"', '"version": "{}"'),
-    # meta.py — the API endpoint that exposes the version at runtime
+    # version.py — single source of truth for Python runtime version
     (
-        "packages/sqlviz-api/src/sqlviz_api/routers/meta.py",
-        r'^_VERSION = "[^"]+"',
-        '_VERSION = "{}"',
+        "packages/sqlviz-core/src/sqlviz_core/version.py",
+        r'^__version__ = "[^"]+"',
+        '__version__ = "{}"',
     ),
 ]
 

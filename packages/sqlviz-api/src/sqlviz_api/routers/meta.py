@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from pydantic import BaseModel
+from sqlviz_core.version import __version__
 
 router = APIRouter(prefix="/api/v1", tags=["meta"])
-
-_VERSION = "0.2.1"
 
 
 class MetaResponse(BaseModel):
@@ -18,7 +17,7 @@ class MetaResponse(BaseModel):
 @router.get("/meta", response_model=MetaResponse)
 def get_meta() -> MetaResponse:
     return MetaResponse(
-        version=_VERSION,
+        version=__version__,
         feature_flags={
             "feedback_engine": True,
             "dashboard_classifier": True,

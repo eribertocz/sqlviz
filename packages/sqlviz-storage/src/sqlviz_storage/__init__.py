@@ -1,3 +1,5 @@
+from sqlviz_core.version import __version__  # noqa: F401
+
 from .auth import get_stored_password_hash, hash_password, set_admin_password, verify_password
 from .brain_db import get_brain_connection, get_brain_path
 from .project_db import create_project, is_sqlviz_project, open_project

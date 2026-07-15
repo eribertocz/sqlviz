@@ -4,6 +4,7 @@ import warnings
 from typing import Any
 
 from sqlviz_core.models import ColumnSchema
+from sqlviz_core.version import __version__  # noqa: F401
 
 from .context import RuntimeContext
 from .pipeline import RuntimePipeline
