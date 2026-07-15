@@ -1,8 +1,6 @@
 """Tests for DashboardObjective — V0.2 Fase D."""
 from __future__ import annotations
 
-import pytest
-
 from sqlviz_inference.contracts.layout import (
     DashboardPlan,
     DashboardRole,

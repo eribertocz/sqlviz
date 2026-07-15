@@ -15,7 +15,6 @@ from pathlib import Path
 import pytest
 import yaml
 from sqlviz_core.models import ColumnSchema
-
 from sqlviz_inference.context import RuntimeContext
 from sqlviz_inference.contracts.layout import DashboardRole, LayoutDeclaration
 from sqlviz_inference.dashboard.dashboard_layout_optimizer import DashboardLayoutOptimizer

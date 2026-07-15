@@ -1,9 +1,7 @@
 """Tests for ColumnRoleDetector — V0.2 Fase B."""
 from __future__ import annotations
 
-import pytest
 from sqlviz_core.models import ColumnSchema
-
 from sqlviz_inference.roles.column_role_detector import ColumnRoleDetector
 
 detector = ColumnRoleDetector()

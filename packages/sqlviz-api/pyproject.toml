@@ -1,6 +1,6 @@
 [project]
 name = "sqlviz-api"
-version = "0.1.0"
+version = "0.2.1"
 description = "SQLviz HTTP API: FastAPI door between frontend and inference/storage"
 requires-python = ">=3.12"
 dependencies = [

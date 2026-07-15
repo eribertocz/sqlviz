@@ -156,7 +156,9 @@ class TestContractsImportable:
     def test_constraint_report_populated(self) -> None:
         r = ConstraintReport(
             eliminated=[ConstraintViolation("pie", "pie_high_cardinality", "hard", "14 cats")],
-            penalized=[ConstraintViolation("bar", "low_cardinality", "soft", "only 2 cats", penalty=0.2)],
+            penalized=[
+                ConstraintViolation("bar", "low_cardinality", "soft", "only 2 cats", penalty=0.2)
+            ],
             rules_checked=6,
         )
         assert len(r.eliminated) == 1

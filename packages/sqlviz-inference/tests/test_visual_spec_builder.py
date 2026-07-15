@@ -1,18 +1,24 @@
 """Tests for VisualSpecBuilder / VisualSpec — V0.2 Fase 0."""
 from __future__ import annotations
 
-import pytest
 from sqlviz_core.models import ColumnSchema
-
-from sqlviz_inference.spec.visual_spec import VisualSpec
 from sqlviz_inference.spec.visual_spec_builder import VisualSpecBuilder
 
 builder = VisualSpecBuilder()
 
-_DATE_SCHEMA = [ColumnSchema(name="month", type="DATE"), ColumnSchema(name="revenue", type="DOUBLE")]
-_CAT_SCHEMA = [ColumnSchema(name="region", type="VARCHAR"), ColumnSchema(name="sales", type="DOUBLE")]
+_DATE_SCHEMA = [
+    ColumnSchema(name="month", type="DATE"),
+    ColumnSchema(name="revenue", type="DOUBLE"),
+]
+_CAT_SCHEMA = [
+    ColumnSchema(name="region", type="VARCHAR"),
+    ColumnSchema(name="sales", type="DOUBLE"),
+]
 _PIE_DATA = [{"category": "A", "pct": 40}, {"category": "B", "pct": 60}]
-_PIE_SCHEMA = [ColumnSchema(name="category", type="VARCHAR"), ColumnSchema(name="pct", type="DOUBLE")]
+_PIE_SCHEMA = [
+    ColumnSchema(name="category", type="VARCHAR"),
+    ColumnSchema(name="pct", type="DOUBLE"),
+]
 _SCATTER_SCHEMA = [
     ColumnSchema(name="height", type="DOUBLE"),
     ColumnSchema(name="weight", type="DOUBLE"),
@@ -225,7 +231,10 @@ class TestVisualSpecPipeline:
         from sqlviz_inference import infer
 
         result = infer(
-            sql="SELECT region, SUM(sales) FROM t GROUP BY region ORDER BY SUM(sales) DESC LIMIT 10",
+            sql=(
+                "SELECT region, SUM(sales) FROM t"
+                " GROUP BY region ORDER BY SUM(sales) DESC LIMIT 10"
+            ),
             data=[{"region": f"R{i}", "sales": (10 - i) * 1000} for i in range(10)],
             schema=[
                 ColumnSchema(name="region", type="VARCHAR"),

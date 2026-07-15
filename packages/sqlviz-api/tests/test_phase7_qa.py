@@ -228,12 +228,19 @@ class TestDashboardPanelFlows:
         line_r = _infer(
             "SELECT m, SUM(r) AS rev FROM (VALUES (1,10.0),(2,20.0)) t(m,r) GROUP BY m ORDER BY m",
             data=[{"m": 1, "rev": 10.0}],
-            schema=[ColumnSchema(name="m", type="INTEGER"), ColumnSchema(name="rev", type="DOUBLE")],
+            schema=[
+                ColumnSchema(name="m", type="INTEGER"),
+                ColumnSchema(name="rev", type="DOUBLE"),
+            ],
         )
         bar_r = _infer(
-            "SELECT cat, SUM(v) AS total FROM (VALUES ('A',30.0)) t(cat,v) GROUP BY cat ORDER BY cat",
+            "SELECT cat, SUM(v) AS total FROM (VALUES ('A',30.0)) t(cat,v) GROUP BY cat"
+            " ORDER BY cat",
             data=[{"cat": "A", "total": 30.0}],
-            schema=[ColumnSchema(name="cat", type="VARCHAR"), ColumnSchema(name="total", type="DOUBLE")],
+            schema=[
+                ColumnSchema(name="cat", type="VARCHAR"),
+                ColumnSchema(name="total", type="DOUBLE"),
+            ],
         )
         layout = DashboardEngine().compose([("p0", kpi_r), ("p1", line_r), ("p2", bar_r)])
         for row in layout.rows:
@@ -400,7 +407,10 @@ class TestExplainability:
             "SELECT cat, SUM(v) AS total "
             "FROM (VALUES ('A',10.0),('B',5.0)) t(cat,v) GROUP BY cat",
             data=[{"cat": "A", "total": 10.0}],
-            schema=[ColumnSchema(name="cat", type="VARCHAR"), ColumnSchema(name="total", type="DOUBLE")],
+            schema=[
+                ColumnSchema(name="cat", type="VARCHAR"),
+                ColumnSchema(name="total", type="DOUBLE"),
+            ],
         )
         assert isinstance(result.chart_alternatives, list)
 
@@ -439,7 +449,10 @@ class TestExplainability:
             "SELECT cat, SUM(v) AS total "
             "FROM (VALUES ('A',10.0)) t(cat,v) GROUP BY cat",
             data=[{"cat": "A", "total": 10.0}],
-            schema=[ColumnSchema(name="cat", type="VARCHAR"), ColumnSchema(name="total", type="DOUBLE")],
+            schema=[
+                ColumnSchema(name="cat", type="VARCHAR"),
+                ColumnSchema(name="total", type="DOUBLE"),
+            ],
         )
         assert result.intent_quality in {"high", "medium", "low"}
 

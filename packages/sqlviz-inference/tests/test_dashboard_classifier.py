@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
 from sqlviz_inference.dashboard.dashboard_classifier import (
     DashboardClassification,
     classify_dashboard,
 )
-
 
 # ── classify_dashboard: basic API ─────────────────────────────────────────────
 

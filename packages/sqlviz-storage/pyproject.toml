@@ -1,6 +1,6 @@
 [project]
 name = "sqlviz-storage"
-version = "0.1.0"
+version = "0.2.1"
 description = "SQLviz storage: .sqlviz project file and brain.duckdb"
 requires-python = ">=3.12"
 dependencies = [

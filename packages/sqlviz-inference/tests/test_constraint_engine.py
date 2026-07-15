@@ -5,12 +5,10 @@ Each hard rule has ≥ 2 positive cases (rule fires and eliminates) and
 """
 from __future__ import annotations
 
-import pytest
 from sqlviz_core.models import ColumnSchema
-
 from sqlviz_inference.constraint.constraint_engine import ConstraintEngine
 from sqlviz_inference.context import ChartCandidate, RuntimeContext
-from sqlviz_inference.profile.data_profile import DataProfile, ColumnProfile
+from sqlviz_inference.profile.data_profile import ColumnProfile, DataProfile
 
 engine = ConstraintEngine()
 
@@ -99,7 +97,10 @@ class TestKpiSingleRow:
         ctx = _make_context(
             chart_winner="kpi",
             chart_types=["kpi", "line"],
-            schema=[ColumnSchema(name="mes", type="VARCHAR"), ColumnSchema(name="val", type="DOUBLE")],
+            schema=[
+                ColumnSchema(name="mes", type="VARCHAR"),
+                ColumnSchema(name="val", type="DOUBLE"),
+            ],
             data=[{"mes": str(i), "val": i * 1000} for i in range(6)],
             data_profile=_profile(6),
         )
@@ -482,7 +483,10 @@ class TestConstraintReport:
         ctx = _make_context(
             chart_winner="bar",
             chart_types=["bar"],
-            schema=[ColumnSchema(name="region", type="VARCHAR"), ColumnSchema(name="total", type="DOUBLE")],
+            schema=[
+                ColumnSchema(name="region", type="VARCHAR"),
+                ColumnSchema(name="total", type="DOUBLE"),
+            ],
         )
         result = engine.run(ctx)
         # 6 hard rules + N soft rules from YAML
@@ -492,7 +496,10 @@ class TestConstraintReport:
         ctx = _make_context(
             chart_winner="bar",
             chart_types=["bar"],
-            schema=[ColumnSchema(name="region", type="VARCHAR"), ColumnSchema(name="total", type="DOUBLE")],
+            schema=[
+                ColumnSchema(name="region", type="VARCHAR"),
+                ColumnSchema(name="total", type="DOUBLE"),
+            ],
         )
         result = engine.run(ctx)
         assert result.constraint_report.eliminated == []

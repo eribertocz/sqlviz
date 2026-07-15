@@ -1,8 +1,6 @@
 """Tests for DashboardLayoutOptimizer — V0.2 Fase D."""
 from __future__ import annotations
 
-import pytest
-
 from sqlviz_inference.contracts.layout import DashboardRole, LayoutDeclaration
 from sqlviz_inference.dashboard.dashboard_layout_optimizer import DashboardLayoutOptimizer
 

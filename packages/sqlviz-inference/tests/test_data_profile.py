@@ -1,10 +1,8 @@
 """Tests for ResultProfiler / DataProfile — V0.2 Fase 0."""
 from __future__ import annotations
 
-import pytest
 from sqlviz_core.models import ColumnSchema
-
-from sqlviz_inference.profile.data_profile import ColumnProfile, DataProfile, ResultProfiler
+from sqlviz_inference.profile.data_profile import ResultProfiler
 
 profiler = ResultProfiler()
 

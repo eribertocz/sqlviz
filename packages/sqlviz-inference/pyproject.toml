@@ -1,6 +1,6 @@
 [project]
 name = "sqlviz-inference"
-version = "0.1.0"
+version = "0.2.1"
 description = "SQLviz inference engine: intent, chart, layout, filter, title"
 requires-python = ">=3.12"
 dependencies = [

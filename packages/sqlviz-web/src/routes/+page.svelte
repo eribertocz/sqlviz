@@ -194,13 +194,18 @@
         executing = true;
         errorMsg  = null;
 
+        // Snapshot mutable state so mid-flight dashboard switches don't corrupt this run.
+        let activeDashId = dashboardId;
+        const activePanelIds = [...panelIds];
+
         try {
-            if (!dashboardId) {
+            if (!activeDashId) {
                 const dash = await apiPost<{ id: string }>('/api/v1/dashboards', {
                     name: 'My Dashboard',
                     sort_order: 0,
                 });
-                dashboardId = dash.id;
+                activeDashId = dash.id;
+                dashboardId  = activeDashId;
             }
 
             const results: ExecResult[] = [];
@@ -211,15 +216,15 @@
                 statusMsg = `Statement ${i + 1} / ${statements.length}…`;
 
                 let panelId: string;
-                if (panelIds[i]) {
-                    await apiPatch(`/api/v1/panels/${panelIds[i]}`, {
+                if (activePanelIds[i]) {
+                    await apiPatch(`/api/v1/panels/${activePanelIds[i]}`, {
                         sql_content: stmt,
                         sort_order: i,
                     });
-                    panelId = panelIds[i];
+                    panelId = activePanelIds[i];
                 } else {
                     const panel = await apiPost<{ id: string }>('/api/v1/panels', {
-                        dashboard_id: dashboardId,
+                        dashboard_id: activeDashId,
                         name: `Panel ${i + 1}`,
                         sql_content: stmt,
                         sort_order: i,
@@ -232,6 +237,12 @@
                     `/api/v1/panels/${panelId}/execute`
                 );
                 results.push({ panel_id: panelId, ...exec });
+            }
+
+            // Only commit results if the dashboard hasn't changed mid-flight.
+            if (dashboardId !== activeDashId) {
+                statusMsg = null;
+                return;
             }
 
             panelIds        = newPanelIds;
@@ -507,7 +518,8 @@
                 <button
                     class="new-dash-btn"
                     onclick={() => { creatingDashboard = true; }}
-                    title="New dashboard"
+                    disabled={executing}
+                    title={executing ? 'Wait for current run to finish' : 'New dashboard'}
                 >+ New</button>
             {/if}
         </div>
@@ -764,10 +776,14 @@
         transition: color 0.12s, border-color 0.12s, background 0.12s;
         flex-shrink: 0;
     }
-    .new-dash-btn:hover {
+    .new-dash-btn:hover:not(:disabled) {
         color: var(--sqlviz-primary);
         border-color: var(--sqlviz-primary);
         background: color-mix(in srgb, var(--sqlviz-primary) 8%, transparent);
+    }
+    .new-dash-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
     }
 
     .mode-toggle {

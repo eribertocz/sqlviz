@@ -40,7 +40,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse, RedirectResponse
 
 from sqlviz_api.quack_server import QuackConnectionRouter
-from sqlviz_api.routers import auth, compose, dashboards, demo, folders, panels, shares
+from sqlviz_api.routers import auth, compose, dashboards, demo, folders, meta, panels, shares
 from sqlviz_api.routers.auth import require_admin
 
 
@@ -64,7 +64,7 @@ def create_app(
     Returns:
         Configured FastAPI application ready for uvicorn.
     """
-    app = FastAPI(title="SQLviz API", version="0.1.0")
+    app = FastAPI(title="SQLviz API", version="0.2.1")
 
     app.state.db_conn = db_conn
     app.state.demo_mode = demo_mode
@@ -80,6 +80,7 @@ def create_app(
     app.include_router(dashboards.router)
     app.include_router(demo.router)
     app.include_router(folders.router)
+    app.include_router(meta.router)
     app.include_router(panels.router)
     app.include_router(shares.router)
 

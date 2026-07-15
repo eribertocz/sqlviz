@@ -4,8 +4,6 @@
 """
 from __future__ import annotations
 
-import pytest
-
 from sqlviz_inference.context import ChartCandidate, RuntimeContext
 from sqlviz_inference.layout.dashboard_role_classifier import DashboardRoleClassifier
 

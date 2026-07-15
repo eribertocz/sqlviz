@@ -4,8 +4,6 @@ Each concept: ≥ 2 positive cases (rule fires) + ≥ 2 negative/fallback cases.
 """
 from __future__ import annotations
 
-import pytest
-
 from sqlviz_inference.context import ChartCandidate, RuntimeContext
 from sqlviz_inference.contracts.readability import CandidateReadability, ReadabilityResult
 from sqlviz_inference.layout.layout_declaration_builder import LayoutDeclarationBuilder
@@ -125,7 +123,8 @@ class TestLayoutDeclarationFallback:
 class TestLayoutDeclarationConstraints:
 
     def test_col_span_min_le_preferred_le_max(self) -> None:
-        for chart in ["kpi", "line", "bar", "bar_horizontal", "pie", "scatter", "histogram", "table"]:
+        charts = ["kpi", "line", "bar", "bar_horizontal", "pie", "scatter", "histogram", "table"]
+        for chart in charts:
             ctx = _ctx(chart)
             decl = builder.run(ctx).layout_declaration
             assert decl.col_span_min <= decl.col_span_preferred

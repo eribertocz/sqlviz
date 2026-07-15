@@ -1,8 +1,6 @@
 """Tests for InformationGainEngine — V0.2 Fase D."""
 from __future__ import annotations
 
-import pytest
-
 from sqlviz_inference.dashboard.information_gain_engine import InformationGainEngine
 from sqlviz_inference.profile.data_profile import DataProfile
 from sqlviz_inference.result import InferenceResult
