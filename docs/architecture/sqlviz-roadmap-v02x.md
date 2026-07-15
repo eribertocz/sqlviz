@@ -1,0 +1,137 @@
+# SQLviz Roadmap — v0.2.x
+
+Plan de versiones menores desde v0.2.1 hasta v0.2.10, seguido de v0.3.0.
+Cada versión menor es independiente y shippeable. Las mejoras no planificadas
+que surjan durante el desarrollo se agregan como versiones adicionales
+(v0.2.11, v0.2.12, etc.).
+
+---
+
+## v0.2.1 — Release Integrity
+
+Objetivo: dejar la base en estado profesional antes de seguir construyendo.
+
+- Unificar versiones de todos los paquetes (`pyproject.toml`, `package.json`)
+- Corregir los 38 errores ruff pendientes
+- CI completamente verde: backend (pytest + ruff + mypy) + frontend (build)
+- `README.md` con instrucciones de instalación y uso básico
+- `CHANGELOG.md` con entradas para v0.1.0 y v0.2.0
+- Endpoint `GET /api/v1/meta` — devuelve versión, build hash, feature flags
+- Fix: botón "New Dashboard" en app bar no funciona en todos los estados
+- Fix: nuevo dashboard no arrastra la query ejecutada del dashboard anterior
+
+---
+
+## v0.2.2 — Bug Fixes Simples
+
+Correcciones de comportamiento que afectan la experiencia directa del usuario.
+
+- Fix: FeedbackEngine no debe reemplazar la inferencia original cuando el
+  usuario no ha dado feedback explícito — solo aplicar cuando hay patrón
+  confirmado por override del usuario
+- Chart Selector: mostrar la preferencia aprendida del usuario marcada con ★
+
+---
+
+## v0.2.3 — Observability & Diagnostics
+
+Objetivo: saber qué pasa internamente sin necesidad de debuggear a ciegas.
+
+- Logging estructurado por módulo (JSON lines, nivel configurable)
+- `trace_id` por ejecución — propagado desde API hasta cada módulo del pipeline
+- Estados de ejecución explícitos: `success` / `warning` / `degraded` / `failed`
+- Reemplazar todos los `except Exception` silenciosos por logging con nivel WARNING
+- Panel técnico en ExplainPanel: muestra pipeline steps, timings, modules_run
+- Modo debug activable por variable de entorno o query param (`?debug=1`)
+
+---
+
+## v0.2.4 — Contract Stabilization
+
+Objetivo: contratos estables que permitan evolucionar sin romper silenciosamente.
+
+- Versionar `InferenceResult`, `VisualSpec` y el schema `.sqlviz`
+- Eliminar duplicación entre YAMLs de reglas (consolidar fuentes de verdad)
+- Golden tests de serialización: aseguran que el JSON de salida no cambia forma
+- Política formal documentada: `backward-compatible` / `breaking` / `deprecated`
+
+---
+
+## v0.2.5 — Frontend Maintainability
+
+Objetivo: que el frontend sea mantenible antes de agregar más UI.
+
+- Dividir `+page.svelte` (~36 KB) en componentes por responsabilidad
+- Dividir `ExplainPanel.svelte` (~27 KB) — separar secciones en subcomponentes
+- Stores por dominio: `dashboardStore`, `executionStore`, `uiStore`
+- Estados uniformes en todos los componentes: `loading` / `empty` / `error` / `degraded`
+- Accesibilidad básica: roles ARIA, navegación por teclado en sidebar y app bar
+- Smoke tests frontend: al menos un test por ruta crítica
+
+---
+
+## v0.2.6 — Explorador de Dashboards Tipo VSCode
+
+Objetivo: sidebar como explorador de proyectos, no solo lista plana.
+
+- Sidebar con grupos colapsables (carpetas / dominios inferidos)
+- Editar nombre y descripción de dashboard inline
+- Eliminar dashboard con confirmación
+- Organizar dashboards por grupos con drag o click
+
+---
+
+## v0.2.7 — Sidebar Colapsable
+
+Objetivo: sidebar que no ocupe espacio cuando no se necesita.
+
+- Modo expandido: icono + label + separadores entre grupos
+- Modo colapsado: solo iconos + tooltip al hover + separadores visuales entre grupos
+- Header del sidebar: logo cargable por el usuario + botón colapsar/expandir
+- Estado persistido en localStorage
+
+---
+
+## v0.2.8 — Panel de Propiedades Lateral
+
+Objetivo: reemplazar el resize inline confuso por un panel de propiedades claro.
+
+- Resize personalizado por panel (ancho, alto, columnas)
+- Panel de propiedades al hacer click en cualquier panel del dashboard
+- El panel lateral muestra: título, chart type, layout constraints, score, override
+- Reemplaza los controles de resize inline que hoy son poco descubribles
+
+---
+
+## v0.2.9 — Inference Hardening
+
+Objetivo: motor de inferencia robusto, medido y determinista.
+
+- Dataset de regresión congelado — ningún commit puede degradar accuracy
+- Matriz de confusión sobre el dataset congelado, reportada en CI
+- Abstención inteligente: cuando `confidence: low`, forzar `table` antes que
+  arriesgar un chart incorrecto
+- Benchmarks de latencia: p50/p95/p99 del pipeline completo
+- Pruebas de determinismo: misma entrada → misma salida en 100 ejecuciones
+
+---
+
+## v0.2.10 — Chart Selector Mejorado
+
+Objetivo: que la UI del chart selector refleje con precisión el estado del motor.
+
+- Preferencia aprendida del usuario marcada con ★ en la lista de alternativas
+- El motor nunca reemplaza silenciosamente la inferencia original — siempre
+  muestra primero el resultado del pipeline y separa visualmente el override
+- Historial de overrides por panel visible en el Chart Selector
+
+---
+
+## v0.3.0 — Semantic Dashboard Intelligence
+
+> Comienza después de completar v0.2.1 a v0.2.10.
+
+Objetivo: que SQLviz entienda semánticamente lo que el usuario está construyendo
+y proponga estructura, no solo visualización.
+
+Alcance a definir una vez que v0.2.x esté completo y estable.
