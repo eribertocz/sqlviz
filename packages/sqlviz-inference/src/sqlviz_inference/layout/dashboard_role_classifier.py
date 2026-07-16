@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..contracts.layout import DashboardRole
+from ..utils.sqlviz_logging import get_logger
+
+_log = get_logger("dashboard_role_classifier")
 
 if TYPE_CHECKING:
     from ..context import RuntimeContext
@@ -72,6 +75,7 @@ class DashboardRoleClassifier:
         try:
             context.dashboard_role = self._classify(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             context.errors.append(f"DashboardRoleClassifier: {e}")
         return context
 

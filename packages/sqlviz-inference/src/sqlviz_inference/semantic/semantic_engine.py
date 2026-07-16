@@ -4,8 +4,11 @@ from typing import Any
 
 from ..context import RuntimeContext
 from ..parser.ast_helpers import get_column_names_from_select
+from ..utils.sqlviz_logging import get_logger
 from ..utils.yaml_loader import yaml_loader
 from .fuzzy_match import match_column_name
+
+_log = get_logger("semantic_engine")
 
 # Semantic class → feature vector dimension
 SEMANTIC_TO_DIM: dict[str, int] = {
@@ -43,6 +46,7 @@ class SemanticEngine:
         try:
             return self._classify(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             return context.with_error("SemanticEngine", str(e))
 
     def _classify(self, context: RuntimeContext) -> RuntimeContext:

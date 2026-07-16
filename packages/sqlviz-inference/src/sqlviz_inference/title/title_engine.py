@@ -6,6 +6,9 @@ import sqlglot.expressions as exp
 
 from ..context import RuntimeContext
 from ..parser.ast_helpers import has_limit, has_order_by_desc
+from ..utils.sqlviz_logging import get_logger
+
+_log = get_logger("title_engine")
 
 # Map semantic classes to human-readable metric names
 METRIC_LABELS = {
@@ -26,6 +29,7 @@ class TitleEngine:
         try:
             return self._generate(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             return context.with_error("TitleEngine", str(e))
 
     def _generate(self, context: RuntimeContext) -> RuntimeContext:
@@ -156,7 +160,8 @@ class TitleEngine:
             return "N"
         try:
             return str(limit_node.expression.this)
-        except Exception:
+        except Exception as e:
+            _log.warning("_fmt_number: %s", e)
             return "N"
 
     def _humanize(self, name: str) -> str:

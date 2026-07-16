@@ -4,7 +4,10 @@ from typing import TYPE_CHECKING, Any
 
 from ..contracts.column_roles import ColumnRole, ColumnRoles
 from ..semantic.fuzzy_match import match_column_name
+from ..utils.sqlviz_logging import get_logger
 from ..utils.yaml_loader import yaml_loader
+
+_log = get_logger("column_role_detector")
 
 if TYPE_CHECKING:
     from ..context import RuntimeContext
@@ -71,6 +74,7 @@ class ColumnRoleDetector:
         try:
             context.column_roles = self.build(context.schema)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             context.errors.append(f"ColumnRoleDetector: {e}")
         return context
 

@@ -5,6 +5,9 @@ import re
 from sqlviz_core.models import ColumnSchema
 
 from ..context import FilterControl, RuntimeContext
+from ..utils.sqlviz_logging import get_logger
+
+_log = get_logger("filter_engine")
 
 VARIABLE_PATTERN = re.compile(r"\$(\w+)")
 
@@ -34,6 +37,7 @@ class FilterEngine:
         try:
             return self._detect_filters(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             return context.with_error("FilterEngine", str(e))
 
     def _detect_filters(self, context: RuntimeContext) -> RuntimeContext:

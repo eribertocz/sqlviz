@@ -4,7 +4,10 @@ from typing import TYPE_CHECKING, Any
 
 from ..contracts.chart import ChartCandidate as ChartCandidateV2
 from ..contracts.chart import ChartScore
+from ..utils.sqlviz_logging import get_logger
 from ..utils.yaml_loader import yaml_loader
+
+_log = get_logger("scoring_model")
 
 if TYPE_CHECKING:
     from ..context import RuntimeContext
@@ -98,6 +101,7 @@ class ScoringModel:
             context.scored_candidates = self._score_all(context)
             self._update_winner(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             context.errors.append(f"ScoringModel: {e}")
         return context
 

@@ -12,7 +12,10 @@ from ..parser.ast_helpers import (
 from ..semantic.fuzzy_match import normalize_name
 from ..utils.confidence import confidence_gap, quality_label
 from ..utils.math_utils import min_max_normalize
+from ..utils.sqlviz_logging import get_logger
 from ..utils.yaml_loader import yaml_loader
+
+_log = get_logger("intent_engine")
 
 # Feature vector index mapping — used to extract values from feature_vector by name
 FEATURE_INDEX = {
@@ -325,6 +328,7 @@ class IntentEngine:
         try:
             return self._score(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             return context.with_error("IntentEngine", str(e))
 
     def _score(self, context: RuntimeContext) -> RuntimeContext:

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from ..context import RuntimeContext
+from ..utils.sqlviz_logging import get_logger
+
+_log = get_logger("layout_engine")
 
 # Chart type -> default layout (col_span, row_span)
 # row_span=1 reserved for KPI (compact number cards that need no visual height).
@@ -57,6 +60,7 @@ class LayoutEngine:
         try:
             return self._assign_layout(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             return context.with_error("LayoutEngine", str(e))
 
     def _assign_layout(self, context: RuntimeContext) -> RuntimeContext:

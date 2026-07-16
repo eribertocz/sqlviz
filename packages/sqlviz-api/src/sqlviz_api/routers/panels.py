@@ -219,6 +219,7 @@ def execute_panel(
     panel_id: str,
     db: DbDep,
     body: ExecuteBody | None = Body(default=None),
+    debug: bool = Query(default=False),
 ) -> JSONResponse:
     """Execute a panel's SQL and return {inference_result, data}.
 
@@ -241,7 +242,7 @@ def execute_panel(
     # If SQL has $params but no values are provided, run inference-only so the
     # frontend can display the filter bar before any data is fetched.
     if _VARIABLE_RE.search(sql) and not variables:
-        result = sqlviz_inference.infer(sql, brain_conn=brain)
+        result = sqlviz_inference.infer(sql, brain_conn=brain, debug=debug)
         result = dataclasses.replace(
             result,
             fallback_applied=True,
@@ -255,7 +256,7 @@ def execute_panel(
         else:
             db.execute(sql)
     except duckdb.ParserException:
-        result = sqlviz_inference.infer(sql, brain_conn=brain)
+        result = sqlviz_inference.infer(sql, brain_conn=brain, debug=debug)
         result = dataclasses.replace(
             result,
             fallback_applied=True,
@@ -280,6 +281,7 @@ def execute_panel(
     result = sqlviz_inference.infer(
         sql, data=data, schema=schema, brain_conn=brain,
         chart_override=panel.chart_user_override,
+        debug=debug,
     )
 
     # Persist inferred values to panels table (never overwrites existing overrides)

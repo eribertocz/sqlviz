@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..contracts.layout import LayoutDeclaration
+from ..utils.sqlviz_logging import get_logger
+
+_log = get_logger("layout_declaration_builder")
 
 if TYPE_CHECKING:
     from ..context import RuntimeContext
@@ -42,6 +45,7 @@ class LayoutDeclarationBuilder:
         try:
             context.layout_declaration = self._build(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             context.errors.append(f"LayoutDeclarationBuilder: {e}")
         return context
 

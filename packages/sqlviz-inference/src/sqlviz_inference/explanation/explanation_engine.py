@@ -19,7 +19,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 from ..contracts.explanation import Explanation
+from ..utils.sqlviz_logging import get_logger
 from ..utils.yaml_loader import yaml_loader
+
+_log = get_logger("explanation_engine")
 
 if TYPE_CHECKING:
     from ..context import RuntimeContext
@@ -45,6 +48,7 @@ class ExplanationEngine:
         try:
             context.explanation_v2 = self._build(context)
         except Exception as e:  # noqa: BLE001
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             context.errors.append(f"ExplanationEngine: {e}")
             context.explanation_v2 = self._fallback(context)
         return context

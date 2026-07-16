@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlglot.expressions as exp
 
 from ..context import RuntimeContext
+from ..utils.sqlviz_logging import get_logger
 from .ast_helpers import (
     count_group_by_columns,
     count_select_columns,
@@ -26,6 +27,8 @@ from .ast_helpers import (
 )
 from .fingerprint import generate_fingerprint
 
+_log = get_logger("sql_parser")
+
 
 class SQLParser:
     """
@@ -38,6 +41,7 @@ class SQLParser:
         try:
             return self._parse(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             return context.with_error("SQLParser", str(e))
 
     def _parse(self, context: RuntimeContext) -> RuntimeContext:

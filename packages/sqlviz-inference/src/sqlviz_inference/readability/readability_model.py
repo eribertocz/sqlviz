@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..contracts.readability import CandidateReadability, ReadabilityResult
+from ..utils.sqlviz_logging import get_logger
+
+_log = get_logger("readability_model")
 
 if TYPE_CHECKING:
     from ..context import RuntimeContext
@@ -65,6 +68,7 @@ class ReadabilityModel:
         try:
             context.readability_result = self._build(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             context.errors.append(f"ReadabilityModel: {e}")
         return context
 

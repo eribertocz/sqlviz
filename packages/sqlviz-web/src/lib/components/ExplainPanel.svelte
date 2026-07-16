@@ -293,12 +293,41 @@
                 {/if}
             </section>
 
-            <!-- ── Debug info ────────────────────────────────────────── -->
-            <div class="debug-row">
-                <span class="debug-item">fingerprint: <code>{ir.fingerprint.slice(0, 12)}…</code></span>
-                <span class="debug-item">{ir.engine_version}</span>
-                <span class="debug-item">{ir.elapsed_ms.toFixed(1)} ms</span>
-            </div>
+            <!-- ── Diagnostics (v0.2.3) ──────────────────────────────── -->
+            <section class="section section-diag">
+                <h3 class="section-title">Diagnostics</h3>
+
+                <div class="diag-grid">
+                    <span class="diag-label">State</span>
+                    <span class="diag-value">
+                        <span class="state-badge state-{ir.execution_state ?? 'success'}">
+                            {ir.execution_state ?? 'success'}
+                        </span>
+                    </span>
+
+                    <span class="diag-label">Trace</span>
+                    <code class="diag-value diag-mono">{ir.trace_id ?? '—'}</code>
+
+                    <span class="diag-label">Time</span>
+                    <span class="diag-value diag-mono">{ir.elapsed_ms.toFixed(1)} ms</span>
+
+                    <span class="diag-label">Fingerprint</span>
+                    <code class="diag-value diag-mono">{ir.fingerprint.slice(0, 12)}…</code>
+
+                    <span class="diag-label">Engine</span>
+                    <span class="diag-value diag-mono">{ir.engine_version}</span>
+                </div>
+
+                {#if ir.module_timings}
+                    <div class="subsection-title">Module timings</div>
+                    <div class="timings-grid">
+                        {#each Object.entries(ir.module_timings) as [mod, ms]}
+                            <span class="timing-module">{mod}</span>
+                            <span class="timing-ms">{ms.toFixed(1)} ms</span>
+                        {/each}
+                    </div>
+                {/if}
+            </section>
 
         </div>
     </aside>
@@ -620,16 +649,41 @@
         margin-top: 0.25rem;
     }
 
-    .debug-item {
-        font-size: 0.6875rem;
-        color: var(--sqlviz-text-muted);
-        font-family: var(--sqlviz-font-mono);
-    }
+    /* ── Diagnostics (v0.2.3) ────────────────────────────────── */
+    .section-diag { border-top: 1px solid var(--sqlviz-border); }
 
-    .debug-item code {
-        font-family: inherit;
-        opacity: 0.7;
+    .diag-grid {
+        display: grid;
+        grid-template-columns: 80px 1fr;
+        gap: 0.25rem 0.75rem;
+        font-size: 0.75rem;
     }
+    .diag-label { color: var(--sqlviz-text-muted); align-self: center; }
+    .diag-value { color: var(--sqlviz-text); align-self: center; }
+    .diag-mono  { font-family: var(--sqlviz-font-mono); font-size: 0.7rem; }
+
+    .state-badge {
+        display: inline-block;
+        padding: 0.0625rem 0.375rem;
+        border-radius: 3px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+    }
+    .state-success  { background: rgba(34,197,94,0.15); color: var(--sqlviz-positive); }
+    .state-warning  { background: rgba(234,179,8,0.15);  color: #d97706; }
+    .state-degraded { background: rgba(239,68,68,0.15);  color: var(--sqlviz-negative); }
+    .state-failed   { background: rgba(239,68,68,0.25);  color: var(--sqlviz-negative); }
+
+    .timings-grid {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.125rem 0.75rem;
+        font-size: 0.6875rem;
+        font-family: var(--sqlviz-font-mono);
+        margin-top: 0.25rem;
+    }
+    .timing-module { color: var(--sqlviz-text-muted); }
+    .timing-ms     { color: var(--sqlviz-text); text-align: right; }
 
     /* ── Misc ─────────────────────────────────────────────────── */
     .muted-note {

@@ -107,6 +107,12 @@ export interface InferenceResult {
     // Engine's pure winner before any panel-level override; used for stable list ordering
     chart_engine_winner?: string | null;
 
+    // V0.2.3 — Observability
+    trace_id?: string;
+    execution_state?: string;   // "success" | "warning" | "degraded" | "failed"
+    // Per-module elapsed times in ms. Only present when ?debug=1 was passed.
+    module_timings?: Record<string, number> | null;
+
     // V0.2 UI — Cognitive Dashboard Compiler (DOC6 §12)
     // Optional: populated by V0.2 ScoringModel backend; absent in V0.1 API.
     chart_scores?: Record<string, {

@@ -90,6 +90,12 @@ class InferenceResult:
     # Stable across re-executes for same SQL/data; used for fixed list ordering in UI.
     chart_engine_winner: str | None = None
 
+    # ── V0.2.3 — Observability ─────────────────────────────────────────────
+    trace_id: str = ""
+    execution_state: str = "success"   # "success" | "warning" | "degraded" | "failed"
+    # Per-module elapsed times in ms. Populated only when debug=True.
+    module_timings: dict[str, float] | None = None
+
     @classmethod
     def from_context(cls, context: RuntimeContext) -> InferenceResult:
         """Build the final result from a fully-processed RuntimeContext."""
@@ -181,6 +187,10 @@ class InferenceResult:
 
             feedback_preferred_chart=context.feedback_preferred,
             chart_engine_winner=context.chart_engine_winner or context.chart_winner,
+
+            trace_id=context.trace_id,
+            execution_state=context.execution_state,
+            module_timings=context.score_trace.get("module_timings"),  # type: ignore[arg-type]
         )
 
     def to_dict(self) -> dict[str, Any]:

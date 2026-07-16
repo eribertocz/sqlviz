@@ -6,7 +6,10 @@ from ..context import ChartCandidate, RuntimeContext
 from ..parser.ast_helpers import has_percentile
 from ..utils.confidence import confidence_gap, quality_label, should_apply_fallback
 from ..utils.math_utils import min_max_normalize
+from ..utils.sqlviz_logging import get_logger
 from ..utils.yaml_loader import yaml_loader
+
+_log = get_logger("chart_engine")
 
 # V0 chart types -- exactly 8
 V0_CHARTS = [
@@ -72,6 +75,7 @@ class ChartEngine:
         try:
             return self._score(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             return context.with_error("ChartEngine", str(e))
 
     def _score(self, context: RuntimeContext) -> RuntimeContext:

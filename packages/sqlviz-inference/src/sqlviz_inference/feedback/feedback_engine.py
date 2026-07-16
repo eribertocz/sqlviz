@@ -16,6 +16,9 @@ when brain.duckdb is unavailable.
 from __future__ import annotations
 
 from sqlviz_inference.context import RuntimeContext
+from sqlviz_inference.utils.sqlviz_logging import get_logger
+
+_log = get_logger("feedback_engine")
 
 _CHART_FIELD = "chart_type"
 
@@ -43,8 +46,8 @@ class FeedbackEngine:
             ).fetchone()
             if row is not None:
                 context.feedback_preferred = row[0]
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as e:  # noqa: BLE001
+            _log.warning("run_consult: %s", e, extra={"trace_id": context.trace_id})
         return context
 
     def run_apply(self, context: RuntimeContext) -> RuntimeContext:
@@ -84,6 +87,6 @@ class FeedbackEngine:
                     datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 ],
             )
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as e:  # noqa: BLE001
+            _log.warning("run_persist: %s", e, extra={"trace_id": context.trace_id})
         return context

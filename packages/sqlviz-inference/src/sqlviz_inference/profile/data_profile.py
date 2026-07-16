@@ -5,6 +5,10 @@ from typing import TYPE_CHECKING, Any
 
 from sqlviz_core.models import ColumnSchema
 
+from ..utils.sqlviz_logging import get_logger
+
+_log = get_logger("data_profile")
+
 if TYPE_CHECKING:
     from ..context import RuntimeContext
 
@@ -99,5 +103,6 @@ class ResultProfiler:
         try:
             context.data_profile = self.build(context.data, context.schema)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             context = context.with_error("ResultProfiler", str(e))
         return context

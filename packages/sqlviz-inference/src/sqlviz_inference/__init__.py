@@ -28,6 +28,7 @@ def infer(
     schema: list[ColumnSchema] | None = None,
     brain_conn: Any = None,
     chart_override: str | None = None,
+    debug: bool = False,
 ) -> InferenceResult:
     """
     The single public function of the Inference Engine.
@@ -48,6 +49,7 @@ def infer(
         schema=schema or [],
         brain_conn=brain_conn,
         chart_override=chart_override,
+        debug=debug,
     )
     context = _pipeline.run(context)
     return InferenceResult.from_context(context)

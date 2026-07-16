@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
@@ -138,6 +139,14 @@ class RuntimeContext:
 
     # ── Error tracking ──────────────────────────────────────────────────────
     errors: list[str] = field(default_factory=list)
+
+    # ── Observability (v0.2.3) ──────────────────────────────────────────────
+    # Compact 8-hex trace ID generated once per infer() call.
+    trace_id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
+    # Lifecycle state set by pipeline after all modules run.
+    execution_state: str = "success"   # "success" | "warning" | "degraded" | "failed"
+    # When True, per-module timings are included in score_trace and result.
+    debug: bool = False
 
     # ── Versioning ──────────────────────────────────────────────────────────
     rules_version: str = "v0.1.0"

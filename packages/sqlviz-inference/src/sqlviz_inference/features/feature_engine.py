@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ..context import RuntimeContext
+from ..utils.sqlviz_logging import get_logger
 from .column_features import compute as compute_column_features
 from .data_statistics import (
     compute_dim25_row_count,
@@ -11,6 +12,8 @@ from .data_statistics import (
     compute_dim38_trend_direction,
 )
 from .result_shape import compute as compute_result_shape
+
+_log = get_logger("feature_engine")
 
 
 class FeatureEngine:
@@ -25,6 +28,7 @@ class FeatureEngine:
         try:
             return self._compute(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             return context.with_error("FeatureEngine", str(e))
 
     def _compute(self, context: RuntimeContext) -> RuntimeContext:

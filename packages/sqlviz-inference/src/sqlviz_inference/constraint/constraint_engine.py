@@ -5,7 +5,10 @@ from typing import TYPE_CHECKING, Any
 from ..contracts.constraint import ConstraintReport, ConstraintViolation
 from ..parser.ast_helpers import get_column_names_from_select, has_group_by
 from ..semantic.fuzzy_match import match_column_name
+from ..utils.sqlviz_logging import get_logger
 from ..utils.yaml_loader import yaml_loader
+
+_log = get_logger("constraint_engine")
 
 if TYPE_CHECKING:
     from ..context import RuntimeContext
@@ -74,6 +77,7 @@ class ConstraintEngine:
         try:
             context.constraint_report = self._evaluate(context)
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             context.errors.append(f"ConstraintEngine: {e}")
         return context
 

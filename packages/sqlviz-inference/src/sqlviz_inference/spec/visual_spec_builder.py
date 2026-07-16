@@ -4,7 +4,10 @@ from typing import TYPE_CHECKING, Any
 
 from sqlviz_core.models import ColumnSchema
 
+from ..utils.sqlviz_logging import get_logger
 from .visual_spec import VisualSpec
+
+_log = get_logger("visual_spec_builder")
 
 if TYPE_CHECKING:
     from ..context import RuntimeContext
@@ -162,5 +165,6 @@ class VisualSpecBuilder:
                 context.data,
             )
         except Exception as e:
+            _log.warning("%s", e, extra={"trace_id": context.trace_id})
             context = context.with_error("VisualSpecBuilder", str(e))
         return context
