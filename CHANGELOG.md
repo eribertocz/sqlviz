@@ -5,6 +5,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v0.2.3] — 2026-07-16
+
+### Added
+- **Structured JSON logging** (`sqlviz_logging.py`): cada módulo del pipeline
+  emite líneas JSON con `ts`, `level`, `logger`, `msg` y campos opcionales
+  (`trace_id`, `elapsed_ms`, `execution_state`, `error_count`). Nivel
+  configurable vía variable de entorno `SQLVIZ_LOG_LEVEL` (default: `WARNING`).
+- **`trace_id`** por ejecución: identificador hex de 8 caracteres generado en
+  `RuntimeContext`, propagado a través de todo el pipeline y expuesto en
+  `InferenceResult`. Permite correlacionar logs de una misma inferencia.
+- **`execution_state`** en `InferenceResult`: `"success"` / `"warning"` /
+  `"degraded"` / `"failed"`, calculado por `pipeline.py` a partir de
+  `context.errors` y `context.fallback_applied`.
+- **Timings por módulo** (`module_timings`): cuando se pasa `?debug=1` al
+  endpoint de ejecución, `InferenceResult` incluye un dict con el tiempo en ms
+  de cada uno de los 21 pasos del pipeline.
+- **Panel de Diagnósticos en ExplainPanel**: muestra estado de ejecución con
+  badge de color, trace ID, tiempo total, fingerprint, versión del motor y
+  grilla de timings por módulo (visible solo en modo debug).
+- **14 nuevos tests** de observabilidad (`test_observability.py`) — suite total:
+  1319 passed, 3 skipped.
+
+### Fixed
+- Todos los bloques `except Exception: pass` (17 módulos de inferencia)
+  reemplazados por `_log.warning(...)` con `trace_id` en `extra`. Los errores
+  silenciosos ahora son observables sin cambiar el comportamiento del pipeline.
+
+---
+
 ## [v0.2.2] — 2026-07-15
 
 ### Fixed
