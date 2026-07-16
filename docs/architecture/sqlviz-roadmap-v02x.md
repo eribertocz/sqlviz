@@ -78,6 +78,10 @@ Objetivo: sidebar como explorador de proyectos, no solo lista plana.
 - Editar nombre y descripción de dashboard inline
 - Eliminar dashboard con confirmación
 - Organizar dashboards por grupos con drag o click
+- Reubicar botón "Nuevo Dashboard" en lugar estratégico dentro del explorador
+  (hoy está en la app bar, poco visible y fuera de contexto)
+- Al crear nuevo dashboard no arrastrar la query del dashboard anterior
+  (el editor SQL debe iniciar vacío)
 
 ---
 
