@@ -94,11 +94,20 @@ Objetivo: sidebar que no ocupe espacio cuando no se necesita.
 
 ## v0.2.8 — Panel de Propiedades Lateral
 
-Objetivo: reemplazar el resize inline confuso por un panel de propiedades claro.
+Objetivo: panel de propiedades lateral completo que centraliza todas las
+opciones de configuración de un panel, reemplazando los controles dispersos.
 
-- Resize personalizado por panel (ancho, alto, columnas)
-- Panel de propiedades al hacer click en cualquier panel del dashboard
-- El panel lateral muestra: título, chart type, layout constraints, score, override
+- Reemplaza el modal flotante del Chart Selector (solución temporal introducida
+  en v0.2.2) con un panel lateral persistente y coherente
+- Centraliza todas las propiedades del panel en un único lugar:
+  - Tipo de chart (reemplaza el modal flotante actual)
+  - Colores y paleta de la visualización
+  - Dimensiones (ancho en columnas, altura en px)
+  - Título editable
+  - Ejes X e Y (campos, etiquetas, escala)
+  - SQL content con editor inline
+  - Explicación de inferencia (por qué el motor eligió ese chart)
+- Se activa al hacer click en cualquier panel del dashboard en edit mode
 - Reemplaza los controles de resize inline que hoy son poco descubribles
 
 ---

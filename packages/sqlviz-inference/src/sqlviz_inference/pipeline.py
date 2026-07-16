@@ -70,7 +70,26 @@ class RuntimePipeline:
         context = self.feedback.run_consult(context)   # Fase E: step 6.5
         context = self.readability.run(context)
         context = self.scoring.run(context)
-        context = self.feedback.run_apply(context)     # Fase E: apply override
+        context = self.feedback.run_apply(context)     # Fase E: no-op (soft preference only)
+
+        # V0.2.2: expose all 8 chart types with normalized pct scores
+        if context.scored_candidates:
+            _max = max(
+                (c.total_score for c in context.scored_candidates if c.eliminated_by_rule is None),
+                default=1.0,
+            ) or 1.0
+            context.chart_alternatives = [
+                {
+                    "chart": c.chart_type,
+                    "raw_score": round(c.total_score, 4),
+                    "pct": round(max(0.0, c.total_score) / _max, 4),
+                }
+                for c in context.scored_candidates
+            ]
+
+        context.chart_engine_winner = context.chart_winner  # freeze engine's choice for UI ordering
+        if context.chart_override:                          # apply explicit panel override
+            context.chart_winner = context.chart_override
         context = self.visual_spec_builder.run(context)
         context = self.layout.run(context)
         context = self.layout_declaration_builder.run(context)

@@ -30,35 +30,39 @@
         onClose: () => void;
     } = $props();
 
-    // Winner absolute score: normalized_score * 100 (DOC6 §12.1.2).
-    // Fallback to raw_score * 100 when normalized is absent.
-    const winnerPct = $derived(
-        Math.round((result.chart_scores?.[result.chart_winner]?.pct
-            ?? result.chart_normalized_score) * 100)
-    );
+    // Engine's pure winner (stable across re-executes for same SQL/data).
+    const engineWinner = result.chart_engine_winner ?? result.chart_winner;
 
-    // Alternatives relative to winner (DOC6 §12.1.2).
-    const alternatives = $derived(() => {
-        const winnerRaw = result.chart_raw_score || 1;
-        return (result.chart_alternatives ?? [])
+    // Build stable list from ALL 8 chart types. Computed once at init, never recomputed.
+    type ListItem = { chart: string; pct: number; isWinner: boolean };
+    const allItems: ListItem[] = (() => {
+        const alts = result.chart_alternatives ?? [];
+        if (alts.length === 0) {
+            return [{ chart: engineWinner, pct: 100, isWinner: true }];
+        }
+        return alts
             .map(a => ({
                 chart: a.chart,
-                pct: result.chart_scores?.[a.chart]?.pct != null
-                    ? Math.round(result.chart_scores![a.chart].pct * 100)
-                    : Math.min(99, Math.round((a.raw_score / winnerRaw) * 100)),
+                pct: Math.round((a.pct ?? 0) * 100),
+                isWinner: a.chart === engineWinner,
             }))
-            .filter(a => a.pct >= 30)
-            .slice(0, 5);
-    });
+            .sort((a, b) => b.pct - a.pct);
+    })();
+
+    const recommended = allItems.filter(a => a.pct >= 50);
+    const available    = allItems.filter(a => a.pct < 50);
 
     let showBreakdown = $state(false);
-    // _override is null when user hasn't explicitly selected anything yet.
-    let _override = $state<string | null>(null);
-    const selected = $derived(_override ?? result.chart_winner);
-    const isOverridden = $derived(_override !== null && _override !== result.chart_winner);
+    // _override tracks in-session selection. Initialise from chart_winner so
+    // a panel-level override (chart_user_override) is visible on first open.
+    let _override = $state<string | null>(
+        result.chart_winner !== engineWinner ? result.chart_winner : null
+    );
+    const selected    = $derived(_override ?? engineWinner);
+    const isOverridden = $derived(selected !== engineWinner);
 
     function handleSelect(chartType: string) {
-        _override = chartType;
+        _override = chartType === engineWinner ? null : chartType;
         onSelect(chartType);
     }
 
@@ -75,26 +79,39 @@
     </div>
 
     <div class="candidates">
-        <!-- Winner row -->
-        <label class="candidate winner">
-            <input type="radio" name="chart-sel" value={result.chart_winner}
-                   checked={selected === result.chart_winner}
-                   onchange={() => handleSelect(result.chart_winner)} />
-            <span class="chart-name">{labelFor(result.chart_winner)}</span>
-            <span class="score {scoreColor(winnerPct)}">{winnerPct}%</span>
-            <span class="badge">{isOverridden ? 'Manual' : 'Auto'}</span>
-        </label>
+        {#if recommended.length > 0}
+            <div class="group-label">Recommended</div>
+            {#each recommended as item (item.chart)}
+                <label class="candidate" class:winner={item.isWinner}>
+                    <input type="radio" name="chart-sel" value={item.chart}
+                           checked={selected === item.chart}
+                           onchange={() => handleSelect(item.chart)} />
+                    <span class="chart-name">{labelFor(item.chart)}</span>
+                    <span class="score {scoreColor(item.pct)}">{item.pct}%</span>
+                    {#if item.isWinner}
+                        <span class="badge">{isOverridden ? 'Manual' : 'Auto'}</span>
+                    {:else if result.feedback_preferred_chart === item.chart}
+                        <span class="badge badge-preferred">★</span>
+                    {/if}
+                </label>
+            {/each}
+        {/if}
 
-        <!-- Alternative rows -->
-        {#each alternatives() as alt (alt.chart)}
-            <label class="candidate">
-                <input type="radio" name="chart-sel" value={alt.chart}
-                       checked={selected === alt.chart}
-                       onchange={() => handleSelect(alt.chart)} />
-                <span class="chart-name">{labelFor(alt.chart)}</span>
-                <span class="score {scoreColor(alt.pct)}">{alt.pct}%</span>
-            </label>
-        {/each}
+        {#if available.length > 0}
+            <div class="group-label group-label-available">Available</div>
+            {#each available as item (item.chart)}
+                <label class="candidate candidate-available">
+                    <input type="radio" name="chart-sel" value={item.chart}
+                           checked={selected === item.chart}
+                           onchange={() => handleSelect(item.chart)} />
+                    <span class="chart-name">{labelFor(item.chart)}</span>
+                    <span class="score {scoreColor(item.pct)}">{item.pct}%</span>
+                    {#if result.feedback_preferred_chart === item.chart}
+                        <span class="badge badge-preferred">★</span>
+                    {/if}
+                </label>
+            {/each}
+        {/if}
     </div>
 
     <!-- Score breakdown (DOC6 §12.1.1) -->
@@ -119,7 +136,7 @@
     {#if isOverridden}
         <button class="reset-btn" onclick={() => {
             _override = null;
-            onSelect(result.chart_winner);
+            onSelect(engineWinner);
         }}>
             Reset to auto
         </button>
@@ -164,7 +181,23 @@
     .close-btn:hover { color: var(--sqlviz-text); }
 
     .candidates {
-        padding: 0.375rem 0;
+        padding: 0.25rem 0;
+        max-height: 360px;
+        overflow-y: auto;
+    }
+
+    .group-label {
+        padding: 0.3125rem 0.875rem 0.125rem;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--sqlviz-text-muted);
+    }
+
+    .group-label-available {
+        border-top: 1px solid var(--sqlviz-border);
+        margin-top: 0.25rem;
     }
 
     .candidate {
@@ -177,6 +210,7 @@
     }
     .candidate:hover { background: var(--sqlviz-bg-base); }
     .candidate.winner { font-weight: 600; }
+    .candidate.candidate-available { opacity: 0.75; }
 
     .candidate input[type="radio"] {
         accent-color: var(--sqlviz-primary);
@@ -208,6 +242,12 @@
         border-radius: 3px;
         padding: 0.0625rem 0.3125rem;
         flex-shrink: 0;
+    }
+
+    .badge-preferred {
+        background: transparent;
+        color: #f59e0b;
+        border: 1px solid #f59e0b;
     }
 
     .breakdown-toggle {

@@ -66,7 +66,7 @@ export interface InferenceResult {
     chart_normalized_score: number;
     chart_confidence_gap: number;
     chart_quality: string;
-    chart_alternatives: Array<{ chart: string; raw_score: number }>;
+    chart_alternatives: Array<{ chart: string; raw_score: number; pct?: number }>;
 
     // Layout — consumed directly by DashboardGrid (DOC6 §4.1)
     col_span: number;         // 1-12
@@ -101,6 +101,11 @@ export interface InferenceResult {
     // V0.2 Fase 0 — render contracts
     data_profile: Record<string, unknown> | null;
     visual_spec: VisualSpec | null;
+
+    // V0.2.2 — FeedbackEngine preferred chart (★ suggestion in Chart Selector, never auto-applied)
+    feedback_preferred_chart?: string | null;
+    // Engine's pure winner before any panel-level override; used for stable list ordering
+    chart_engine_winner?: string | null;
 
     // V0.2 UI — Cognitive Dashboard Compiler (DOC6 §12)
     // Optional: populated by V0.2 ScoringModel backend; absent in V0.1 API.

@@ -123,8 +123,15 @@ class RuntimeContext:
     # ── Fase E — FeedbackEngine ───────────────────────────────────────────────
     # brain_conn is injected by the API layer; pipeline steps skip when None.
     brain_conn: Any = field(default=None)
-    # Set by FeedbackEngine.run_consult when a learned override is found.
-    feedback_override: str | None = field(default=None)
+    # Set by FeedbackEngine.run_consult when a learned preference is found.
+    # Surfaced as feedback_preferred_chart in InferenceResult — never auto-applied.
+    feedback_preferred: str | None = field(default=None)
+    # Explicit panel-level override passed from the API layer (chart_user_override in DB).
+    # Applied in pipeline BEFORE visual_spec_builder so the visual spec is correct.
+    chart_override: str | None = field(default=None)
+    # The engine's pure winner saved before chart_override is applied.
+    # Used by ChartSelectorPanel for stable list ordering.
+    chart_engine_winner: str = field(default="table")
 
     # ── Fase F — ExplanationEngine V2 ─────────────────────────────────────────
     explanation_v2: Explanation | None = field(default=None)

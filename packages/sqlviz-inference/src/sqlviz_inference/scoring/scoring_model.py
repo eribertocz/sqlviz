@@ -164,7 +164,7 @@ class ScoringModel:
                 - neg.get("interaction_cost", 0.01) * s.interaction_cost
             )
 
-            v2 = ChartCandidateV2(chart_type=ct, score=s, rank=0)
+            v2 = ChartCandidateV2(chart_type=ct, score=s, rank=0, total_score=total)
             scored.append((total, v2))
 
         # Rank by total score descending (eliminated get -1, sort last)

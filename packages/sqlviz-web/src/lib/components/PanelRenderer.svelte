@@ -26,6 +26,12 @@
     let animating = $state(false);
     let animationSafetyTimer = 0;
 
+    // Teleports a node to document.body so it escapes panel overflow clipping.
+    function portal(node: HTMLElement) {
+        document.body.appendChild(node);
+        return { destroy() { node.remove(); } };
+    }
+
     function closePopovers() {
         showChartSelector = false;
         showLayoutControls = false;
@@ -76,9 +82,9 @@
             />
         </div>
 
-        <!-- Chart Selector popover (DOC6 §12.1) -->
+        <!-- Chart Selector modal (DOC6 §12.1) — portalled to body to escape panel clipping -->
         {#if showChartSelector}
-            <div class="popover-anchor">
+            <div class="modal-backdrop" use:portal onclick={closePopovers} role="presentation">
                 <ChartSelectorPanel
                     result={panel.inference_result}
                     onSelect={(ct) => handleChartSelect(ct)}
@@ -138,12 +144,24 @@
         z-index: 10;
     }
 
-    /* Popover drops below the overflow trigger (DOC6 §12.5). */
+    /* Popover for LayoutOverrideControls (DOC6 §12.2). */
     .popover-anchor {
         position: absolute;
         top: 36px;
         right: 6px;
         z-index: 200;
+    }
+
+    /* Full-screen backdrop for ChartSelectorPanel modal (DOC6 §12.1). */
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: rgba(0, 0, 0, 0.25);
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 80px;
     }
 
     /* Chart fade: 150ms out, 200ms in (DOC6 §12.1.3). */

@@ -37,3 +37,4 @@ class ChartCandidate:
     score: ChartScore = field(default_factory=ChartScore)
     rank: int = 0                        # 1 = winner after scoring
     eliminated_by_rule: str | None = None   # set if hard constraint eliminated it
+    total_score: float = 0.0            # weighted aggregate, set by ScoringModel

@@ -277,7 +277,10 @@ def execute_panel(
     ]
     schema = [ColumnSchema(name=str(d[0]), type=str(d[1])) for d in desc]
 
-    result = sqlviz_inference.infer(sql, data=data, schema=schema, brain_conn=brain)
+    result = sqlviz_inference.infer(
+        sql, data=data, schema=schema, brain_conn=brain,
+        chart_override=panel.chart_user_override,
+    )
 
     # Persist inferred values to panels table (never overwrites existing overrides)
     store_inference(

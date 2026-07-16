@@ -27,6 +27,7 @@ def infer(
     data: list[dict[str, object]] | None = None,
     schema: list[ColumnSchema] | None = None,
     brain_conn: Any = None,
+    chart_override: str | None = None,
 ) -> InferenceResult:
     """
     The single public function of the Inference Engine.
@@ -46,6 +47,7 @@ def infer(
         data=data or [],
         schema=schema or [],
         brain_conn=brain_conn,
+        chart_override=chart_override,
     )
     context = _pipeline.run(context)
     return InferenceResult.from_context(context)

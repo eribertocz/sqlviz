@@ -84,6 +84,12 @@ class InferenceResult:
     # ── V0.2 Fase F — ExplanationEngine V2 ───────────────────────────────
     explanation_v2: Explanation | None = None
 
+    # ── V0.2.2 — FeedbackEngine preferred chart (suggestion, never forced) ──
+    feedback_preferred_chart: str | None = None
+    # Engine's pure winner before any panel-level chart_override is applied.
+    # Stable across re-executes for same SQL/data; used for fixed list ordering in UI.
+    chart_engine_winner: str | None = None
+
     @classmethod
     def from_context(cls, context: RuntimeContext) -> InferenceResult:
         """Build the final result from a fully-processed RuntimeContext."""
@@ -172,6 +178,9 @@ class InferenceResult:
             dashboard_role=context.dashboard_role,
 
             explanation_v2=context.explanation_v2,
+
+            feedback_preferred_chart=context.feedback_preferred,
+            chart_engine_winner=context.chart_engine_winner or context.chart_winner,
         )
 
     def to_dict(self) -> dict[str, Any]:
