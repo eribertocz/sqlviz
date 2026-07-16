@@ -67,6 +67,8 @@ Objetivo: que el frontend sea mantenible antes de agregar más UI.
 - Estados uniformes en todos los componentes: `loading` / `empty` / `error` / `degraded`
 - Accesibilidad básica: roles ARIA, navegación por teclado en sidebar y app bar
 - Smoke tests frontend: al menos un test por ruta crítica
+- Resizer vertical entre editor Monaco y dashboard: el usuario arrastra la barra
+  divisoria para ajustar la altura del editor vs los gráficos
 
 ---
 
@@ -78,6 +80,9 @@ Objetivo: sidebar como explorador de proyectos, no solo lista plana.
 - Editar nombre y descripción de dashboard inline
 - Eliminar dashboard con confirmación
 - Organizar dashboards por grupos con drag o click
+- Click en panel resalta el panel visualmente y en el editor Monaco hace scroll
+  hasta el statement correspondiente, lo resalta completo y posiciona el cursor
+  al inicio de ese query
 - Reubicar botón "Nuevo Dashboard" en lugar estratégico dentro del explorador
   (hoy está en la app bar, poco visible y fuera de contexto)
 - Al crear nuevo dashboard no arrastrar la query del dashboard anterior
