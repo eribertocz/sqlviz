@@ -140,7 +140,7 @@ When SQLviz starts, three things happen in order:
    → All project data lives here
 
 2. Start Quack server
-   → Quack exposes DuckDB as a PostgreSQL server
+   → Quack exposes DuckDB via HTTP (DuckDB core extension, v1.5.3+)
    → Handles concurrency between admin and viewers
    → Admin connects read/write
    → Viewers connect read-only
@@ -156,14 +156,12 @@ When SQLviz starts, three things happen in order:
 
 conn = duckdb.connect("my_project.sqlviz")
 
-# Generate or recover session secret
-secret = get_or_create_secret(conn)
-
-# Start Quack — handles admin/viewer concurrency
-quack.serve(conn, port=5433, secret=secret)
+# Start Quack — handles admin/viewer concurrency via HTTP
+conn.execute("INSTALL quack FROM core_nightly")
+conn.execute("LOAD quack")
+conn.execute("CALL quack_serve('quack:localhost', token = 'token')")
 
 # Start FastAPI — serves the UI
-app.state.secret = secret
 uvicorn.run(app, port=4000)
 ```
 
@@ -492,7 +490,7 @@ Without Quack:
 → Admin editing + viewer reading = potential conflict
 
 With Quack:
-→ Quack exposes DuckDB as a PostgreSQL server
+→ Quack exposes DuckDB via HTTP server
 → Admin connects read/write
 → All viewers connect read-only
 → Multiple simultaneous viewers — no conflicts
@@ -554,7 +552,7 @@ and infers the chart type for each result.
 
 ```
 4000  → FastAPI (SQLviz UI)
-5433  → Quack (DuckDB as PostgreSQL server)
+quack → Quack HTTP server (DuckDB core extension, v1.5.3+)
 ```
 
 ---

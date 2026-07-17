@@ -8,17 +8,17 @@ import sys
 from pathlib import Path
 
 import duckdb
+from sqlviz_core.version import __version__
 from sqlviz_storage.auth import set_admin_password
 from sqlviz_storage.project_db import create_project, is_sqlviz_project, open_project
 
 from sqlviz_cli.server import serve
 
-_VERSION = "0.1.0"
 _LINE = "-" * 42
 
 
 def _banner(subtitle: str = "") -> None:
-    title = f"SQLviz {_VERSION}"
+    title = f"SQLviz {__version__}"
     if subtitle:
         title = f"{title} - {subtitle}"
     print(f"\n{title}")

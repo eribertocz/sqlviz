@@ -1,6 +1,6 @@
 [project]
 name = "sqlviz-cli"
-version = "0.2.1"
+dynamic = ["version"]
 description = "SQLviz CLI: the `sqlviz` command"
 requires-python = ">=3.12"
 dependencies = [
@@ -12,8 +12,14 @@ dependencies = [
 sqlviz = "sqlviz_cli.main:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+root = "../.."
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sqlviz_cli"]

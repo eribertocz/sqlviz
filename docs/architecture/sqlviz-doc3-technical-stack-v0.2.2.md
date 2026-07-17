@@ -143,7 +143,7 @@ SQLviz injects the ATTACH automatically before executing.
 
 ## 3. Quack — Concurrency Layer
 
-Quack exposes DuckDB as a PostgreSQL-compatible server.
+Quack is a DuckDB core extension (v1.5.3+) that exposes DuckDB via an HTTP server.
 It is the concurrency solution for SQLviz.
 
 ### The problem Quack solves
@@ -155,7 +155,7 @@ DuckDB by default:
 → Multiple simultaneous viewers = potential issues
 
 With Quack:
-→ DuckDB exposed as PostgreSQL server
+→ DuckDB exposed as HTTP server
 → Quack manages all connections
 → Admin: read/write connection
 → Viewers: read-only connections
@@ -168,14 +168,13 @@ With Quack:
 
 ```python
 import duckdb
-import quack
 
 conn = duckdb.connect("my_project.sqlviz")
-secret = get_or_create_session_secret(conn)
 
-# Two lines — full concurrency
-server = quack.QuackServer(conn, host="0.0.0.0", port=5433)
-server.start(secret=secret)
+# Three SQL calls — full concurrency via DuckDB core extension
+conn.execute("INSTALL quack FROM core_nightly")
+conn.execute("LOAD quack")
+conn.execute("CALL quack_serve('quack:localhost', token = 'token')")
 ```
 
 ### Quack + secret security

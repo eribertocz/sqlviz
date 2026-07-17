@@ -1,4 +1,4 @@
-"""Server startup — uvicorn + optional Quack wire-protocol + browser."""
+"""Server startup — uvicorn + optional Quack HTTP server + browser."""
 
 from __future__ import annotations
 
@@ -19,33 +19,15 @@ def _open_browser(url: str, delay: float = 1.2) -> None:
     webbrowser.open(url)
 
 
-def _try_start_quack(
-    admin_conn: duckdb.DuckDBPyConnection,
-    port: int = 5433,
-) -> None:
-    """Attempt to start the Quack PostgreSQL wire-protocol server.
-
-    Quack exposes DuckDB as a PostgreSQL-compatible server (DOC3 §3),
-    enabling true concurrent multi-client access. If the quack package
-    is not installed or fails to start, degrade gracefully — SQLviz
-    continues with DuckDB's built-in concurrent-reader support.
-    """
+def _try_start_quack(admin_conn: duckdb.DuckDBPyConnection) -> None:
+    """Start Quack HTTP server via DuckDB core extension (v1.5.3+), or degrade gracefully."""
     try:
-        import quack  # type: ignore[import-not-found]
-    except ImportError:
-        print(
-            "  [warn] quack not installed — PostgreSQL wire-protocol server skipped.\n"
-            "         Install with: uv add quack"
-        )
-        return
-
-    try:
-        server = quack.QuackServer(admin_conn, host="127.0.0.1", port=port)
-        t = threading.Thread(target=server.start, daemon=True)
-        t.start()
-        print(f"  Quack:    postgresql://127.0.0.1:{port}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"  [warn] Quack failed to start: {exc}")
+        admin_conn.execute("INSTALL quack FROM core_nightly")
+        admin_conn.execute("LOAD quack")
+        admin_conn.execute("CALL quack_serve('quack:localhost', token = 'token')")
+        print("  Quack:    quack://localhost")
+    except Exception:  # noqa: BLE001
+        print("  [warn] quack not available — requires DuckDB v1.5.3+")
 
 
 def serve(
@@ -78,7 +60,7 @@ def serve(
 
     app = create_app(conn, viewer_conn=viewer_conn, demo_mode=demo_mode)
 
-    # Try to start the Quack PostgreSQL wire-protocol server.
+    # Try to start the Quack HTTP server (DuckDB core extension).
     _try_start_quack(conn)
 
     url = f"http://{host}:{port}"

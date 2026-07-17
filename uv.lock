@@ -612,7 +612,6 @@ wheels = [
 
 [[package]]
 name = "sqlviz"
-version = "0.1.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -637,7 +636,6 @@ dev = [
 
 [[package]]
 name = "sqlviz-api"
-version = "0.2.1"
 source = { editable = "packages/sqlviz-api" }
 dependencies = [
     { name = "fastapi" },
@@ -660,7 +658,6 @@ requires-dist = [
 
 [[package]]
 name = "sqlviz-cli"
-version = "0.2.1"
 source = { editable = "packages/sqlviz-cli" }
 dependencies = [
     { name = "sqlviz-api" },
@@ -675,12 +672,10 @@ requires-dist = [
 
 [[package]]
 name = "sqlviz-core"
-version = "0.2.1"
 source = { editable = "packages/sqlviz-core" }
 
 [[package]]
 name = "sqlviz-inference"
-version = "0.2.1"
 source = { editable = "packages/sqlviz-inference" }
 dependencies = [
     { name = "duckdb" },
@@ -699,7 +694,6 @@ requires-dist = [
 
 [[package]]
 name = "sqlviz-storage"
-version = "0.2.1"
 source = { editable = "packages/sqlviz-storage" }
 dependencies = [
     { name = "bcrypt" },
