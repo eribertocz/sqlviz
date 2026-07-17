@@ -10,10 +10,13 @@ build/
 .pytest_cache/
 
 # ── Node / SvelteKit ──────────────────────────────────────────────────────────
-# dist/ is intentionally NOT ignored — packages/sqlviz-api/src/sqlviz_api/static/dist/
-# is the compiled frontend and must be committed so the wheel ships the UI.
+# dist/ is a build artifact — NOT versioned in git.
+# Run `cd packages/sqlviz-web && npm run build` before `uv tool install` or
+# `uv build` to produce a wheel that includes the UI.
+# hatch includes it via [tool.hatch.build] artifacts even though it's gitignored.
 node_modules/
 .svelte-kit/
+packages/sqlviz-api/src/sqlviz_api/static/dist/
 
 # ── SQLviz runtime ────────────────────────────────────────────────────────────
 # User project databases — not source code
