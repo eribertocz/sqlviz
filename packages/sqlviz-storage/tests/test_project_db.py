@@ -79,12 +79,24 @@ class TestMetaSignature:
         assert row is not None and row[0] == "sqlviz"
 
     def test_version_row(self, tmp_path: Path) -> None:
+        from sqlviz_storage.project_db import APP_VERSION
+
         conn = create_project(str(tmp_path / "p.sqlviz"))
         row = conn.execute(
             "SELECT value FROM _sqlviz_meta WHERE key = 'version'"
         ).fetchone()
         conn.close()
-        assert row is not None and row[0] == "0.1.0"
+        assert row is not None and row[0] == APP_VERSION
+
+    def test_schema_version_row(self, tmp_path: Path) -> None:
+        from sqlviz_storage.project_db import SCHEMA_VERSION
+
+        conn = create_project(str(tmp_path / "p.sqlviz"))
+        row = conn.execute(
+            "SELECT value FROM _sqlviz_meta WHERE key = 'schema_version'"
+        ).fetchone()
+        conn.close()
+        assert row is not None and row[0] == SCHEMA_VERSION
 
     def test_created_row_is_parseable_iso(self, tmp_path: Path) -> None:
         conn = create_project(str(tmp_path / "p.sqlviz"))

@@ -33,14 +33,19 @@ def _column_names(conn: duckdb.DuckDBPyConnection, table: str) -> list[str]:
 # ── Baseline: no migrations ───────────────────────────────────────────────────
 
 class TestNoMigrations:
+    # DDL migrations (0001-0014) fail on fresh projects because SCHEMA_STATEMENTS
+    # already creates all columns. Data migrations that succeed (e.g., 0015
+    # backfill schema_version) are recorded even on fresh projects.
 
-    def test_fresh_project_has_empty_schema_migrations(self, tmp_path: Path) -> None:
+    def test_fresh_project_has_only_data_migrations(self, tmp_path: Path) -> None:
         p = str(tmp_path / "p.sqlviz")
         create_project(p).close()
         conn = open_project(p)
         ids = _applied_ids(conn)
         conn.close()
-        assert ids == []
+        # Only 0015 (data migration: INSERT ON CONFLICT DO NOTHING) succeeds
+        # on a fresh project. DDL migrations fail because columns already exist.
+        assert ids == ["0015_meta_set_schema_version"]
 
     def test_schema_migrations_table_exists_after_open(self, tmp_path: Path) -> None:
         p = str(tmp_path / "p.sqlviz")
@@ -49,7 +54,8 @@ class TestNoMigrations:
         # Table must be queryable (no exception)
         count = conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()
         conn.close()
-        assert count is not None and count[0] == 0
+        # 0015 (data migration) is recorded on fresh projects
+        assert count is not None and count[0] == 1
 
 
 # ── Single migration ──────────────────────────────────────────────────────────

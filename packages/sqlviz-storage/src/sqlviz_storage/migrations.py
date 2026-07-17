@@ -71,6 +71,11 @@ MIGRATIONS: list[tuple[str, str]] = [
     # 0014: store intent_winner per panel so the classifier can use it
     ("0014_panels_add_inferred_intent_type",
      "ALTER TABLE panels ADD COLUMN inferred_intent_type VARCHAR"),
+    # 0015: v0.2.4 — backfill schema_version in _sqlviz_meta for existing projects.
+    # New projects have this key set by create_project(); this migration handles
+    # files created before v0.2.4.
+    ("0015_meta_set_schema_version",
+     "INSERT INTO _sqlviz_meta VALUES ('schema_version', '1') ON CONFLICT DO NOTHING"),
 ]
 
 

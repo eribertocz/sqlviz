@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from .profile.data_profile import DataProfile
     from .spec.visual_spec import VisualSpec
 
+# Schema version of InferenceResult itself. Bump on breaking shape changes
+# (removed or renamed required fields). New optional fields are backward-compatible.
+INFERENCE_RESULT_SCHEMA_VERSION = "1"
+
 
 @dataclass
 class InferenceResult:
@@ -95,6 +99,9 @@ class InferenceResult:
     execution_state: str = "success"   # "success" | "warning" | "degraded" | "failed"
     # Per-module elapsed times in ms. Populated only when debug=True.
     module_timings: dict[str, float] | None = None
+
+    # ── V0.2.4 — Contract versioning ───────────────────────────────────────
+    result_schema_version: str = INFERENCE_RESULT_SCHEMA_VERSION
 
     @classmethod
     def from_context(cls, context: RuntimeContext) -> InferenceResult:
@@ -190,7 +197,7 @@ class InferenceResult:
 
             trace_id=context.trace_id,
             execution_state=context.execution_state,
-            module_timings=context.score_trace.get("module_timings"),  # type: ignore[arg-type]
+            module_timings=context.score_trace.get("module_timings"),
         )
 
     def to_dict(self) -> dict[str, Any]:

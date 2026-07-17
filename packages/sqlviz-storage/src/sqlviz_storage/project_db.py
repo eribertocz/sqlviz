@@ -23,7 +23,11 @@ from .migrations import run_migrations
 from .schema import SCHEMA_STATEMENTS
 
 _APP_NAME = "sqlviz"
-_APP_VERSION = "0.1.0"
+# Bump APP_VERSION on every release; SCHEMA_VERSION only on breaking DDL changes.
+APP_VERSION = "0.2.4"
+SCHEMA_VERSION = "1"
+_APP_VERSION = APP_VERSION
+_SCHEMA_VERSION = SCHEMA_VERSION
 
 
 def _now_iso() -> str:
@@ -85,6 +89,7 @@ def create_project(path: str) -> duckdb.DuckDBPyConnection:
         now = _now_iso()
         conn.execute("INSERT INTO _sqlviz_meta VALUES ('app', ?)", [_APP_NAME])
         conn.execute("INSERT INTO _sqlviz_meta VALUES ('version', ?)", [_APP_VERSION])
+        conn.execute("INSERT INTO _sqlviz_meta VALUES ('schema_version', ?)", [_SCHEMA_VERSION])
         conn.execute("INSERT INTO _sqlviz_meta VALUES ('created', ?)", [now])
         # password_hash starts empty; the CLI/API sets it on first-time setup.
         conn.execute(

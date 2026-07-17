@@ -4,7 +4,6 @@ from __future__ import annotations
 import sqlviz_inference
 from sqlviz_inference.context import RuntimeContext
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
 _SQL_KPI = "SELECT SUM(revenue) AS total FROM sales"
@@ -106,6 +105,7 @@ class TestModuleTimings:
 class TestGetLogger:
     def test_logger_returns_named_logger(self):
         import logging
+
         from sqlviz_inference.utils.sqlviz_logging import get_logger
         log = get_logger("test_module")
         assert log.name == "sqlviz.test_module"

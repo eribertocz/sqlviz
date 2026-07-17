@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 class _JSONFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        d: dict = {
+        d: dict[str, object] = {
             "ts": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
             "level": record.levelname,
             "logger": record.name,

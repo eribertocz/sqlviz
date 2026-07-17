@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# Schema version of VisualSpec itself. Bump on breaking shape changes (removed
+# or renamed required fields). New optional fields are backward-compatible.
+VISUAL_SPEC_SCHEMA_VERSION = "1"
+
 
 @dataclass
 class VisualSpec:
@@ -20,3 +24,4 @@ class VisualSpec:
     stack: bool                # stacked series (V0.2+), False now
     number_format: str         # "default" | "percent" | "currency"
     tooltip_fields: list[str] = field(default_factory=list)
+    schema_version: str = field(default=VISUAL_SPEC_SCHEMA_VERSION)

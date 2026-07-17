@@ -5,6 +5,43 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v0.2.4] — 2026-07-16
+
+### Added
+- **Versioning de contratos**: `InferenceResult` expone `result_schema_version`
+  (constante `INFERENCE_RESULT_SCHEMA_VERSION = "1"`). `VisualSpec` expone
+  `schema_version` (constante `VISUAL_SPEC_SCHEMA_VERSION = "1"`). El schema
+  `.sqlviz` expone `schema_version = "1"` en la tabla `_sqlviz_meta`. Los
+  consumidores pueden detectar cambios breaking comparando estas versiones.
+- **`APP_VERSION` y `SCHEMA_VERSION`** exportadas públicamente desde
+  `sqlviz_storage.project_db` para que los tests y la API puedan referenciarlas
+  sin hardcodear strings.
+- **Golden tests de serialización** (`test_serialization_golden.py`): freezan
+  el conjunto de campos de `InferenceResult` y `VisualSpec`. Fallan cuando
+  cualquier campo es agregado, eliminado o renombrado, forzando actualización
+  intencional del fixture en `tests/golden/`.
+- **Política formal de contratos** (`docs/architecture/sqlviz-contract-policy.md`):
+  define `backward-compatible` / `breaking` / `deprecated`, lista los contratos
+  versionados, y documenta el proceso para cambios breaking.
+- **Migración 0015** (`meta_set_schema_version`): backfill de `schema_version`
+  en proyectos `.sqlviz` creados antes de v0.2.4.
+
+### Changed
+- `_APP_VERSION` en `project_db.py` actualizado de `"0.1.0"` a `"0.2.4"`.
+- Directorio `packages/sqlviz-inference/rules/` eliminado. Era una copia stale
+  de `src/sqlviz_inference/rules/` (el `YAMLLoader` ya cargaba desde `src/`).
+  La fuente de verdad única es `src/sqlviz_inference/rules/`.
+
+### Fixed
+- `sqlviz_logging.py`: anotación `dict` sin argumentos de tipo → `dict[str, object]`.
+- `server.py`: comentario `# type: ignore[import-not-found]` redundante eliminado
+  (mypy con `--ignore-missing-imports` suprime el error nativamente).
+- `result.py`: comentario `# type: ignore[arg-type]` redundante eliminado.
+
+Suite de tests: **1325 passed, 3 skipped** (antes: 1319).
+
+---
+
 ## [v0.2.3] — 2026-07-16
 
 ### Added
