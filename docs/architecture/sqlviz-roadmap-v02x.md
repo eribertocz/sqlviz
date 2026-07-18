@@ -123,15 +123,59 @@ Objetivo: sidebar como explorador de proyectos, no solo lista plana.
 
 ---
 
-## v0.2.8 — Sidebar Colapsable
+## v0.2.8 — Sidebar Colapsable + Modo Dual
 
-Objetivo: sidebar que no ocupe espacio cuando no se necesita.
+Objetivo: el sidebar se adapta al modo (Edit vs Preview) y puede colapsarse
+para no ocupar espacio cuando no se necesita.
 
-- Modo expandido: icono + label + separadores entre grupos
-- Modo colapsado: solo iconos + tooltip al hover + separadores visuales entre grupos
-- Header del sidebar: logo cargable por el usuario + botón colapsar/expandir
-- **Skeleton** (shadcn) coherente con el modo colapsado/expandido mientras carga
+### Modo Edit — árbol tipo VSCode
+
+Explorador editable (el de v0.2.7):
+
+```
+📁 Carpeta (colapsable/expandible)
+  📊 Dashboard
+  📊 Dashboard
+📁 Otra carpeta
+  📊 Dashboard
+📊 Dashboard sin grupo
+[+ Nuevo Dashboard]
+```
+
+- Carpetas colapsables/expandibles con click
+- Menú de opciones por item (renombrar, descripción, mover, eliminar — v0.2.7)
+- Organizar dashboards por grupos (drag o click)
+- Botón "Nuevo Dashboard" visible
+
+### Modo Preview — sidebar navegable limpio
+
+Sin gestión, solo navegación:
+
+```
+── COMERCIAL ──────────      ← label de grupo + separador
+  📊 Ventas mensuales
+  📊 Pipeline
+
+── RRHH ───────────────
+  📊 Nómina
+
+📊 Dashboard sin grupo
+```
+
+- Sin menús de gestión, sin botón "Nuevo Dashboard"
+- Solo navegación por click
+- Los grupos se muestran como labels con separador (no como carpetas)
+
+### Colapsable (ambos modos)
+
+- Modo expandido: icono + label
+- Modo colapsado: solo iconos + tooltip al hover + separadores entre grupos
+- Botón colapsar/expandir en el header del sidebar
+- Animación suave de ancho
 - Estado persistido en localStorage
+- **Skeleton** (shadcn) coherente con el modo colapsado/expandido mientras carga
+
+Todo con shadcn-svelte.
 
 ---
 

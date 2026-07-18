@@ -1,9 +1,12 @@
 <script lang="ts">
     import { resolveDashboardIcon } from '$lib/dashboardIcons';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
-    import type { DashboardInfo, FolderInfo } from '$lib/types';
+    import { uiStore } from '$lib/stores/uiStore.svelte';
+    import { editMode } from '$lib/stores/editMode';
+    import type { DashboardInfo } from '$lib/types';
     import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
     import * as Dialog from '$lib/components/ui/dialog/index.js';
+    import * as Tooltip from '$lib/components/ui/tooltip/index.js';
     import { Skeleton } from '$lib/components/ui/skeleton/index.js';
     import { Input } from '$lib/components/ui/input/index.js';
     import { Button } from '$lib/components/ui/button/index.js';
@@ -16,9 +19,11 @@
     import FileTextIcon from '@lucide/svelte/icons/file-text';
     import FolderInputIcon from '@lucide/svelte/icons/folder-input';
     import Trash2Icon from '@lucide/svelte/icons/trash-2';
+    import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
+    import PanelLeftOpenIcon from '@lucide/svelte/icons/panel-left-open';
 
-    // Which folders are collapsed (expanded by default).
-    let collapsed = $state<Record<string, boolean>>({});
+    // Per-folder expand/collapse state in the edit tree (expanded by default).
+    let folderCollapsed = $state<Record<string, boolean>>({});
     // Row whose context menu is open (also driven by right-click).
     let openMenuId = $state<string | null>(null);
 
@@ -30,8 +35,11 @@
     let target = $state<DashboardInfo | null>(null);
     let fieldValue = $state('');
 
+    const collapsed = $derived(uiStore.sidebarCollapsed);
     const folders = $derived(dashboardStore.folders);
     const dashboards = $derived(dashboardStore.allDashboards);
+    // Preview mode only shows non-empty groups.
+    const nonEmptyFolders = $derived(folders.filter(f => inFolder(f.id).length > 0));
 
     function inFolder(folderId: string): DashboardInfo[] {
         return dashboards.filter(d => d.folder_id === folderId);
@@ -39,7 +47,7 @@
     const ungrouped = $derived(dashboards.filter(d => !d.folder_id));
 
     function toggleFolder(id: string) {
-        collapsed = { ...collapsed, [id]: !collapsed[id] };
+        folderCollapsed = { ...folderCollapsed, [id]: !folderCollapsed[id] };
     }
 
     function openRename(d: DashboardInfo) { target = d; fieldValue = d.name; renameOpen = true; }
@@ -67,13 +75,10 @@
     function newGroup() { fieldValue = ''; newFolderOpen = true; }
 </script>
 
-{#snippet row(d: DashboardInfo, indented: boolean)}
+<!-- ── Edit-mode row: icon + name + management menu ────────────────────────── -->
+{#snippet editRow(d: DashboardInfo, indented: boolean)}
     {@const IconCmp = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
-    <div
-        class="row"
-        class:active={d.id === dashboardStore.dashboardId}
-        class:indented
-    >
+    <div class="row" class:active={d.id === dashboardStore.dashboardId} class:indented>
         <button
             class="row-main"
             onclick={() => dashboardStore.loadDashboard(d.id)}
@@ -129,65 +134,145 @@
     </div>
 {/snippet}
 
-<nav class="explorer" aria-label="Dashboard explorer">
-    <div class="explorer-header">
-        <span class="explorer-title">Explorer</span>
-        <div class="explorer-actions">
-            <button class="hbtn" onclick={newGroup} title="New group" aria-label="New group">
-                <FolderPlusIcon size={15} />
+<!-- ── Preview-mode row: icon + name, navigation only ──────────────────────── -->
+{#snippet previewRow(d: DashboardInfo)}
+    {@const IconCmp = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
+    <button
+        class="row-main preview-row"
+        class:active={d.id === dashboardStore.dashboardId}
+        onclick={() => dashboardStore.loadDashboard(d.id)}
+        title={d.description || d.name}
+    >
+        <span class="row-icon"><IconCmp size={14} /></span>
+        <span class="row-name">{d.name}</span>
+    </button>
+{/snippet}
+
+<!-- ── Collapsed rail: icon only, tooltip on hover ─────────────────────────── -->
+{#snippet railIcon(d: DashboardInfo)}
+    {@const IconCmp = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
+    <Tooltip.Root>
+        <Tooltip.Trigger
+            class="rail-icon {d.id === dashboardStore.dashboardId ? 'active' : ''}"
+            onclick={() => dashboardStore.loadDashboard(d.id)}
+            aria-label={d.name}
+        >
+            <IconCmp size={16} />
+        </Tooltip.Trigger>
+        <Tooltip.Content side="right">{d.name}</Tooltip.Content>
+    </Tooltip.Root>
+{/snippet}
+
+<nav
+    class="explorer"
+    class:collapsed
+    aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}
+>
+    <div class="explorer-header" class:collapsed>
+        {#if !collapsed}
+            <span class="explorer-title">{$editMode ? 'Explorer' : 'Dashboards'}</span>
+            <div class="explorer-actions">
+                {#if $editMode}
+                    <button class="hbtn" onclick={newGroup} title="New group" aria-label="New group">
+                        <FolderPlusIcon size={15} />
+                    </button>
+                    <button class="hbtn" onclick={newDashboard} title="New dashboard" aria-label="New dashboard">
+                        <PlusIcon size={16} />
+                    </button>
+                {/if}
+                <button class="hbtn" onclick={uiStore.toggleSidebar} title="Collapse sidebar" aria-label="Collapse sidebar">
+                    <PanelLeftCloseIcon size={16} />
+                </button>
+            </div>
+        {:else}
+            <button class="hbtn" onclick={uiStore.toggleSidebar} title="Expand sidebar" aria-label="Expand sidebar">
+                <PanelLeftOpenIcon size={16} />
             </button>
-            <button class="hbtn" onclick={newDashboard} title="New dashboard" aria-label="New dashboard">
-                <PlusIcon size={16} />
-            </button>
-        </div>
+        {/if}
     </div>
 
     <div class="explorer-body">
         {#if dashboardStore.dashboardsLoading}
             {#each Array(5) as _, i (i)}
-                <div class="skeleton-row">
-                    <Skeleton class="size-4 rounded" />
-                    <Skeleton class="h-3.5 flex-1 rounded" />
-                </div>
+                {#if collapsed}
+                    <div class="skeleton-rail"><Skeleton class="size-7 rounded-md" /></div>
+                {:else}
+                    <div class="skeleton-row">
+                        <Skeleton class="size-4 rounded" />
+                        <Skeleton class="h-3.5 flex-1 rounded" />
+                    </div>
+                {/if}
             {/each}
-        {:else}
+
+        {:else if collapsed}
+            <!-- Collapsed rail — both modes: icons + separators between groups -->
+            <Tooltip.Provider delayDuration={200}>
+                {#each nonEmptyFolders as f (f.id)}
+                    {#each inFolder(f.id) as d (d.id)}
+                        {@render railIcon(d)}
+                    {/each}
+                    <div class="rail-sep"></div>
+                {/each}
+                {#each ungrouped as d (d.id)}
+                    {@render railIcon(d)}
+                {/each}
+            </Tooltip.Provider>
+
+        {:else if $editMode}
+            <!-- Edit tree — VSCode-style folders + management -->
             {#each folders as f (f.id)}
                 <button class="folder-header" onclick={() => toggleFolder(f.id)}>
-                    <span class="chev" class:open={!collapsed[f.id]}><ChevronRightIcon size={14} /></span>
+                    <span class="chev" class:open={!folderCollapsed[f.id]}><ChevronRightIcon size={14} /></span>
                     <FolderIcon size={14} />
                     <span class="folder-name">{f.name}</span>
                     <span class="folder-count">{inFolder(f.id).length}</span>
                 </button>
-                {#if !collapsed[f.id]}
+                {#if !folderCollapsed[f.id]}
                     {#each inFolder(f.id) as d (d.id)}
-                        {@render row(d, true)}
+                        {@render editRow(d, true)}
                     {/each}
                 {/if}
             {/each}
-
             {#each ungrouped as d (d.id)}
-                {@render row(d, false)}
+                {@render editRow(d, false)}
             {/each}
-
             {#if dashboards.length === 0}
                 <p class="empty">No dashboards yet. Create one with the + button.</p>
+            {/if}
+
+        {:else}
+            <!-- Preview — group labels + separators, navigation only -->
+            {#each nonEmptyFolders as f (f.id)}
+                <div class="group-label"><span>{f.name}</span><span class="group-line"></span></div>
+                {#each inFolder(f.id) as d (d.id)}
+                    {@render previewRow(d)}
+                {/each}
+            {/each}
+            {#if ungrouped.length > 0 && nonEmptyFolders.length > 0}
+                <div class="group-gap"></div>
+            {/if}
+            {#each ungrouped as d (d.id)}
+                {@render previewRow(d)}
+            {/each}
+            {#if dashboards.length === 0}
+                <p class="empty">No dashboards yet.</p>
             {/if}
         {/if}
     </div>
 
-    <div class="explorer-footer">
-        <Button variant="secondary" size="sm" class="w-full justify-start gap-2" onclick={newDashboard}>
-            <PlusIcon class="size-4" /> New Dashboard
-        </Button>
-    </div>
+    {#if !collapsed && $editMode}
+        <div class="explorer-footer">
+            <Button variant="secondary" size="sm" class="w-full justify-start gap-2" onclick={newDashboard}>
+                <PlusIcon class="size-4" /> New Dashboard
+            </Button>
+        </div>
+    {/if}
 </nav>
 
 <!-- Rename dialog -->
 <Dialog.Root bind:open={renameOpen}>
     <Dialog.Content class="sm:max-w-sm">
-        <Dialog.Header>
-            <Dialog.Title>Rename dashboard</Dialog.Title>
-        </Dialog.Header>
+        <Dialog.Header><Dialog.Title>Rename dashboard</Dialog.Title></Dialog.Header>
         <Input bind:value={fieldValue} placeholder="Dashboard name"
             onkeydown={(e) => e.key === 'Enter' && submitRename()} />
         <Dialog.Footer>
@@ -232,9 +317,7 @@
 <!-- New group -->
 <Dialog.Root bind:open={newFolderOpen}>
     <Dialog.Content class="sm:max-w-sm">
-        <Dialog.Header>
-            <Dialog.Title>New group</Dialog.Title>
-        </Dialog.Header>
+        <Dialog.Header><Dialog.Title>New group</Dialog.Title></Dialog.Header>
         <Input bind:value={fieldValue} placeholder="Group name"
             onkeydown={(e) => e.key === 'Enter' && submitNewFolder()} />
         <Dialog.Footer>
@@ -253,15 +336,20 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        transition: width 0.2s ease;
     }
+    .explorer.collapsed { width: 52px; }
 
     .explorer-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 0.25rem;
         padding: 0.5rem 0.5rem 0.5rem 0.875rem;
         flex-shrink: 0;
+        min-height: 40px;
     }
+    .explorer-header.collapsed { justify-content: center; padding: 0.5rem 0; }
 
     .explorer-title {
         font-size: 0.6875rem;
@@ -269,9 +357,11 @@
         letter-spacing: 0.07em;
         text-transform: uppercase;
         color: var(--sqlviz-text-muted);
+        white-space: nowrap;
+        overflow: hidden;
     }
 
-    .explorer-actions { display: flex; gap: 0.125rem; }
+    .explorer-actions { display: flex; gap: 0.125rem; flex-shrink: 0; }
 
     .hbtn {
         display: flex;
@@ -291,7 +381,15 @@
     .explorer-body {
         flex: 1;
         overflow-y: auto;
+        overflow-x: hidden;
         padding: 0 0.375rem 0.5rem;
+    }
+    .explorer.collapsed .explorer-body {
+        padding: 0.25rem 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.125rem;
     }
 
     .skeleton-row {
@@ -300,7 +398,35 @@
         gap: 0.5rem;
         padding: 0.4375rem 0.5rem;
     }
+    .skeleton-rail { padding: 0.25rem 0; }
 
+    /* Collapsed rail */
+    :global(.rail-icon) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border: none;
+        background: none;
+        color: var(--sqlviz-text-muted);
+        border-radius: var(--sqlviz-radius);
+        cursor: pointer;
+        transition: background 0.12s, color 0.12s;
+    }
+    :global(.rail-icon:hover) { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
+    :global(.rail-icon.active) {
+        background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent);
+        color: var(--sqlviz-primary);
+    }
+    .rail-sep {
+        width: 24px;
+        height: 1px;
+        margin: 0.25rem 0;
+        background: var(--sqlviz-hairline);
+    }
+
+    /* Edit tree folder header */
     .folder-header {
         display: flex;
         align-items: center;
@@ -324,6 +450,24 @@
 
     .folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .folder-count { font-size: 0.6875rem; opacity: 0.7; font-weight: 500; }
+
+    /* Preview group label + separator line */
+    .group-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 0.5rem 0.375rem;
+    }
+    .group-label span:first-child {
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--sqlviz-text-muted);
+        white-space: nowrap;
+    }
+    .group-line { flex: 1; height: 1px; background: var(--sqlviz-hairline); }
+    .group-gap { height: 0.75rem; }
 
     .row {
         display: flex;
@@ -349,6 +493,15 @@
         cursor: pointer;
         text-align: left;
     }
+
+    .preview-row {
+        width: 100%;
+        border-radius: var(--sqlviz-radius);
+        color: var(--sqlviz-text-muted);
+        transition: background 0.12s, color 0.12s;
+    }
+    .preview-row:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
+    .preview-row.active { background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent); color: var(--sqlviz-primary); }
 
     .row-icon { flex-shrink: 0; display: flex; align-items: center; }
     .row-name {

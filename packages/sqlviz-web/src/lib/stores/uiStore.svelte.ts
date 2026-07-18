@@ -1,5 +1,6 @@
 const THEME_KEY  = 'sqlviz-theme';
 const HEIGHT_KEY = 'sqlviz-editor-height';
+const SIDEBAR_KEY = 'sqlviz-sidebar-collapsed';
 const DEFAULT_EDITOR_HEIGHT_PX = 300;
 const MIN_EDITOR_HEIGHT_PX = 120;
 const MAX_EDITOR_HEIGHT_PX = 700;
@@ -11,6 +12,7 @@ function createUiStore() {
     let newDashboardName  = $state('');
     let toast             = $state<string | null>(null);
     let editorHeightPx    = $state(DEFAULT_EDITOR_HEIGHT_PX);
+    let sidebarCollapsed  = $state(false);
 
     let toastTimer = 0;
 
@@ -25,6 +27,14 @@ function createUiStore() {
         if (Number.isFinite(savedHeight) && savedHeight > 0) {
             editorHeightPx = clampHeight(savedHeight);
         }
+        if (localStorage.getItem(SIDEBAR_KEY) === '1') {
+            sidebarCollapsed = true;
+        }
+    }
+
+    function toggleSidebar() {
+        sidebarCollapsed = !sidebarCollapsed;
+        localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? '1' : '0');
     }
 
     function toggleTheme() {
@@ -62,9 +72,11 @@ function createUiStore() {
         set newDashboardName(v: string) { newDashboardName = v; },
         get toast() { return toast; },
         get editorHeightPx() { return editorHeightPx; },
+        get sidebarCollapsed() { return sidebarCollapsed; },
 
         initTheme,
         toggleTheme,
+        toggleSidebar,
         setEditorHeight,
         showToast,
     };
