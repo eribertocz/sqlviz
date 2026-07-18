@@ -5,6 +5,59 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v0.2.6] — 2026-07-18
+
+Objetivo: filtros paramétricos completos y controles de UI profesionales
+(ver `docs/architecture/sqlviz-roadmap-v02x.md`).
+
+### Added
+- **Los 8 tipos de filtro paramétrico** funcionando end-to-end en la FilterBar:
+  `dropdown`, `multiselect`, `date_picker`, `date_range_picker`, `numeric`,
+  `range_slider`, `search`, `toggle`.
+- **Controles ricos por dominio de columna**: nuevo endpoint
+  `POST /api/v1/panels/{id}/filter-domain` (body `{column, kind}`) que devuelve
+  los valores distintos (dropdown/multiselect) o el `MIN`/`MAX` (slider) de la
+  columna. El dominio se calcula reescribiendo el SQL del panel con sqlglot
+  (se quita el `WHERE` paramétrico y se proyecta la columna), en
+  `sqlviz_inference.filters.domain.build_domain_query`.
+- **Migración a shadcn-svelte** de todos los controles de filtro: Select,
+  Combobox (Popover + Command), Calendar/RangeCalendar, Slider, Switch, Input.
+  Nuevas dependencias: `bits-ui`, `clsx`, `tailwind-merge`, `tailwind-variants`,
+  `@internationalized/date`, `@lucide/svelte`, `tw-animate-css`.
+- **Tema dark/light**: los tokens de shadcn (`--background`, `--primary`,
+  `--border`, `--ring`, `--radius`, …) se aliasean sobre los design tokens de
+  DOC6 (`--sqlviz-*`) mediante una capa `@theme inline` en `app.css`; la
+  variante `dark:` se remapea al esquema dark-por-defecto de SQLviz. Una sola
+  definición maneja ambos temas.
+- Tests: builder de dominio (inference), endpoint `filter-domain` (API),
+  cobertura end-to-end de los 8 tipos, y tests de componente de FilterControl.
+
+### Changed
+- `FilterEngine._find_associated_column`: reconoce `col IN ($var)` (multiselect)
+  y `col BETWEEN $a AND $b` (rangos de fecha/numéricos) — antes ninguno producía
+  un `filter_control`.
+- Dedup de `$variables` con `dict.fromkeys()` en vez de `set()`: preserva el
+  orden de aparición para que el par de un rango (`desde`/`hasta`, `min`/`max`)
+  no se invierta según el hash-seed del proceso.
+- `execute_panel`: en el flujo sin valores prueba la query con cada `$variable`
+  ligada a `NULL` para recuperar el schema real de columnas antes de correr
+  `FilterEngine` (numéricos/fechas ya no caen a texto plano).
+
+### Fixed
+- `col IN ($var)` con valor de tipo lista fallaba en DuckDB (`Conversion Error`);
+  `execute_panel` reescribe a `IN $var` cuando el valor ligado es una lista.
+- Switch (toggle): track/thumb invisibles — las clases usaban `data-checked:` /
+  `data-unchecked:` pero bits-ui 2.18 emite `data-state="checked|unchecked"`.
+  Reapuntadas a `data-[state=…]`.
+- Slider de rango: la barra y el rango resaltado no se veían — usaban
+  `data-horizontal:` / `data-vertical:` pero bits-ui emite
+  `data-orientation="…"`. Reapuntadas a `data-[orientation=…]`.
+- Popover/Select/Dialog: animaciones de apertura/cierre no disparaban
+  (`data-open:` / `data-closed:` → `data-[state=open]:` / `data-[state=closed]:`)
+  y `tw-animate-css` no estaba cableado.
+
+---
+
 ## [v0.2.5] — 2026-07-18
 
 ### Added

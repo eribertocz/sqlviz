@@ -1,9 +1,9 @@
 # SQLviz Roadmap — v0.2.x
 
-Plan de versiones menores desde v0.2.1 hasta v0.2.10, seguido de v0.3.0.
+Plan de versiones menores desde v0.2.1 hasta v0.2.11, seguido de v0.3.0.
 Cada versión menor es independiente y shippeable. Las mejoras no planificadas
 que surjan durante el desarrollo se agregan como versiones adicionales
-(v0.2.11, v0.2.12, etc.).
+(v0.2.12, v0.2.13, etc.).
 
 ---
 
@@ -72,7 +72,34 @@ Objetivo: que el frontend sea mantenible antes de agregar más UI.
 
 ---
 
-## v0.2.6 — Explorador de Dashboards Tipo VSCode
+## v0.2.6 — Filtros Paramétricos + shadcn-svelte
+
+Objetivo: filtros paramétricos completos y controles de UI profesionales.
+
+- Los 8 tipos de filtro paramétrico funcionando end-to-end en la FilterBar:
+  `dropdown`, `multiselect`, `date_picker`, `date_range_picker`, `numeric`,
+  `range_slider`, `search`, `toggle`
+- FilterEngine: detección de columna para `col IN ($var)` (multiselect) y
+  `col BETWEEN $a AND $b` (rangos de fecha/numéricos)
+- Reescritura `IN ($var)` → `IN $var` al bindear listas (DuckDB no castea un
+  array dentro de paréntesis)
+- Orden determinista de las variables de rango (`dict.fromkeys` en vez de
+  `set()` — evitaba que el hash-seed invirtiera `desde`/`hasta`, `min`/`max`)
+- Controles "ricos" alimentados por el dominio real de la columna: nuevo
+  endpoint `POST /api/v1/panels/{id}/filter-domain` (valores distintos para
+  dropdown/multiselect, `MIN`/`MAX` para el slider) vía reescritura del SQL
+  con sqlglot; degradación elegante a input de texto si no hay dominio
+- Migración a **shadcn-svelte** de todos los controles de filtro:
+  Select, Combobox, Calendar/RangeCalendar, Slider, Switch, Input
+- Tema dark/light: tokens de shadcn aliaseados sobre los design tokens de
+  DOC6 (`--sqlviz-*`) — una definición maneja ambos temas
+- Auditoría de variantes de atributo de los componentes generados contra la
+  versión de bits-ui instalada (`data-[state=…]` / `data-[orientation=…]`),
+  más animaciones de apertura/cierre (`tw-animate-css`)
+
+---
+
+## v0.2.7 — Explorador de Dashboards Tipo VSCode
 
 Objetivo: sidebar como explorador de proyectos, no solo lista plana.
 
@@ -90,7 +117,7 @@ Objetivo: sidebar como explorador de proyectos, no solo lista plana.
 
 ---
 
-## v0.2.7 — Sidebar Colapsable
+## v0.2.8 — Sidebar Colapsable
 
 Objetivo: sidebar que no ocupe espacio cuando no se necesita.
 
@@ -101,7 +128,7 @@ Objetivo: sidebar que no ocupe espacio cuando no se necesita.
 
 ---
 
-## v0.2.8 — Panel de Propiedades Lateral
+## v0.2.9 — Panel de Propiedades Lateral
 
 Objetivo: panel de propiedades lateral completo que centraliza todas las
 opciones de configuración de un panel, reemplazando los controles dispersos.
@@ -121,7 +148,7 @@ opciones de configuración de un panel, reemplazando los controles dispersos.
 
 ---
 
-## v0.2.9 — Inference Hardening
+## v0.2.10 — Inference Hardening
 
 Objetivo: motor de inferencia robusto, medido y determinista.
 
@@ -134,7 +161,7 @@ Objetivo: motor de inferencia robusto, medido y determinista.
 
 ---
 
-## v0.2.10 — Chart Selector Mejorado
+## v0.2.11 — Chart Selector Mejorado
 
 Objetivo: que la UI del chart selector refleje con precisión el estado del motor.
 
@@ -147,7 +174,7 @@ Objetivo: que la UI del chart selector refleje con precisión el estado del moto
 
 ## v0.3.0 — Semantic Dashboard Intelligence
 
-> Comienza después de completar v0.2.1 a v0.2.10.
+> Comienza después de completar v0.2.1 a v0.2.11.
 
 Objetivo: que SQLviz entienda semánticamente lo que el usuario está construyendo
 y proponga estructura, no solo visualización.
