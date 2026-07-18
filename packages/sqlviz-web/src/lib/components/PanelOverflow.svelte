@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { MoreHorizontal } from 'lucide-svelte';
+
     let { panelId, onEditSQL, onExplain, onDelete, onOpenChart, onOpenLayout }: {
         panelId: string;
         onEditSQL?: (id: string) => void;
@@ -59,7 +61,7 @@
         onclick={toggle}
         title="Panel options"
         aria-label="Panel options"
-    >···</button>
+    ><MoreHorizontal size={16} /></button>
 
     {#if open}
         <div class="overflow-menu" role="menu" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
@@ -102,9 +104,7 @@
         padding: 0.1875rem 0.375rem;
         border-radius: var(--sqlviz-radius);
         color: var(--sqlviz-text-muted);
-        font-size: 1rem;
         line-height: 1;
-        letter-spacing: 0.1em;
         transition: background 0.15s, color 0.15s;
         display: flex;
         align-items: center;
@@ -122,9 +122,9 @@
         right: 0;
         min-width: 150px;
         background: var(--sqlviz-bg-surface);
-        border: 1px solid var(--sqlviz-border);
+        border: 1px solid var(--sqlviz-hairline);
         border-radius: var(--sqlviz-radius-lg);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        box-shadow: var(--sqlviz-shadow-popover);
         z-index: 100;
         overflow: hidden;
         padding: 0.25rem 0;

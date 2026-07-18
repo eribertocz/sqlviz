@@ -145,3 +145,26 @@ class TestExecuteWithVariables:
         body = client.post(f"/api/v1/panels/{panel_id}/execute").json()
         controls = body["inference_result"]["filter_controls"]
         assert any(c["variable"] == "region" for c in controls)
+
+    def test_numeric_range_filter_merges_before_any_value_is_set(
+        self, client: TestClient
+    ) -> None:
+        """Regression test: the fallback path (no variables yet) must probe the
+        query for real column types, or every $variable defaults to VARCHAR and
+        a numeric range never merges into a single range_slider control — it
+        renders as two disconnected, mislabeled text dropdowns instead."""
+        panel_id = _make_panel(
+            client,
+            "SELECT sales FROM (VALUES (10.0), (20.0)) t(sales) "
+            "WHERE sales >= $min_sales AND sales <= $max_sales",
+        )
+        body = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        controls = body["inference_result"]["filter_controls"]
+        assert controls == [{
+            "variable": "min_sales,max_sales",
+            "label": "Sales",
+            "control_type": "range_slider",
+            "column_name": "sales",
+            "column_type": "DECIMAL",
+            "scope": "global",
+        }]

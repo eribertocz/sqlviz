@@ -1,4 +1,6 @@
 <script lang="ts">
+    import StateMessage from '$lib/components/shared/StateMessage.svelte';
+
     let { data }: { data: Record<string, unknown>[] } = $props();
 
     const columns = $derived(data.length > 0 ? Object.keys(data[0]) : []);
@@ -16,7 +18,7 @@
 
 <div class="table-wrap">
     {#if data.length === 0}
-        <p class="empty">No data</p>
+        <StateMessage kind="empty" message="No data" />
     {:else}
         <table class="data-table">
             <thead>
@@ -44,13 +46,6 @@
         flex: 1;
         overflow: auto;
         padding: 0.5rem 0;
-    }
-
-    .empty {
-        text-align: center;
-        color: var(--sqlviz-text-muted);
-        padding: 2rem;
-        font-size: 0.875rem;
     }
 
     .data-table {

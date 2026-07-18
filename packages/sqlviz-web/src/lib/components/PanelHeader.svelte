@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { Info } from 'lucide-svelte';
+    import ExecutionStateBadge from '$lib/components/shared/ExecutionStateBadge.svelte';
     import type { InferenceResult } from '$lib/types';
 
     let { result, panelId = '', onExplain }: {
@@ -12,17 +14,28 @@
     const showQualityIcon = $derived(
         result.chart_quality !== 'high' || result.fallback_applied
     );
+
+    // v0.2.5: surface non-success execution states (v0.2.3 diagnostics) directly
+    // on the panel, not only inside the ExplainPanel drawer.
+    const showStateBadge = $derived(
+        !!result.execution_state && result.execution_state !== 'success'
+    );
 </script>
 
 <div class="panel-header">
     <h3 class="panel-title">{result.title || 'Untitled query'}</h3>
-    {#if showQualityIcon}
-        <button
-            class="explain-trigger"
-            title="{result.fallback_applied ? result.fallback_reason : result.chart_quality + ' confidence'}"
-            onclick={() => onExplain?.(panelId)}
-        >ⓘ</button>
-    {/if}
+    <div class="panel-header-badges">
+        {#if showStateBadge}
+            <ExecutionStateBadge state={result.execution_state} />
+        {/if}
+        {#if showQualityIcon}
+            <button
+                class="explain-trigger"
+                title="{result.fallback_applied ? result.fallback_reason : result.chart_quality + ' confidence'}"
+                onclick={() => onExplain?.(panelId)}
+            ><Info size={15} /></button>
+        {/if}
+    </div>
 </div>
 
 <style>
@@ -32,7 +45,7 @@
         justify-content: space-between;
         gap: 0.5rem;
         padding: 0.75rem 1rem;
-        border-bottom: 1px solid var(--sqlviz-border);
+        border-bottom: 1px solid var(--sqlviz-hairline);
         flex-shrink: 0;
     }
 
@@ -46,12 +59,20 @@
         text-overflow: ellipsis;
     }
 
+    .panel-header-badges {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        flex-shrink: 0;
+    }
+
     .explain-trigger {
+        display: inline-flex;
+        align-items: center;
         flex-shrink: 0;
         background: none;
         border: none;
         cursor: pointer;
-        font-size: 0.9375rem;
         color: var(--sqlviz-text-muted);
         padding: 0 0.25rem;
         line-height: 1;

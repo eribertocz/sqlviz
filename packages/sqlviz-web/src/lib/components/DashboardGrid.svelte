@@ -70,8 +70,9 @@
         grid-column: span var(--panel-col-span);
         height: var(--panel-height);
         background: var(--sqlviz-bg-surface);
-        border: 1px solid var(--sqlviz-border);
+        border: 1px solid var(--sqlviz-hairline);
         border-radius: var(--sqlviz-radius-lg);
+        box-shadow: var(--sqlviz-shadow-card);
         overflow: hidden;
     }
 

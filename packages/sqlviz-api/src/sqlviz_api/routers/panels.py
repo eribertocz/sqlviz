@@ -242,7 +242,23 @@ def execute_panel(
     # If SQL has $params but no values are provided, run inference-only so the
     # frontend can display the filter bar before any data is fetched.
     if _VARIABLE_RE.search(sql) and not variables:
-        result = sqlviz_inference.infer(sql, brain_conn=brain, debug=debug)
+        # Probe the query with every $variable bound to NULL to recover real
+        # column types. Without this, FilterEngine never sees a schema, so
+        # every $variable defaults to VARCHAR — numeric/date columns render
+        # as plain text dropdowns instead of numeric/date controls, and
+        # range pairs (range_slider / date_range_picker) never merge since
+        # pairing requires both sides to already be classified "numeric" or
+        # "date_picker". NULL-bound execution is safe: it always returns 0
+        # rows (the comparisons short-circuit to NULL), so no data leaks.
+        schema: list[ColumnSchema] = []
+        try:
+            probe_vars = dict.fromkeys(_VARIABLE_RE.findall(sql))
+            db.execute(sql, probe_vars)
+            schema = [ColumnSchema(name=str(d[0]), type=str(d[1])) for d in db.description or []]
+        except duckdb.Error:
+            pass  # fall back to schema-less inference below — no worse than before
+
+        result = sqlviz_inference.infer(sql, schema=schema, brain_conn=brain, debug=debug)
         result = dataclasses.replace(
             result,
             fallback_applied=True,

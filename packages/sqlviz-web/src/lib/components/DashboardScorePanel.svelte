@@ -117,7 +117,7 @@
     .score-panel {
         width: 300px;
         background: var(--sqlviz-bg-surface);
-        border-left: 1px solid var(--sqlviz-border);
+        border-left: 1px solid var(--sqlviz-hairline);
         display: flex;
         flex-direction: column;
         overflow-y: auto;

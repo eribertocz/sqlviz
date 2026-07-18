@@ -36,3 +36,31 @@ jobs:
 
       - name: Type check (mypy)
         run: uv run mypy packages/sqlviz-core/src packages/sqlviz-inference/src packages/sqlviz-storage/src packages/sqlviz-api/src packages/sqlviz-cli/src
+
+  frontend:
+    name: Frontend (check + test + build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: packages/sqlviz-web
+        run: npm ci
+
+      - name: Type check (svelte-check)
+        working-directory: packages/sqlviz-web
+        run: npm run check
+
+      - name: Unit tests
+        working-directory: packages/sqlviz-web
+        run: npm test
+
+      - name: Build
+        working-directory: packages/sqlviz-web
+        run: npm run build

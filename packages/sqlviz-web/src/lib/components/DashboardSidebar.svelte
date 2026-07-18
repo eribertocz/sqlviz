@@ -9,18 +9,42 @@
         activeId?: string | null;
         onSelect?: (id: string) => void;
     } = $props();
+
+    let listEl: HTMLUListElement;
+
+    // Roving tabindex: only the active (or first, if none active) item is
+    // tabbable; Arrow/Home/End move focus between items.
+    function isTabbable(item: DashboardSidebarItem, i: number): boolean {
+        return activeId ? item.id === activeId : i === 0;
+    }
+
+    function handleKeydown(e: KeyboardEvent, idx: number) {
+        let next = idx;
+        if (e.key === 'ArrowDown')      next = Math.min(idx + 1, items.length - 1);
+        else if (e.key === 'ArrowUp')   next = Math.max(idx - 1, 0);
+        else if (e.key === 'Home')      next = 0;
+        else if (e.key === 'End')       next = items.length - 1;
+        else return;
+
+        e.preventDefault();
+        listEl.querySelectorAll<HTMLButtonElement>('.panel-item')[next]?.focus();
+    }
 </script>
 
 <nav class="dashboard-sidebar" aria-label="Dashboard navigation">
-    <div class="sidebar-label">Dashboards</div>
-    <ul class="panel-list">
-        {#each items as item (item.id)}
+    <div class="sidebar-label" id="dashboard-sidebar-label">Dashboards</div>
+    <ul class="panel-list" bind:this={listEl} role="listbox" aria-labelledby="dashboard-sidebar-label">
+        {#each items as item, i (item.id)}
             {@const IconCmp = resolveDashboardIcon(item.dashboard_hint, item.dashboard_domain)}
-            <li>
+            <li role="presentation">
                 <button
                     class="panel-item"
+                    role="option"
+                    aria-selected={item.id === activeId}
+                    tabindex={isTabbable(item, i) ? 0 : -1}
                     class:active={item.id === activeId}
                     onclick={() => onSelect?.(item.id)}
+                    onkeydown={(e) => handleKeydown(e, i)}
                     title={item.name}
                 >
                     <span class="panel-icon"><IconCmp size={14} /></span>
@@ -36,7 +60,7 @@
         width: 200px;
         flex-shrink: 0;
         background: var(--sqlviz-bg-surface);
-        border-right: 1px solid var(--sqlviz-border);
+        border-right: 1px solid var(--sqlviz-hairline);
         display: flex;
         flex-direction: column;
         overflow-y: auto;

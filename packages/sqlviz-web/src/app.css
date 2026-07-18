@@ -14,6 +14,7 @@
   --sqlviz-primary-hover: #818cf8;
   --sqlviz-bg:            #0f172a;  /* dark background (default theme) */
   --sqlviz-bg-surface:    #1e293b;  /* card / panel background */
+  --sqlviz-bg-base:       var(--sqlviz-bg); /* hover/active tint on surfaces — tracks --sqlviz-bg per theme */
   --sqlviz-border:        #334155;
   --sqlviz-text:          #f1f5f9;  /* primary text */
   --sqlviz-text-muted:    #94a3b8;  /* secondary text, metadata */
@@ -25,8 +26,26 @@
 
   /* Geometry */
   --sqlviz-radius:        6px;
-  --sqlviz-radius-lg:     10px;
+  --sqlviz-radius-lg:     14px;
   --sqlviz-gap:           16px;     /* panel grid gap — must match DOC5 §9 col_span math */
+
+  /* Elevation — soft, layered shadows carry surface separation instead of
+     flat borders (dark needs more opacity to read against a dark bg).
+     --sqlviz-shadow-color is exposed separately for components with a
+     directional shadow (e.g. a drawer sliding in from one edge) that
+     can't reuse --sqlviz-shadow-drawer's fixed offset. */
+  --sqlviz-shadow-color:   rgba(0,0,0,0.40);
+  --sqlviz-shadow-card:    0 1px 2px rgba(0,0,0,0.24), 0 2px 8px rgba(0,0,0,0.20);
+  --sqlviz-shadow-popover: 0 4px 16px rgba(0,0,0,0.32), 0 12px 32px rgba(0,0,0,0.28);
+  --sqlviz-shadow-drawer:  0 8px 24px var(--sqlviz-shadow-color);
+
+  /* Hairline — crisps an elevated surface's edge without doing the
+     separation work itself (that's the shadow's job). Derived from
+     --sqlviz-text so contrast auto-adapts per theme. */
+  --sqlviz-hairline: color-mix(in srgb, var(--sqlviz-text) 10%, transparent);
+
+  /* Focus ring — one consistent treatment for every focusable control. */
+  --sqlviz-focus-ring: 0 0 0 3px color-mix(in srgb, var(--sqlviz-primary) 40%, transparent);
 
   /* Typography */
   --sqlviz-font-sans:     'Inter', system-ui, sans-serif;
@@ -40,10 +59,26 @@
   --sqlviz-text:          #0f172a;
   --sqlviz-text-muted:    #64748b;
   /* --sqlviz-primary and semantic colors stay the same in both themes */
+
+  /* Lighter shadows — the dark-theme alpha values look muddy on white. */
+  --sqlviz-shadow-color:   rgba(15,23,42,0.18);
+  --sqlviz-shadow-card:    0 1px 2px rgba(15,23,42,0.06), 0 2px 8px rgba(15,23,42,0.06);
+  --sqlviz-shadow-popover: 0 4px 16px rgba(15,23,42,0.10), 0 12px 32px rgba(15,23,42,0.12);
+  --sqlviz-shadow-drawer:  0 8px 24px var(--sqlviz-shadow-color);
 }
 
 body {
   background-color: var(--sqlviz-bg);
   color: var(--sqlviz-text);
   font-family: var(--sqlviz-font-sans);
+}
+
+/* One consistent focus treatment everywhere. Components with their own
+   :focus-visible rule (VerticalResizer, FilterControl, auth pages) add a
+   higher-specificity class selector (e.g. `.resizer:focus-visible`), so
+   their own overrides still win on any property they redeclare; this
+   ring still applies underneath for everything else. */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--sqlviz-focus-ring);
 }

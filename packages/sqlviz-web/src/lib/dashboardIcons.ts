@@ -11,7 +11,6 @@
  *   4. LayoutDashboard              (always present)
  */
 
-import type { Component } from 'svelte';
 import {
     Activity,
     ChartBar,
@@ -28,6 +27,11 @@ import {
     Trophy,
     Users,
 } from 'lucide-svelte';
+
+// lucide-svelte's icon components don't structurally satisfy svelte's bare
+// `Component` type (their props aren't `{}`) — alias to the concrete type
+// every icon import already shares instead of svelte's generic `Component`.
+type Component = typeof Hash;
 
 // ── Level 1: hint → icon ────────────────────────────────────────────────────
 

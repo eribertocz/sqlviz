@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { ChevronRight, ChevronUp, Star, X } from 'lucide-svelte';
     import type { InferenceResult } from '$lib/types';
 
     const CHART_LABELS: Record<string, string> = {
@@ -75,7 +76,7 @@
 <div class="chart-selector" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="dialog" aria-label="Chart type selector" tabindex="-1">
     <div class="selector-header">
         <span class="selector-title">Chart type</span>
-        <button class="close-btn" onclick={onClose} aria-label="Close">×</button>
+        <button class="close-btn" onclick={onClose} aria-label="Close"><X size={15} /></button>
     </div>
 
     <div class="candidates">
@@ -91,7 +92,7 @@
                     {#if item.isWinner}
                         <span class="badge">{isOverridden ? 'Manual' : 'Auto'}</span>
                     {:else if result.feedback_preferred_chart === item.chart}
-                        <span class="badge badge-preferred">★</span>
+                        <span class="badge badge-preferred"><Star size={11} fill="currentColor" /></span>
                     {/if}
                 </label>
             {/each}
@@ -116,7 +117,12 @@
 
     <!-- Score breakdown (DOC6 §12.1.1) -->
     <button class="breakdown-toggle" onclick={() => showBreakdown = !showBreakdown}>
-        {showBreakdown ? '▲' : '▶'} Why these scores?
+        {#if showBreakdown}
+            <ChevronUp size={12} />
+        {:else}
+            <ChevronRight size={12} />
+        {/if}
+        Why these scores?
     </button>
 
     {#if showBreakdown}
@@ -146,9 +152,9 @@
 <style>
     .chart-selector {
         background: var(--sqlviz-bg-surface);
-        border: 1px solid var(--sqlviz-border);
+        border: 1px solid var(--sqlviz-hairline);
         border-radius: var(--sqlviz-radius-lg);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        box-shadow: var(--sqlviz-shadow-popover);
         width: 260px;
         font-size: 0.8125rem;
         overflow: hidden;
@@ -169,11 +175,12 @@
     }
 
     .close-btn {
+        display: inline-flex;
+        align-items: center;
         background: none;
         border: none;
         cursor: pointer;
         color: var(--sqlviz-text-muted);
-        font-size: 1.125rem;
         line-height: 1;
         padding: 0 0.125rem;
         transition: color 0.15s;
@@ -236,6 +243,8 @@
     .score-vlow  { color: var(--sqlviz-negative); }
 
     .badge {
+        display: inline-flex;
+        align-items: center;
         font-size: 0.6875rem;
         background: var(--sqlviz-primary);
         color: #fff;
@@ -251,7 +260,9 @@
     }
 
     .breakdown-toggle {
-        display: block;
+        display: flex;
+        align-items: center;
+        gap: 0.3125rem;
         width: 100%;
         padding: 0.4375rem 0.875rem;
         background: none;

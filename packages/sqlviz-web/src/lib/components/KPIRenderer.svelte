@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { ArrowDown, ArrowRight, ArrowUp } from 'lucide-svelte';
     import type { InferenceResult } from '$lib/types';
 
     let { result, data }: {
@@ -9,11 +10,11 @@
     // DOC6 §5.4 (corrected per DOC5 §16.6): read trend_direction_label ONLY.
     // This is a pure rendering lookup — no feature_vector indexing, no thresholds here.
     type TrendLabel = 'growing' | 'declining' | 'flat' | 'unknown';
-    const TREND_DISPLAY: Record<TrendLabel, { icon: string; cls: string }> = {
-        growing:   { icon: '↑', cls: 'positive' },
-        declining: { icon: '↓', cls: 'negative' },
-        flat:      { icon: '→', cls: 'neutral'  },
-        unknown:   { icon: '',  cls: 'neutral'  },
+    const TREND_DISPLAY: Record<TrendLabel, { icon: typeof ArrowUp | null; cls: string }> = {
+        growing:   { icon: ArrowUp,    cls: 'positive' },
+        declining: { icon: ArrowDown,  cls: 'negative' },
+        flat:      { icon: ArrowRight, cls: 'neutral'  },
+        unknown:   { icon: null,       cls: 'neutral'  },
     };
 
     const trend = $derived(TREND_DISPLAY[result.trend_direction_label as TrendLabel]);
@@ -36,8 +37,11 @@
 
 <div class="kpi-body">
     <div class="kpi-value">{formatNumber(kpiValue)}</div>
-    {#if result.trend_direction_label !== 'unknown'}
-        <span class="kpi-trend {trend.cls}">{trend.icon}</span>
+    {#if result.trend_direction_label !== 'unknown' && trend.icon}
+        {@const TrendIcon = trend.icon}
+        <span class="kpi-trend {trend.cls}">
+            <TrendIcon size={20} strokeWidth={2.5} />
+        </span>
     {/if}
 </div>
 
@@ -61,8 +65,8 @@
     }
 
     .kpi-trend {
-        font-size: 1.5rem;
-        font-weight: 700;
+        display: flex;
+        align-items: center;
         line-height: 1;
     }
 

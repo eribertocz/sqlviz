@@ -114,9 +114,9 @@
 <style>
     .layout-controls {
         background: var(--sqlviz-bg-surface);
-        border: 1px solid var(--sqlviz-border);
+        border: 1px solid var(--sqlviz-hairline);
         border-radius: var(--sqlviz-radius-lg);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        box-shadow: var(--sqlviz-shadow-popover);
         width: 280px;
         font-size: 0.8125rem;
         overflow: hidden;
