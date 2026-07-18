@@ -19,6 +19,7 @@
     "@testing-library/svelte": "^5.2.7",
     "@types/node": "^22.10.2",
     "jsdom": "^25.0.1",
+    "shadcn-svelte": "^1.4.2",
     "svelte": "^5.34.5",
     "svelte-check": "^4.2.1",
     "tailwindcss": "^4.1.11",
@@ -30,9 +31,15 @@
     "esbuild@0.25.12": true
   },
   "dependencies": {
+    "@internationalized/date": "^3.12.2",
+    "@lucide/svelte": "^1.25.0",
     "@monaco-editor/loader": "^1.7.0",
+    "bits-ui": "^2.18.1",
+    "clsx": "^2.1.1",
     "echarts": "^6.1.0",
     "lucide-svelte": "^1.0.1",
-    "monaco-editor": "^0.55.1"
+    "monaco-editor": "^0.55.1",
+    "tailwind-merge": "^3.6.0",
+    "tailwind-variants": "^3.2.2"
   }
 }
