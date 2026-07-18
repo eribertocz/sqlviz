@@ -82,6 +82,11 @@ MIGRATIONS: list[tuple[str, str]] = [
     # the "already exists" error); it adds the column on DBs created before v0.2.7.
     ("0016_dashboards_add_description",
      "ALTER TABLE dashboards ADD COLUMN description VARCHAR"),
+    # 0017: v0.2.8 — last successful run timestamp (Draft auto-save UX). Lets a
+    # refreshed browser show "Last run X min ago" without re-executing. No-op on
+    # fresh projects (column already in SCHEMA_STATEMENTS).
+    ("0017_dashboards_add_last_run_at",
+     "ALTER TABLE dashboards ADD COLUMN last_run_at VARCHAR"),
 ]
 
 

@@ -32,7 +32,16 @@ function createDashboardStore() {
     // / range_slider controls can render real options instead of a text box.
     let filterDomains    = $state<Record<string, FilterDomain>>({});
 
+    // Draft auto-save (sqlviz-ux-dashboard-editing-v1.0 §1). last_run_at drives
+    // the "Last run X min ago" prompt after a refresh.
+    let lastRunAt        = $state<string | null>(null);
+    // The SQL last persisted to the dashboard draft — used to tell a real user
+    // edit apart from a programmatic load (which must not mark the draft dirty).
+    let lastSavedSql     = '';
+
     let filterDebounceTimer = 0;
+    let saveDebounceTimer   = 0;
+    const ACTIVE_KEY = 'sqlviz-active-dashboard';
 
     const hasLayout = $derived(layout !== null && layout.rows.length > 0);
     const activeDashboard = $derived(allDashboards.find(d => d.id === dashboardId) ?? null);
@@ -81,6 +90,77 @@ function createDashboardStore() {
         }
     }
 
+    // ── Draft auto-save (UX spec §1) ─────────────────────────────────────────
+    function persistActive(id: string | null) {
+        try {
+            if (id) localStorage.setItem(ACTIVE_KEY, id);
+            else localStorage.removeItem(ACTIVE_KEY);
+        } catch { /* private mode / no storage */ }
+    }
+
+    /** Adopt a set of SQL as the current, already-saved baseline (on load/run). */
+    function markSqlSaved(text: string) {
+        lastSavedSql = text;
+        clearTimeout(saveDebounceTimer);
+        if (executionStore.saveStatus === 'draft') executionStore.saveStatus = 'idle';
+    }
+
+    /** Called from the public `sql` setter on every editor change. */
+    function onSqlChanged(v: string) {
+        if (!dashboardId) return;
+        if (v === lastSavedSql) {
+            // Back to the saved state (e.g. programmatic load / undo) — clean.
+            clearTimeout(saveDebounceTimer);
+            if (executionStore.saveStatus !== 'saving') executionStore.saveStatus = 'idle';
+            return;
+        }
+        // A real edit supersedes a prior error indicator.
+        executionStore.errorMsg = null;
+        executionStore.saveStatus = 'draft';
+        clearTimeout(saveDebounceTimer);
+        // 2 seconds after the user stops typing.
+        saveDebounceTimer = window.setTimeout(() => saveDraft(), 2000);
+    }
+
+    /**
+     * Persist the current editor text as the dashboard's draft. Silent — only
+     * the subtle header indicator reflects it. `useBeacon` fires a fire-and-forget
+     * request that survives page unload.
+     */
+    function saveDraft(useBeacon = false) {
+        clearTimeout(saveDebounceTimer);
+        if (!dashboardId || sql === lastSavedSql) return;
+        const id = dashboardId;
+        const text = sql;
+        const path = `/api/v1/dashboards/${id}`;
+
+        if (useBeacon) {
+            // Page is unloading — keepalive lets the PATCH outlive the document.
+            fetch(path, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sql_content: text }),
+                keepalive: true,
+            }).catch(() => {});
+            lastSavedSql = text;
+            return;
+        }
+
+        executionStore.saveStatus = 'saving';
+        apiPatch(path, { sql_content: text })
+            .then(() => {
+                lastSavedSql = text;
+                // Only flip to "saved" if nothing newer is pending.
+                if (sql === text) {
+                    executionStore.saveStatus = 'saved';
+                    window.setTimeout(() => {
+                        if (executionStore.saveStatus === 'saved') executionStore.saveStatus = 'idle';
+                    }, 2000);
+                }
+            })
+            .catch(() => { executionStore.saveStatus = 'draft'; });
+    }
+
     /** Loads the first existing dashboard, if any. Called once on mount. */
     async function bootstrap() {
         dashboardsLoading = true;
@@ -97,15 +177,27 @@ function createDashboardStore() {
                 return;
             }
 
-            dashboardId = dashboards[0].id;
+            // Restore the last active dashboard (refresh), else the first one.
+            let saved: string | null = null;
+            try { saved = localStorage.getItem(ACTIVE_KEY); } catch { /* no storage */ }
+            const active = dashboards.find(d => d.id === saved) ?? dashboards[0];
+            dashboardId = active.id;
+            persistActive(active.id);
+            lastRunAt = active.last_run_at;
+
             const panels = await fetch(`/api/v1/panels?dashboard_id=${dashboardId}`)
                 .then(r => r.json()) as Array<{ id: string; sql_content: string; sort_order: number }>;
-            if (panels.length === 0) return;
-
             panels.sort((a, b) => a.sort_order - b.sort_order);
             panelIds  = panels.map(p => p.id);
             panelSQLs = panels.map(p => p.sql_content);
-            sql = panelSQLs.join(';\n\n');
+
+            // Prefer the saved draft (exact editor text); fall back to the
+            // committed panel SQL for dashboards created before draft auto-save.
+            const draft = active.sql_content || panelSQLs.join(';\n\n');
+            sql = draft;
+            markSqlSaved(draft);
+            queueMicrotask(() => get(editorRef).setContent?.(draft));
+            // Do NOT auto-run — refresh shows "Last run X ago" + Run Again.
         } catch {
             // Fresh install — no existing state
         } finally {
@@ -184,6 +276,16 @@ function createDashboardStore() {
             executionStore.statusMsg = 'Composing layout…';
             layout = await recompose(results);
             executionStore.statusMsg = null;
+
+            // Successful run: persist the exact draft + a last-run timestamp so a
+            // refresh can show "Last run X ago" (UX spec §"Run exitoso").
+            const runAt = new Date().toISOString();
+            lastRunAt = runAt;
+            markSqlSaved(sql);
+            apiPatch(`/api/v1/dashboards/${activeDashId}`, {
+                sql_content: sql,
+                last_run_at: runAt,
+            }).catch(() => {});
 
             // Load rich-control domains (dropdown options / slider bounds).
             loadFilterDomains();
@@ -265,9 +367,12 @@ function createDashboardStore() {
             await refreshExplorer();
             // Switch to the empty new dashboard without running anything.
             dashboardId     = dash.id;
+            persistActive(dash.id);
             panelIds        = [];
             panelSQLs       = [];
             sql             = '';
+            markSqlSaved('');
+            lastRunAt       = null;
             executedResults = [];
             layout          = null;
             // Force the Monaco editor empty — a new dashboard must never inherit
@@ -281,31 +386,42 @@ function createDashboardStore() {
         }
     }
 
-    /** Switch to a different dashboard: load its panels and re-execute. */
+    /**
+     * Switch to a different dashboard. Auto-saves the current draft first, then
+     * loads the target's draft + last-run info. Does NOT re-execute (UX spec
+     * §"Cambiar de Dashboard": show last charts / Run Again, no auto-run).
+     */
     async function loadDashboard(id: string) {
         if (id === dashboardId || executionStore.executing) return;
 
+        // Silently persist the current dashboard's draft before leaving it.
+        saveDraft();
+
         try {
-            const panels = await fetch(`/api/v1/panels?dashboard_id=${id}`)
-                .then(r => r.json()) as Array<{ id: string; sql_content: string; sort_order: number }>;
+            const [dash, panels] = await Promise.all([
+                apiGet<DashboardInfo>(`/api/v1/dashboards/${id}`),
+                fetch(`/api/v1/panels?dashboard_id=${id}`).then(r => r.json()) as Promise<
+                    Array<{ id: string; sql_content: string; sort_order: number }>
+                >,
+            ]);
             panels.sort((a, b) => a.sort_order - b.sort_order);
 
             dashboardId = id;
+            persistActive(id);
             panelIds    = panels.map(p => p.id);
             panelSQLs   = panels.map(p => p.sql_content);
-            sql         = panelSQLs.join(';\n\n');
+            lastRunAt   = dash.last_run_at;
             executedResults = [];
             layout      = null;
 
-            // Show the selected dashboard's SQL (imperatively, so it never lags
-            // behind the previous dashboard) with the cursor at the start.
-            const nextSql = sql;
+            // Prefer the saved draft; fall back to the committed panel SQL.
+            const draft = dash.sql_content || panelSQLs.join(';\n\n');
+            sql = draft;
+            markSqlSaved(draft);
             queueMicrotask(() => {
-                get(editorRef).setContent?.(nextSql);
+                get(editorRef).setContent?.(draft);
                 get(editorRef).focusStatement?.(0);
             });
-
-            if (panels.length > 0) run();
         } catch (e: unknown) {
             uiStore.showToast(e instanceof Error ? e.message : 'Could not load dashboard.');
         }
@@ -615,9 +731,10 @@ function createDashboardStore() {
         get executedResults() { return executedResults; },
         get layout() { return layout; },
         get sql() { return sql; },
-        set sql(v: string) { sql = v; },
+        set sql(v: string) { sql = v; onSqlChanged(v); },
 
         get hasLayout() { return hasLayout; },
+        get lastRunAt() { return lastRunAt; },
         get activeDashboard() { return activeDashboard; },
         get utilityPct() { return utilityPct; },
         get allFilterControls() { return allFilterControls; },
@@ -627,6 +744,7 @@ function createDashboardStore() {
 
         bootstrap,
         run,
+        saveDraft,
         handleDelete,
         handleEditSQL,
         handleExplain,

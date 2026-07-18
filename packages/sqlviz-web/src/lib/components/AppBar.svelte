@@ -1,8 +1,43 @@
 <script lang="ts">
-    import { ChevronDown, ChevronUp, Moon, Sun } from 'lucide-svelte';
+    import { ChevronDown, ChevronUp, Loader2, Moon, Sun } from 'lucide-svelte';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { editMode } from '$lib/stores/editMode';
+    import { executionStore } from '$lib/stores/executionStore.svelte';
     import { uiStore } from '$lib/stores/uiStore.svelte';
+
+    // Inline dashboard-name editing (UX spec §"Cambiar nombre").
+    let editingName = $state(false);
+    let nameValue = $state('');
+
+    function startEditName() {
+        const d = dashboardStore.activeDashboard;
+        if (!d) return;
+        nameValue = d.name;
+        editingName = true;
+    }
+    function commitName() {
+        const d = dashboardStore.activeDashboard;
+        if (d && nameValue.trim() && nameValue.trim() !== d.name) {
+            dashboardStore.renameDashboard(d.id, nameValue);
+        }
+        editingName = false;
+    }
+    function nameKeydown(e: KeyboardEvent) {
+        if (e.key === 'Enter') { e.preventDefault(); commitName(); }
+        else if (e.key === 'Escape') { e.preventDefault(); editingName = false; }
+    }
+    function selectOnMount(node: HTMLInputElement) { node.focus(); node.select(); }
+
+    // Subtle save/run status shown only in the header (UX spec §"Estados visuales").
+    type Status = { text: string; kind: 'draft' | 'saving' | 'saved' | 'running' | 'error' } | null;
+    const status = $derived.by<Status>(() => {
+        if (executionStore.executing) return { text: 'Running', kind: 'running' };
+        if (executionStore.errorMsg)  return { text: 'Error', kind: 'error' };
+        if (executionStore.saveStatus === 'saving') return { text: 'Saving…', kind: 'saving' };
+        if (executionStore.saveStatus === 'saved')  return { text: 'Saved', kind: 'saved' };
+        if (executionStore.saveStatus === 'draft')  return { text: 'Draft', kind: 'draft' };
+        return null;
+    });
 
     function handleModeKeydown(e: KeyboardEvent) {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -19,7 +54,33 @@
         <span class="app-logo">SQLviz</span>
 
         {#if dashboardStore.activeDashboard}
-            <span class="dash-name" title={dashboardStore.activeDashboard.name}>{dashboardStore.activeDashboard.name}</span>
+            {#if editingName}
+                <input
+                    class="dash-name-input"
+                    bind:value={nameValue}
+                    use:selectOnMount
+                    onkeydown={nameKeydown}
+                    onblur={commitName}
+                    aria-label="Dashboard name"
+                />
+            {:else}
+                <button
+                    class="dash-name"
+                    title="Click to rename"
+                    onclick={startEditName}
+                >{dashboardStore.activeDashboard.name}</button>
+            {/if}
+
+            {#if status}
+                <span class="save-status" class:running={status.kind === 'running'} class:error={status.kind === 'error'}>
+                    {#if status.kind === 'running'}
+                        <Loader2 size={12} class="spin" />
+                    {:else if status.kind === 'draft'}
+                        <span class="dot" aria-hidden="true">●</span>
+                    {/if}
+                    {status.text}
+                </span>
+            {/if}
         {/if}
     </div>
 
@@ -114,9 +175,43 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        border: none;
+        background: none;
         border-left: 1px solid var(--sqlviz-border);
-        padding-left: 0.625rem;
+        border-radius: 0;
+        padding: 0.125rem 0.375rem 0.125rem 0.625rem;
+        cursor: text;
+        transition: color 0.12s;
     }
+    .dash-name:hover { color: var(--sqlviz-text); }
+
+    .dash-name-input {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--sqlviz-text);
+        background: var(--sqlviz-bg);
+        border: 1px solid var(--sqlviz-primary);
+        border-radius: var(--sqlviz-radius);
+        padding: 0.125rem 0.375rem;
+        margin-left: 0.5rem;
+        max-width: 200px;
+        outline: none;
+    }
+
+    .save-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3125rem;
+        font-size: 0.6875rem;
+        color: var(--sqlviz-text-muted);
+        white-space: nowrap;
+    }
+    .save-status .dot { color: var(--sqlviz-primary); font-size: 0.625rem; line-height: 1; }
+    .save-status.running { color: var(--sqlviz-primary); }
+    .save-status.error { color: var(--sqlviz-negative); }
+    .save-status :global(.spin) { animation: appbar-spin 0.8s linear infinite; }
+
+    @keyframes appbar-spin { to { transform: rotate(360deg); } }
 
     .mode-toggle {
         display: flex;

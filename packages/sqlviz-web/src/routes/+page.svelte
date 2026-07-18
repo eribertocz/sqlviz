@@ -1,6 +1,6 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
-    import { onMount } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import AppBar from '$lib/components/AppBar.svelte';
     import DashboardArea from '$lib/components/DashboardArea.svelte';
     import DashboardScorePanel from '$lib/components/DashboardScorePanel.svelte';
@@ -23,9 +23,16 @@
         && !dashboardStore.dashboardId
     );
 
+    // Draft auto-save triggers (UX spec §1): save on tab close and on losing
+    // browser focus, so no in-flight edit is ever lost.
+    const onBeforeUnload = () => dashboardStore.saveDraft(true);
+    const onBlur = () => dashboardStore.saveDraft();
+
     // ── Load existing state on mount ───────────────────────────────────────────
     onMount(async () => {
         uiStore.initTheme();
+        window.addEventListener('beforeunload', onBeforeUnload);
+        window.addEventListener('blur', onBlur);
 
         const meResp = await fetch('/api/v1/auth/me');
         if (meResp.status === 401) {
@@ -38,6 +45,12 @@
         }
 
         await dashboardStore.bootstrap();
+    });
+
+    onDestroy(() => {
+        if (typeof window === 'undefined') return;
+        window.removeEventListener('beforeunload', onBeforeUnload);
+        window.removeEventListener('blur', onBlur);
     });
 </script>
 

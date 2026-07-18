@@ -6,9 +6,28 @@
     import { editMode } from '$lib/stores/editMode';
     import { executionStore } from '$lib/stores/executionStore.svelte';
 
+    import { Play } from 'lucide-svelte';
+
     // While executing with no layout yet, show one skeleton card per statement
     // (clamped) so the dashboard area previews its incoming shape.
     const skeletonCount = $derived(Math.min(Math.max(dashboardStore.statementCount, 1), 6));
+
+    // After a refresh we don't re-run automatically (UX spec §Refresh); instead
+    // show "Last run X ago" + Run Again when there is a prior successful run.
+    const showLastRun = $derived(
+        !dashboardStore.hasLayout && !executionStore.executing
+        && dashboardStore.lastRunAt !== null && dashboardStore.statementCount > 0
+    );
+
+    function agoLabel(iso: string): string {
+        const secs = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+        if (secs < 60) return 'just now';
+        const mins = Math.round(secs / 60);
+        if (mins < 60) return `${mins} min ago`;
+        const hrs = Math.round(mins / 60);
+        if (hrs < 24) return `${hrs} h ago`;
+        return `${Math.round(hrs / 24)} d ago`;
+    }
 </script>
 
 <div class="dashboard-area" class:empty={!dashboardStore.hasLayout && !executionStore.executing}>
@@ -23,6 +42,13 @@
                     <Skeleton class="h-[180px] w-full rounded-md" />
                 </div>
             {/each}
+        </div>
+    {:else if showLastRun}
+        <div class="last-run">
+            <p class="last-run-text">Last run {agoLabel(dashboardStore.lastRunAt!)}</p>
+            <button class="run-again" onclick={dashboardStore.run}>
+                <Play size={13} fill="currentColor" /> Run Again
+            </button>
         </div>
     {:else if !dashboardStore.hasLayout}
         <StateMessage
@@ -57,6 +83,33 @@
         align-items: center;
         justify-content: center;
     }
+
+    .last-run {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.875rem;
+    }
+    .last-run-text {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--sqlviz-text-muted);
+    }
+    .run-again {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4375rem;
+        padding: 0.4375rem 0.875rem;
+        background: var(--sqlviz-primary);
+        color: #fff;
+        border: none;
+        border-radius: var(--sqlviz-radius);
+        font-size: 0.8125rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: filter 0.12s;
+    }
+    .run-again:hover { filter: brightness(1.1); }
 
     .skeleton-grid {
         display: grid;

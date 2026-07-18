@@ -186,6 +186,8 @@ export interface DashboardInfo {
     dashboard_domain: string | null;
     folder_id: string | null;
     description: string | null;
+    sql_content: string;
+    last_run_at: string | null;
 }
 
 /** A folder / group in the Dashboard Explorer (mirrors FolderResponse). */

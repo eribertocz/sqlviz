@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1/dashboards", tags=["dashboards"])
 
 _SELECT = (
     "SELECT id, name, folder_id, connection_id, sort_order, created_at, updated_at,"
-    " dashboard_hint, dashboard_domain, description "
+    " dashboard_hint, dashboard_domain, description, sql_content, last_run_at "
     "FROM dashboards"
 )
 
@@ -35,9 +35,11 @@ def _row_to_response(row: tuple[Any, ...]) -> DashboardResponse:
         updated_at=row[6],
         dashboard_hint=row[7],
         dashboard_domain=row[8],
-        # Tolerate rows from a DB whose `description` column predates a schema
-        # sync (belt-and-suspenders against an IndexError when listing).
+        # Tolerate rows from a DB whose trailing columns predate a schema sync
+        # (belt-and-suspenders against an IndexError when listing).
         description=row[9] if len(row) > 9 else None,
+        sql_content=row[10] if len(row) > 10 and row[10] is not None else "",
+        last_run_at=row[11] if len(row) > 11 else None,
     )
 
 
@@ -106,6 +108,11 @@ def update_dashboard(
     if body.description is not None:
         # Empty string clears the description.
         updates["description"] = body.description or None
+    if body.sql_content is not None:
+        # Draft auto-save: store the exact editor text (empty string allowed).
+        updates["sql_content"] = body.sql_content
+    if body.last_run_at is not None:
+        updates["last_run_at"] = body.last_run_at
     updates["updated_at"] = _now()
 
     set_clause = ", ".join(f"{col} = ?" for col in updates)
