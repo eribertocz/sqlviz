@@ -37,6 +37,29 @@ from sqlviz_api.serialization import json_safe
 _VARIABLE_RE = re.compile(r"\$(\w+)")
 
 
+def _rewrite_in_clauses_for_lists(sql: str, variables: dict[str, Any]) -> str:
+    """Rewrite `col IN ($var)` to `col IN $var` for every list-valued variable.
+
+    DuckDB binds a list parameter as a single array value, so `IN ($var)`
+    (parens around the placeholder) raises a Conversion Error trying to cast
+    the array to the column's scalar type — the parens make DuckDB treat it
+    as a one-element scalar list rather than an array to test membership
+    against. `IN $var` (no parens) is the form DuckDB accepts for array
+    parameters, so multiselect filters (list-valued $var) need the rewrite;
+    scalar variables are left untouched since `IN ($var)` never appears for
+    them from the FilterEngine-generated controls.
+    """
+    for name, value in variables.items():
+        if isinstance(value, list):
+            sql = re.sub(
+                r"\bIN\s*\(\s*\$" + re.escape(name) + r"\s*\)",
+                f"IN ${name}",
+                sql,
+                flags=re.IGNORECASE,
+            )
+    return sql
+
+
 class ExecuteBody(BaseModel):
     variables: dict[str, Any] = Field(default_factory=dict)
 
@@ -268,7 +291,7 @@ def execute_panel(
 
     try:
         if variables:
-            db.execute(sql, variables)
+            db.execute(_rewrite_in_clauses_for_lists(sql, variables), variables)
         else:
             db.execute(sql)
     except duckdb.ParserException:

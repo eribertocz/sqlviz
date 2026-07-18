@@ -24,7 +24,7 @@ from .schema import SCHEMA_STATEMENTS
 
 _APP_NAME = "sqlviz"
 # Bump APP_VERSION on every release; SCHEMA_VERSION only on breaking DDL changes.
-APP_VERSION = "0.2.4"
+APP_VERSION = "0.2.5"
 SCHEMA_VERSION = "1"
 _APP_VERSION = APP_VERSION
 _SCHEMA_VERSION = SCHEMA_VERSION

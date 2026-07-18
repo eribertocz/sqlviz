@@ -5,6 +5,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v0.2.5] — 2026-07-18
+
+### Added
+- **`sqlviz_api.routers.api.ts`**: cliente HTTP centralizado en el frontend
+  para las llamadas a `/api/v1/*`, reemplazando `fetch()` dispersos por la app.
+- **Stores dedicados** (`dashboardStore.svelte.ts`, `executionStore.svelte.ts`,
+  `uiStore.svelte.ts`): extraen el estado y la lógica de orquestación que vivía
+  en `+page.svelte` (bootstrap de dashboard, ejecución de paneles, filtros,
+  overrides de layout, estado de UI) a stores de Svelte 5 (`$state`) testeables
+  de forma aislada.
+- **Componentes nuevos**: `AppBar.svelte`, `DashboardArea.svelte`,
+  `EditorSection.svelte`, `ToastHost.svelte`, `VerticalResizer.svelte`
+  (panel de editor SQL redimensionable), y `explain/*`
+  (`ChartSection`, `DiagnosticsSection`, `IntentSection`, `QualitySection`,
+  `ScoreBars`, `explainMeta.ts`) extraídos de `ExplainPanel.svelte`.
+  `shared/ExecutionStateBadge.svelte` y `shared/StateMessage.svelte` para
+  estados de carga/error reutilizados entre componentes.
+- **Infraestructura de testing frontend**: `vitest-setup.ts` + primeros tests
+  (`routes/page.test.ts`, `routes/login/page.test.ts`,
+  `routes/view/[token]/page.test.ts`).
+- **CI**: nuevo job `frontend` en `.github/workflows/ci.yml`
+  (`svelte-check` + `vitest` + `vite build`), corriendo junto al job de
+  backend existente.
+- **Filtros paramétricos**: soporte para `col IN ($var)` (multiselect) y
+  `col BETWEEN $a AND $b` (date_range_picker / range_slider) en
+  `FilterEngine._find_associated_column` — antes ninguno de los dos producía
+  un `filter_control`, así que la FilterBar no mostraba ningún control para
+  esos patrones de SQL.
+
+### Changed
+- `+page.svelte` reducido de ~985 a un fragmento delgado que compone los
+  nuevos componentes/stores; `ExplainPanel.svelte` reducido de forma análoga
+  al extraer sus secciones a `explain/*`.
+- `execute_panel` (`panels.py`): en el flujo sin valores (fallback), la
+  query ahora se prueba con cada `$variable` ligada a `NULL` para recuperar
+  el schema real de columnas antes de correr `FilterEngine` — sin esto,
+  columnas numéricas/fecha se mostraban como controles de texto plano en
+  vez de `numeric`/`date_picker`.
+- El dedup de `$variables` en `FilterEngine` pasó de `set()` a
+  `dict.fromkeys()`: preserva el orden de aparición en el SQL, evitando que
+  el hash-seed del proceso invirtiera aleatoriamente qué caja de un rango
+  (`desde`/`hasta`, `min`/`max`) queda ligada a cada variable.
+
+### Fixed
+- `col IN ($var)` con un valor de tipo lista fallaba en DuckDB con
+  `Conversion Error` (los paréntesis hacen que DuckDB trate el parámetro
+  como escalar, no como array). `execute_panel` ahora reescribe a
+  `IN $var` cuando el valor ligado es una lista.
+
+---
+
 ## [v0.2.4] — 2026-07-16
 
 ### Added
