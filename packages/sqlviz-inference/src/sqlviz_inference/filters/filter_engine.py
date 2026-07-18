@@ -42,7 +42,11 @@ class FilterEngine:
 
     def _detect_filters(self, context: RuntimeContext) -> RuntimeContext:
         sql = context.sql
-        variables = set(VARIABLE_PATTERN.findall(sql))
+        # dict.fromkeys dedups while preserving first-occurrence order; a bare
+        # set() here would randomize desde/hasta (or min/max) pairing order
+        # per-process via Python's string hash randomization, silently
+        # swapping which UI box writes to which range variable.
+        variables = dict.fromkeys(VARIABLE_PATTERN.findall(sql))
 
         if not variables:
             context.filter_controls = []
@@ -114,12 +118,39 @@ class FilterEngine:
         if match:
             return match.group(1)
 
+        # Pattern: column IN ($var)
+        pattern_in = re.compile(
+            r"(\w+)\s+IN\s*\(\s*\$" + re.escape(var_name) + r"\s*\)",
+            re.IGNORECASE,
+        )
+        match = pattern_in.search(sql)
+        if match:
+            return match.group(1)
+
         # Pattern: column ILIKE ... $var
         pattern_like = re.compile(
             r"(\w+)\s+I?LIKE\s+.*\$" + re.escape(var_name),
             re.IGNORECASE,
         )
         match = pattern_like.search(sql)
+        if match:
+            return match.group(1)
+
+        # Pattern: column BETWEEN $var AND ... (first bound of a range)
+        pattern_between_lo = re.compile(
+            r"(\w+)\s+BETWEEN\s+\$" + re.escape(var_name) + r"\b",
+            re.IGNORECASE,
+        )
+        match = pattern_between_lo.search(sql)
+        if match:
+            return match.group(1)
+
+        # Pattern: column BETWEEN $other AND $var (second bound of a range)
+        pattern_between_hi = re.compile(
+            r"(\w+)\s+BETWEEN\s+\$\w+\s+AND\s+\$" + re.escape(var_name) + r"\b",
+            re.IGNORECASE,
+        )
+        match = pattern_between_hi.search(sql)
         if match:
             return match.group(1)
 
