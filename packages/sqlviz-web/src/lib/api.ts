@@ -39,6 +39,23 @@ export async function recompose(results: ExecResult[]): Promise<DashboardLayout>
     };
 }
 
+export async function apiGet<T>(path: string): Promise<T> {
+    const r = await fetch(path);
+    if (!r.ok) {
+        const err = await r.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(err?.detail ?? `${r.status} ${r.statusText}`);
+    }
+    return r.json() as Promise<T>;
+}
+
+export async function apiDelete(path: string): Promise<void> {
+    const r = await fetch(path, { method: 'DELETE' });
+    if (!r.ok && r.status !== 204) {
+        const err = await r.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(err?.detail ?? `${r.status} ${r.statusText}`);
+    }
+}
+
 export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
     const r = await fetch(path, {
         method: 'PATCH',

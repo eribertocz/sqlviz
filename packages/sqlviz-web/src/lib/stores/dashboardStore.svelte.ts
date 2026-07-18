@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
-import { apiPatch, apiPost, recompose, type ExecResult } from '$lib/api';
-import type { DashboardInfo, DashboardLayout, FilterControl, FilterDomain, InferenceResult } from '$lib/types';
+import { apiDelete, apiGet, apiPatch, apiPost, recompose, type ExecResult } from '$lib/api';
+import type { DashboardInfo, DashboardLayout, FilterControl, FilterDomain, FolderInfo, InferenceResult } from '$lib/types';
 import { editorRef } from './editorRef';
 import { explainTarget } from './explainStore';
 import { executionStore } from './executionStore.svelte';
@@ -19,6 +19,8 @@ export type { ExecResult };
 function createDashboardStore() {
     let dashboardId      = $state<string | null>(null);
     let allDashboards    = $state<DashboardInfo[]>([]);
+    let folders          = $state<FolderInfo[]>([]);
+    let dashboardsLoading = $state(true);
     let panelIds         = $state<string[]>([]);
     let panelSQLs        = $state<string[]>([]);
     let executedResults  = $state<ExecResult[]>([]);
@@ -65,12 +67,30 @@ function createDashboardStore() {
 
     const statementCount = $derived(splitStatements(sql).length);
 
+    /** Reloads the dashboards + folders lists (after any create/rename/move/delete). */
+    async function refreshExplorer() {
+        try {
+            const [dashboards, fldrs] = await Promise.all([
+                apiGet<DashboardInfo[]>('/api/v1/dashboards'),
+                apiGet<FolderInfo[]>('/api/v1/folders'),
+            ]);
+            allDashboards = dashboards;
+            folders = fldrs;
+        } catch {
+            // keep current lists on failure
+        }
+    }
+
     /** Loads the first existing dashboard (or bootstraps the demo query). Called once on mount. */
     async function bootstrap(isDemo: boolean) {
+        dashboardsLoading = true;
         try {
-            const dashboards = await fetch('/api/v1/dashboards')
-                .then(r => r.json()) as DashboardInfo[];
+            const [dashboards, fldrs] = await Promise.all([
+                apiGet<DashboardInfo[]>('/api/v1/dashboards'),
+                apiGet<FolderInfo[]>('/api/v1/folders').catch(() => [] as FolderInfo[]),
+            ]);
             allDashboards = dashboards;
+            folders = fldrs;
             if (dashboards.length === 0) {
                 if (isDemo) {
                     const { sql: demoSql } = await fetch('/api/v1/demo/sql')
@@ -92,6 +112,8 @@ function createDashboardStore() {
             sql = panelSQLs.join(';\n\n');
         } catch {
             // Fresh install — no existing state
+        } finally {
+            dashboardsLoading = false;
         }
     }
 
@@ -230,18 +252,21 @@ function createDashboardStore() {
         explainTarget.set(result);
     }
 
-    /** Create a new dashboard, then switch to it (empty — no query carried over). */
-    async function createDashboard() {
-        const name = uiStore.newDashboardName.trim() || 'New Dashboard';
+    /**
+     * Create a new dashboard (optionally inside a folder), then switch to it —
+     * empty, no query carried over from the previous dashboard.
+     */
+    async function createDashboard(name = 'New Dashboard', folderId: string | null = null) {
+        const finalName = name.trim() || 'New Dashboard';
         uiStore.creatingDashboard = false;
         uiStore.newDashboardName  = '';
         try {
             const dash = await apiPost<{ id: string; name: string }>('/api/v1/dashboards', {
-                name,
+                name: finalName,
+                folder_id: folderId,
                 sort_order: allDashboards.length,
             });
-            allDashboards = await fetch('/api/v1/dashboards')
-                .then(r => r.json()) as DashboardInfo[];
+            await refreshExplorer();
             // Switch to the empty new dashboard without running anything.
             dashboardId     = dash.id;
             panelIds        = [];
@@ -249,6 +274,8 @@ function createDashboardStore() {
             sql             = '';
             executedResults = [];
             layout          = null;
+            // Fresh editor: put the cursor at the very start.
+            queueMicrotask(() => get(editorRef).focusStatement?.(0));
         } catch (e: unknown) {
             uiStore.showToast(e instanceof Error ? e.message : 'Could not create dashboard.');
         }
@@ -270,9 +297,75 @@ function createDashboardStore() {
             executedResults = [];
             layout      = null;
 
+            // Show the selected dashboard's SQL with the cursor at the start.
+            queueMicrotask(() => get(editorRef).focusStatement?.(0));
+
             if (panels.length > 0) run();
         } catch (e: unknown) {
             uiStore.showToast(e instanceof Error ? e.message : 'Could not load dashboard.');
+        }
+    }
+
+    /** Rename a dashboard (Explorer action). */
+    async function renameDashboard(id: string, name: string) {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        try {
+            await apiPatch(`/api/v1/dashboards/${id}`, { name: trimmed });
+            await refreshExplorer();
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Rename failed.');
+        }
+    }
+
+    /** Set (or clear, with "") a dashboard's description. */
+    async function setDashboardDescription(id: string, description: string) {
+        try {
+            await apiPatch(`/api/v1/dashboards/${id}`, { description });
+            await refreshExplorer();
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Could not save description.');
+        }
+    }
+
+    /** Move a dashboard to a folder (folderId=null → root). */
+    async function moveDashboardToFolder(id: string, folderId: string | null) {
+        try {
+            // Backend treats "" as "move to root".
+            await apiPatch(`/api/v1/dashboards/${id}`, { folder_id: folderId ?? '' });
+            await refreshExplorer();
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Move failed.');
+        }
+    }
+
+    /** Delete a dashboard from the Explorer; clears the view if it was active. */
+    async function deleteDashboardById(id: string) {
+        try {
+            await apiDelete(`/api/v1/dashboards/${id}`);
+            if (id === dashboardId) {
+                dashboardId = null;
+                panelIds = [];
+                panelSQLs = [];
+                sql = '';
+                executedResults = [];
+                layout = null;
+            }
+            await refreshExplorer();
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Delete failed.');
+        }
+    }
+
+    /** Create a new folder (group) in the Explorer. */
+    async function createFolder(name: string) {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        try {
+            await apiPost('/api/v1/folders', { name: trimmed, sort_order: folders.length });
+            await refreshExplorer();
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Could not create group.');
         }
     }
 
@@ -430,6 +523,8 @@ function createDashboardStore() {
     return {
         get dashboardId() { return dashboardId; },
         get allDashboards() { return allDashboards; },
+        get folders() { return folders; },
+        get dashboardsLoading() { return dashboardsLoading; },
         get panelIds() { return panelIds; },
         get panelSQLs() { return panelSQLs; },
         get executedResults() { return executedResults; },
@@ -452,6 +547,11 @@ function createDashboardStore() {
         handleExplain,
         createDashboard,
         loadDashboard,
+        renameDashboard,
+        setDashboardDescription,
+        moveDashboardToFolder,
+        deleteDashboardById,
+        createFolder,
         handleChartOverride,
         handleWidthOverride,
         handleHeightOverride,

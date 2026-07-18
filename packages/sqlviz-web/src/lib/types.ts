@@ -184,4 +184,14 @@ export interface DashboardInfo {
     sort_order: number;
     dashboard_hint: string | null;
     dashboard_domain: string | null;
+    folder_id: string | null;
+    description: string | null;
+}
+
+/** A folder / group in the Dashboard Explorer (mirrors FolderResponse). */
+export interface FolderInfo {
+    id: string;
+    name: string;
+    parent_id: string | null;
+    sort_order: number;
 }

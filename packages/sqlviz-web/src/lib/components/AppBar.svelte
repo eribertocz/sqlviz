@@ -1,14 +1,8 @@
 <script lang="ts">
-    import { ChevronDown, ChevronUp, Moon, Sun, X } from 'lucide-svelte';
+    import { ChevronDown, ChevronUp, Moon, Sun } from 'lucide-svelte';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { editMode } from '$lib/stores/editMode';
-    import { executionStore } from '$lib/stores/executionStore.svelte';
     import { uiStore } from '$lib/stores/uiStore.svelte';
-
-    function cancelNewDashboard() {
-        uiStore.creatingDashboard = false;
-        uiStore.newDashboardName  = '';
-    }
 
     function handleModeKeydown(e: KeyboardEvent) {
         if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -26,31 +20,6 @@
 
         {#if dashboardStore.activeDashboard}
             <span class="dash-name" title={dashboardStore.activeDashboard.name}>{dashboardStore.activeDashboard.name}</span>
-        {/if}
-
-        {#if uiStore.creatingDashboard}
-            <form
-                class="new-dash-form"
-                onsubmit={(e) => { e.preventDefault(); dashboardStore.createDashboard(); }}
-            >
-                <input
-                    class="new-dash-input"
-                    aria-label="Dashboard name"
-                    bind:value={uiStore.newDashboardName}
-                    placeholder="Dashboard name"
-                    onkeydown={(e) => { if (e.key === 'Escape') cancelNewDashboard(); }}
-                    autofocus
-                />
-                <button type="submit" class="new-dash-confirm">Create</button>
-                <button type="button" class="new-dash-cancel" onclick={cancelNewDashboard} aria-label="Cancel"><X size={14} /></button>
-            </form>
-        {:else}
-            <button
-                class="new-dash-btn"
-                onclick={() => { uiStore.creatingDashboard = true; }}
-                disabled={executionStore.executing}
-                title={executionStore.executing ? 'Wait for current run to finish' : 'New dashboard'}
-            >+ New</button>
         {/if}
     </div>
 
@@ -147,82 +116,6 @@
         white-space: nowrap;
         border-left: 1px solid var(--sqlviz-border);
         padding-left: 0.625rem;
-    }
-
-    /* New dashboard inline form */
-    .new-dash-form {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-
-    .new-dash-input {
-        height: 28px;
-        padding: 0 0.5rem;
-        background: var(--sqlviz-bg-base);
-        border: 1px solid var(--sqlviz-primary);
-        border-radius: var(--sqlviz-radius);
-        color: var(--sqlviz-text);
-        font-size: 0.8125rem;
-        outline: none;
-        width: 160px;
-    }
-
-    .new-dash-confirm {
-        height: 28px;
-        padding: 0 0.625rem;
-        background: var(--sqlviz-primary);
-        border: none;
-        border-radius: var(--sqlviz-radius);
-        color: #fff;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        cursor: pointer;
-        white-space: nowrap;
-    }
-    .new-dash-confirm:hover { filter: brightness(1.1); }
-
-    .new-dash-cancel {
-        height: 28px;
-        width: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: 1px solid var(--sqlviz-border);
-        border-radius: var(--sqlviz-radius);
-        color: var(--sqlviz-text-muted);
-        font-size: 0.875rem;
-        cursor: pointer;
-        transition: color 0.12s, border-color 0.12s;
-    }
-    .new-dash-cancel:hover {
-        color: var(--sqlviz-text);
-        border-color: var(--sqlviz-text-muted);
-    }
-
-    .new-dash-btn {
-        height: 28px;
-        padding: 0 0.625rem;
-        background: none;
-        border: 1px solid var(--sqlviz-border);
-        border-radius: var(--sqlviz-radius);
-        color: var(--sqlviz-text-muted);
-        font-size: 0.8125rem;
-        font-weight: 500;
-        cursor: pointer;
-        white-space: nowrap;
-        transition: color 0.12s, border-color 0.12s, background 0.12s;
-        flex-shrink: 0;
-    }
-    .new-dash-btn:hover:not(:disabled) {
-        color: var(--sqlviz-primary);
-        border-color: var(--sqlviz-primary);
-        background: color-mix(in srgb, var(--sqlviz-primary) 8%, transparent);
-    }
-    .new-dash-btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
     }
 
     .mode-toggle {

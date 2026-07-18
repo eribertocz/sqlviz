@@ -4,7 +4,7 @@
     import AppBar from '$lib/components/AppBar.svelte';
     import DashboardArea from '$lib/components/DashboardArea.svelte';
     import DashboardScorePanel from '$lib/components/DashboardScorePanel.svelte';
-    import DashboardSidebar from '$lib/components/DashboardSidebar.svelte';
+    import DashboardExplorer from '$lib/components/DashboardExplorer.svelte';
     import EditorSection from '$lib/components/EditorSection.svelte';
     import ExplainPanel from '$lib/components/ExplainPanel.svelte';
     import FilterBar from '$lib/components/FilterBar.svelte';
@@ -14,8 +14,6 @@
     import { editMode } from '$lib/stores/editMode';
     import { filterValues } from '$lib/stores/filterValues';
     import { uiStore } from '$lib/stores/uiStore.svelte';
-
-    const showSidebar = $derived(dashboardStore.allDashboards.length >= 2);
 
     // ── Load existing state on mount ───────────────────────────────────────────
     onMount(async () => {
@@ -41,14 +39,8 @@
     <!-- Body: sidebar + main content + optional score panel -->
     <div class="app-body">
 
-        <!-- Dynamic sidebar — appears when 2+ dashboards exist (DOC6 §12) -->
-        {#if showSidebar}
-            <DashboardSidebar
-                items={dashboardStore.allDashboards}
-                activeId={dashboardStore.dashboardId}
-                onSelect={dashboardStore.loadDashboard}
-            />
-        {/if}
+        <!-- Dashboard Explorer — always visible left sidebar (v0.2.7) -->
+        <DashboardExplorer />
 
         <!-- Main content column -->
         <div class="app-main">

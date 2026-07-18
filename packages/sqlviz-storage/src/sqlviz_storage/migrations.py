@@ -76,6 +76,9 @@ MIGRATIONS: list[tuple[str, str]] = [
     # files created before v0.2.4.
     ("0015_meta_set_schema_version",
      "INSERT INTO _sqlviz_meta VALUES ('schema_version', '1') ON CONFLICT DO NOTHING"),
+    # 0016: v0.2.7 — dashboard description (shown/edited in the Dashboard Explorer).
+    ("0016_dashboards_add_description",
+     "ALTER TABLE dashboards ADD COLUMN description VARCHAR"),
 ]
 
 

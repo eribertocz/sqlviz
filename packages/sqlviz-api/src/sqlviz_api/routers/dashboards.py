@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/v1/dashboards", tags=["dashboards"])
 
 _SELECT = (
     "SELECT id, name, folder_id, connection_id, sort_order, created_at, updated_at,"
-    " dashboard_hint, dashboard_domain "
+    " dashboard_hint, dashboard_domain, description "
     "FROM dashboards"
 )
 
@@ -35,6 +35,7 @@ def _row_to_response(row: tuple[Any, ...]) -> DashboardResponse:
         updated_at=row[6],
         dashboard_hint=row[7],
         dashboard_domain=row[8],
+        description=row[9],
     )
 
 
@@ -53,9 +54,11 @@ def create_dashboard(body: DashboardCreate, db: DbDep) -> DashboardResponse:
     now = _now()
     db.execute(
         "INSERT INTO dashboards "
-        "(id, name, folder_id, connection_id, sql_content, sort_order, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, '', ?, ?, ?)",
-        [dashboard_id, body.name, body.folder_id, body.connection_id, body.sort_order, now, now],
+        "(id, name, folder_id, connection_id, sql_content, sort_order, "
+        "created_at, updated_at, description) "
+        "VALUES (?, ?, ?, ?, '', ?, ?, ?, ?)",
+        [dashboard_id, body.name, body.folder_id, body.connection_id,
+         body.sort_order, now, now, body.description],
     )
     return DashboardResponse(
         id=dashboard_id,
@@ -65,6 +68,7 @@ def create_dashboard(body: DashboardCreate, db: DbDep) -> DashboardResponse:
         sort_order=body.sort_order,
         created_at=now,
         updated_at=now,
+        description=body.description,
     )
 
 
@@ -87,15 +91,19 @@ def update_dashboard(
 ) -> DashboardResponse:
     _fetch_one(db, dashboard_id)  # raises 404 if missing
 
-    updates: dict[str, str | int] = {}
+    updates: dict[str, str | int | None] = {}
     if body.name is not None:
         updates["name"] = body.name
     if body.folder_id is not None:
-        updates["folder_id"] = body.folder_id
+        # Empty string means "move to root" → store NULL.
+        updates["folder_id"] = body.folder_id or None
     if body.connection_id is not None:
         updates["connection_id"] = body.connection_id
     if body.sort_order is not None:
         updates["sort_order"] = body.sort_order
+    if body.description is not None:
+        # Empty string clears the description.
+        updates["description"] = body.description or None
     updates["updated_at"] = _now()
 
     set_clause = ", ".join(f"{col} = ?" for col in updates)

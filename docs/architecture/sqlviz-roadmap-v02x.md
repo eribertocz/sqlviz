@@ -103,17 +103,23 @@ Objetivo: filtros paramétricos completos y controles de UI profesionales.
 
 Objetivo: sidebar como explorador de proyectos, no solo lista plana.
 
-- Sidebar con grupos colapsables (carpetas / dominios inferidos)
-- Editar nombre y descripción de dashboard inline
+- Sidebar izquierdo siempre visible, como explorador de proyectos
+- Sidebar con grupos (carpetas) — el usuario crea grupos y organiza
+  dashboards dentro de ellos
+- Lista con icono inferido + nombre; dashboard activo resaltado
+- **Skeleton** (shadcn) mientras carga la lista de dashboards
+- **Skeleton** en los paneles del dashboard mientras se ejecuta el SQL
+- Editar nombre y descripción de dashboard
 - Eliminar dashboard con confirmación
-- Organizar dashboards por grupos con drag o click
-- Click en panel resalta el panel visualmente y en el editor Monaco hace scroll
-  hasta el statement correspondiente, lo resalta completo y posiciona el cursor
-  al inicio de ese query
-- Reubicar botón "Nuevo Dashboard" en lugar estratégico dentro del explorador
+- Menú por dashboard (click derecho o botón): editar nombre, editar
+  descripción, mover a grupo, eliminar
+- Click en dashboard: el editor Monaco muestra su SQL y posiciona el cursor
+  al inicio
+- Reubicar botón "Nuevo Dashboard" dentro del explorador
   (hoy está en la app bar, poco visible y fuera de contexto)
 - Al crear nuevo dashboard no arrastrar la query del dashboard anterior
   (el editor SQL debe iniciar vacío)
+- Todo con shadcn-svelte, a nivel profesional
 
 ---
 
@@ -124,6 +130,7 @@ Objetivo: sidebar que no ocupe espacio cuando no se necesita.
 - Modo expandido: icono + label + separadores entre grupos
 - Modo colapsado: solo iconos + tooltip al hover + separadores visuales entre grupos
 - Header del sidebar: logo cargable por el usuario + botón colapsar/expandir
+- **Skeleton** (shadcn) coherente con el modo colapsado/expandido mientras carga
 - Estado persistido en localStorage
 
 ---

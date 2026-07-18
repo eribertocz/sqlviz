@@ -49,6 +49,7 @@ class DashboardCreate(BaseModel):
     folder_id: str | None = None
     connection_id: str | None = None
     sort_order: int = 0
+    description: str | None = None
 
 
 class DashboardUpdate(BaseModel):
@@ -56,6 +57,8 @@ class DashboardUpdate(BaseModel):
     folder_id: str | None = None
     connection_id: str | None = None
     sort_order: int | None = None
+    description: str | None = None
+    # Sentinel-free "move to root": clients send folder_id="" to clear the folder.
 
 
 class DashboardResponse(BaseModel):
@@ -68,6 +71,7 @@ class DashboardResponse(BaseModel):
     updated_at: str
     dashboard_hint: str | None = None
     dashboard_domain: str | None = None
+    description: str | None = None
 
 
 # ── Folder ───────────────────────────────────────────────────────────────────
