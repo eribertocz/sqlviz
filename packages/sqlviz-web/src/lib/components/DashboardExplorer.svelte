@@ -19,6 +19,7 @@
     import PencilIcon from '@lucide/svelte/icons/pencil';
     import FolderInputIcon from '@lucide/svelte/icons/folder-input';
     import Trash2Icon from '@lucide/svelte/icons/trash-2';
+    import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
     import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
     import PanelLeftOpenIcon from '@lucide/svelte/icons/panel-left-open';
 
@@ -141,7 +142,7 @@
         class="row"
         class:active={d.id === dashboardStore.dashboardId}
         class:indented
-        use:draggable={{ container: container(d.folder_id ?? null), dragData: d, disabled: !!inline, attributes: { draggingClass: 'svelte-dnd-dragging' } }}
+        use:draggable={{ container: container(d.folder_id ?? null), dragData: d, handle: '.drag-handle', disabled: !!inline, attributes: { draggingClass: 'svelte-dnd-dragging' } }}
         use:droppable={{ container: container(d.folder_id ?? null), callbacks: { onDrop: (s) => onRowDrop(s as DragDropState<DashboardInfo>, d) } }}
     >
         {#if inline?.kind === 'dash' && inline.id === d.id}
@@ -154,6 +155,7 @@
                 onblur={commitInline}
             />
         {:else}
+            <span class="drag-handle" aria-hidden="true" title="Drag to reorder or move"><GripVerticalIcon size={12} /></span>
             <button
                 class="row-main"
                 onclick={() => dashboardStore.loadDashboard(d.id)}
@@ -610,6 +612,22 @@
     }
     .preview-row:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
     .preview-row.active { background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent); color: var(--sqlviz-primary); }
+
+    .drag-handle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 14px;
+        margin-left: 0.125rem;
+        color: var(--sqlviz-text-muted);
+        cursor: grab;
+        opacity: 0;
+        transition: opacity 0.12s;
+    }
+    .row:hover .drag-handle { opacity: 0.6; }
+    .drag-handle:hover { opacity: 1 !important; }
+    .drag-handle:active { cursor: grabbing; }
 
     .row-icon { flex-shrink: 0; display: flex; align-items: center; }
     .inline-icon { padding-left: 0.5rem; }

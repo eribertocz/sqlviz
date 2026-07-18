@@ -35,7 +35,9 @@ def _row_to_response(row: tuple[Any, ...]) -> DashboardResponse:
         updated_at=row[6],
         dashboard_hint=row[7],
         dashboard_domain=row[8],
-        description=row[9],
+        # Tolerate rows from a DB whose `description` column predates a schema
+        # sync (belt-and-suspenders against an IndexError when listing).
+        description=row[9] if len(row) > 9 else None,
     )
 
 

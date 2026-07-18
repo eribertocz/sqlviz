@@ -10,10 +10,18 @@
     import FilterBar from '$lib/components/FilterBar.svelte';
     import ToastHost from '$lib/components/ToastHost.svelte';
     import VerticalResizer from '$lib/components/VerticalResizer.svelte';
+    import WelcomeScreen from '$lib/components/WelcomeScreen.svelte';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { editMode } from '$lib/stores/editMode';
     import { filterValues } from '$lib/stores/filterValues';
     import { uiStore } from '$lib/stores/uiStore.svelte';
+
+    // Welcome screen: no dashboards exist and none is active (fresh install).
+    const showWelcome = $derived(
+        !dashboardStore.dashboardsLoading
+        && dashboardStore.allDashboards.length === 0
+        && !dashboardStore.dashboardId
+    );
 
     // ── Load existing state on mount ───────────────────────────────────────────
     onMount(async () => {
@@ -29,7 +37,7 @@
             editMode.set(true);
         }
 
-        await dashboardStore.bootstrap(meData.demo);
+        await dashboardStore.bootstrap();
     });
 </script>
 
@@ -44,23 +52,28 @@
 
         <!-- Main content column -->
         <div class="app-main">
-            <!-- Filter bar — both modes when panels have $variables -->
-            {#if dashboardStore.hasFilters}
-                <FilterBar
-                    controls={dashboardStore.allFilterControls}
-                    filterVals={$filterValues}
-                    domains={dashboardStore.filterDomains}
-                    onChange={dashboardStore.handleFilterChange}
-                />
-            {/if}
+            {#if showWelcome}
+                <!-- Clean welcome screen — no dashboards yet -->
+                <WelcomeScreen />
+            {:else}
+                <!-- Filter bar — both modes when panels have $variables -->
+                {#if dashboardStore.hasFilters}
+                    <FilterBar
+                        controls={dashboardStore.allFilterControls}
+                        filterVals={$filterValues}
+                        domains={dashboardStore.filterDomains}
+                        onChange={dashboardStore.handleFilterChange}
+                    />
+                {/if}
 
-            <!-- Editor section — hidden in Preview mode -->
-            {#if $editMode}
-                <EditorSection />
-                <VerticalResizer onDrag={(dy) => uiStore.setEditorHeight(uiStore.editorHeightPx + dy)} />
-            {/if}
+                <!-- Editor section — hidden in Preview mode -->
+                {#if $editMode}
+                    <EditorSection />
+                    <VerticalResizer onDrag={(dy) => uiStore.setEditorHeight(uiStore.editorHeightPx + dy)} />
+                {/if}
 
-            <DashboardArea />
+                <DashboardArea />
+            {/if}
         </div>
 
         <!-- Dashboard Score Panel slide-in (DOC6 §12.3, edit mode only) -->

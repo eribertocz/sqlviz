@@ -81,8 +81,8 @@ function createDashboardStore() {
         }
     }
 
-    /** Loads the first existing dashboard (or bootstraps the demo query). Called once on mount. */
-    async function bootstrap(isDemo: boolean) {
+    /** Loads the first existing dashboard, if any. Called once on mount. */
+    async function bootstrap() {
         dashboardsLoading = true;
         try {
             const [dashboards, fldrs] = await Promise.all([
@@ -92,12 +92,8 @@ function createDashboardStore() {
             allDashboards = dashboards;
             folders = fldrs;
             if (dashboards.length === 0) {
-                if (isDemo) {
-                    const { sql: demoSql } = await fetch('/api/v1/demo/sql')
-                        .then(r => r.json()) as { sql: string };
-                    sql = demoSql;
-                    run();
-                }
+                // No auto-seeded example data — a fresh install shows the
+                // welcome screen so the user creates their first dashboard.
                 return;
             }
 
@@ -274,8 +270,12 @@ function createDashboardStore() {
             sql             = '';
             executedResults = [];
             layout          = null;
-            // Fresh editor: put the cursor at the very start.
-            queueMicrotask(() => get(editorRef).focusStatement?.(0));
+            // Force the Monaco editor empty — a new dashboard must never inherit
+            // the previous dashboard's query — then place the cursor at the start.
+            queueMicrotask(() => {
+                get(editorRef).setContent?.('');
+                get(editorRef).focusStatement?.(0);
+            });
         } catch (e: unknown) {
             uiStore.showToast(e instanceof Error ? e.message : 'Could not create dashboard.');
         }
@@ -297,8 +297,13 @@ function createDashboardStore() {
             executedResults = [];
             layout      = null;
 
-            // Show the selected dashboard's SQL with the cursor at the start.
-            queueMicrotask(() => get(editorRef).focusStatement?.(0));
+            // Show the selected dashboard's SQL (imperatively, so it never lags
+            // behind the previous dashboard) with the cursor at the start.
+            const nextSql = sql;
+            queueMicrotask(() => {
+                get(editorRef).setContent?.(nextSql);
+                get(editorRef).focusStatement?.(0);
+            });
 
             if (panels.length > 0) run();
         } catch (e: unknown) {

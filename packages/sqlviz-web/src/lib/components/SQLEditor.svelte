@@ -154,6 +154,13 @@
                     editor.setPosition(pos);
                     editor.focus();
                 },
+                setContent(text: string) {
+                    if (!editor || editor.getValue() === text) return;
+                    syncing = true;
+                    editor.setValue(text);
+                    value = text;
+                    syncing = false;
+                },
             });
 
             monacoInstance = monaco;
