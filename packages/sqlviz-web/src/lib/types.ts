@@ -39,6 +39,20 @@ export interface FilterControl {
 }
 
 /**
+ * Domain of a filter column, fetched lazily from
+ * POST /api/v1/panels/{id}/filter-domain so the UI can render a *rich*
+ * control instead of a bare text box:
+ *   - `values` populates a dropdown <select> / multiselect checkboxes.
+ *   - `min`/`max` bound a range_slider's two handles.
+ * Absent/empty → the control degrades to a plain text/number input.
+ */
+export interface FilterDomain {
+    values?: unknown[];
+    min?: number | null;
+    max?: number | null;
+}
+
+/**
  * TypeScript mirrors of the sqlviz_inference data structures.
  *
  * InferenceResult  — result.py (from POST /api/v1/panels/{id}/execute)

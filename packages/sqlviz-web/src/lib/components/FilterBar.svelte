@@ -1,10 +1,11 @@
 <script lang="ts">
-    import type { FilterControl } from '$lib/types';
+    import type { FilterControl, FilterDomain } from '$lib/types';
     import FilterControlComponent from './FilterControl.svelte';
 
-    let { controls, filterVals, onChange }: {
+    let { controls, filterVals, domains = {}, onChange }: {
         controls: FilterControl[];
         filterVals: Record<string, unknown>;
+        domains?: Record<string, FilterDomain>;
         onChange: (varName: string, value: unknown) => void;
     } = $props();
 </script>
@@ -13,7 +14,7 @@
     <span class="filter-bar-icon" aria-hidden="true">⊟</span>
     <div class="filter-bar-controls">
         {#each controls as control (control.variable)}
-            <FilterControlComponent {control} {filterVals} {onChange} />
+            <FilterControlComponent {control} {filterVals} domain={domains[control.variable]} {onChange} />
             <!-- Separator between controls (not after the last one) -->
         {/each}
     </div>

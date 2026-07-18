@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlviz_core.models import ColumnSchema
 from sqlviz_inference.dashboard.dashboard_classifier import classify_dashboard
+from sqlviz_inference.filters.domain import build_domain_query
 from sqlviz_storage.brain_db import get_brain_connection
 from sqlviz_storage.override_system import apply_override, store_inference
 
@@ -62,6 +63,11 @@ def _rewrite_in_clauses_for_lists(sql: str, variables: dict[str, Any]) -> str:
 
 class ExecuteBody(BaseModel):
     variables: dict[str, Any] = Field(default_factory=dict)
+
+
+class FilterDomainBody(BaseModel):
+    column: str
+    kind: str  # "distinct" | "range"
 
 router = APIRouter(prefix="/api/v1/panels", tags=["panels"])
 
@@ -338,6 +344,46 @@ def execute_panel(
     _update_dashboard_classification(db, panel_id, col_names)
 
     return JSONResponse(content={"inference_result": result.to_dict(), "data": data})
+
+
+@router.post("/{panel_id}/filter-domain")
+def filter_domain(
+    panel_id: str,
+    body: FilterDomainBody,
+    db: DbDep,
+) -> JSONResponse:
+    """Return the domain of a filter column so the UI can render a rich control.
+
+    kind="distinct" → {"values": [...]}  (dropdown / multiselect / checkboxes)
+    kind="range"    → {"min": lo, "max": hi}  (slider bounds)
+
+    Best-effort: any failure to parse/execute returns an empty domain, and the
+    frontend falls back to a plain text/number input. Never raises 5xx for a
+    query it simply cannot introspect.
+    """
+    panel = _fetch_one(db, panel_id)
+    empty: dict[str, Any] = (
+        {"values": []} if body.kind == "distinct" else {"min": None, "max": None}
+    )
+
+    query = build_domain_query(panel.sql_content, body.column, body.kind)
+    if query is None:
+        return JSONResponse(content=empty)
+
+    try:
+        rows = db.execute(query).fetchall()
+    except duckdb.Error:
+        return JSONResponse(content=empty)
+
+    if body.kind == "distinct":
+        return JSONResponse(
+            content={"values": [json_safe(r[0]) for r in rows]}
+        )
+
+    if not rows or rows[0][0] is None:
+        return JSONResponse(content={"min": None, "max": None})
+    lo, hi = rows[0]
+    return JSONResponse(content={"min": json_safe(lo), "max": json_safe(hi)})
 
 
 @router.patch("/{panel_id}/override", response_model=PanelResponse)

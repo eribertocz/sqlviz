@@ -57,6 +57,7 @@
                 <FilterBar
                     controls={dashboardStore.allFilterControls}
                     filterVals={$filterValues}
+                    domains={dashboardStore.filterDomains}
                     onChange={dashboardStore.handleFilterChange}
                 />
             {/if}

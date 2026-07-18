@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { apiPatch, apiPost, recompose, type ExecResult } from '$lib/api';
-import type { DashboardInfo, DashboardLayout, FilterControl, InferenceResult } from '$lib/types';
+import type { DashboardInfo, DashboardLayout, FilterControl, FilterDomain, InferenceResult } from '$lib/types';
 import { editorRef } from './editorRef';
 import { explainTarget } from './explainStore';
 import { executionStore } from './executionStore.svelte';
@@ -24,6 +24,11 @@ function createDashboardStore() {
     let executedResults  = $state<ExecResult[]>([]);
     let layout           = $state<DashboardLayout | null>(null);
     let sql               = $state('');
+
+    // Domain (distinct values / numeric bounds) per filter variable, keyed by
+    // control.variable. Populated lazily after execution so dropdown / multiselect
+    // / range_slider controls can render real options instead of a text box.
+    let filterDomains    = $state<Record<string, FilterDomain>>({});
 
     let filterDebounceTimer = 0;
 
@@ -161,6 +166,9 @@ function createDashboardStore() {
             executionStore.statusMsg = 'Composing layout…';
             layout = await recompose(results);
             executionStore.statusMsg = null;
+
+            // Load rich-control domains (dropdown options / slider bounds).
+            loadFilterDomains();
 
             // Refresh dashboard list to pick up updated hint/domain from classifier.
             try {
@@ -326,6 +334,44 @@ function createDashboardStore() {
         };
     }
 
+    /**
+     * Fetch the domain (distinct values / numeric bounds) for every filter
+     * control that renders a rich widget, so the FilterBar can show a real
+     * dropdown / multiselect / slider. Best-effort: failures leave the entry
+     * absent and the control falls back to a text/number input.
+     *
+     * Domains are computed from the panel SQL with its parametric WHERE
+     * stripped, so they do not depend on the current filter selection and
+     * only need to be loaded once per execution.
+     */
+    async function loadFilterDomains() {
+        const domains: Record<string, FilterDomain> = {};
+        await Promise.all(
+            executedResults.flatMap((r, i) =>
+                r.inference_result.filter_controls.map(async (fc) => {
+                    const kind =
+                        fc.control_type === 'dropdown' || fc.control_type === 'multiselect'
+                            ? 'distinct'
+                            : fc.control_type === 'range_slider'
+                                ? 'range'
+                                : null;
+                    if (kind === null || domains[fc.variable]) return;
+
+                    try {
+                        const dom = await apiPost<FilterDomain>(
+                            `/api/v1/panels/${panelIds[i]}/filter-domain`,
+                            { column: fc.column_name, kind },
+                        );
+                        domains[fc.variable] = dom;
+                    } catch {
+                        // leave absent → control falls back to text/number input
+                    }
+                })
+            )
+        );
+        filterDomains = domains;
+    }
+
     async function executeFilteredPanels(
         changedVar: string,
         currentFV: Record<string, unknown>,
@@ -395,6 +441,7 @@ function createDashboardStore() {
         get activeDashboard() { return activeDashboard; },
         get utilityPct() { return utilityPct; },
         get allFilterControls() { return allFilterControls; },
+        get filterDomains() { return filterDomains; },
         get hasFilters() { return hasFilters; },
         get statementCount() { return statementCount; },
 
