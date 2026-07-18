@@ -15,7 +15,8 @@ router = APIRouter(prefix="/api/v1/dashboards", tags=["dashboards"])
 
 _SELECT = (
     "SELECT id, name, folder_id, connection_id, sort_order, created_at, updated_at,"
-    " dashboard_hint, dashboard_domain, description, sql_content, last_run_at "
+    " dashboard_hint, dashboard_domain, description, sql_content, last_run_at,"
+    " last_run_sql "
     "FROM dashboards"
 )
 
@@ -40,6 +41,7 @@ def _row_to_response(row: tuple[Any, ...]) -> DashboardResponse:
         description=row[9] if len(row) > 9 else None,
         sql_content=row[10] if len(row) > 10 and row[10] is not None else "",
         last_run_at=row[11] if len(row) > 11 else None,
+        last_run_sql=row[12] if len(row) > 12 else None,
     )
 
 
@@ -113,6 +115,8 @@ def update_dashboard(
         updates["sql_content"] = body.sql_content
     if body.last_run_at is not None:
         updates["last_run_at"] = body.last_run_at
+    if body.last_run_sql is not None:
+        updates["last_run_sql"] = body.last_run_sql
     updates["updated_at"] = _now()
 
     set_clause = ", ".join(f"{col} = ?" for col in updates)

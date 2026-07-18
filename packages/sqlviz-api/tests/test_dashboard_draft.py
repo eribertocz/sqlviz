@@ -55,3 +55,19 @@ def test_empty_draft_can_be_cleared(client: TestClient) -> None:
     client.patch(f"/api/v1/dashboards/{d['id']}", json={"sql_content": "SELECT 1"})
     upd = client.patch(f"/api/v1/dashboards/{d['id']}", json={"sql_content": ""}).json()
     assert upd["sql_content"] == ""
+
+
+def test_last_run_sql_is_independent_of_draft(client: TestClient) -> None:
+    # last_run_sql (for "Restore last run") is kept separate from the draft.
+    d = client.post("/api/v1/dashboards", json={"name": "D"}).json()
+    assert d["last_run_sql"] is None
+    client.patch(
+        f"/api/v1/dashboards/{d['id']}",
+        json={"sql_content": "SELECT 1", "last_run_sql": "SELECT 1"},
+    )
+    # The user keeps editing the draft — last_run_sql must not change.
+    upd = client.patch(
+        f"/api/v1/dashboards/{d['id']}", json={"sql_content": "SELECT 2"}
+    ).json()
+    assert upd["sql_content"] == "SELECT 2"
+    assert upd["last_run_sql"] == "SELECT 1"

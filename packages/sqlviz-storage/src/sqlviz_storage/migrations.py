@@ -87,6 +87,10 @@ MIGRATIONS: list[tuple[str, str]] = [
     # fresh projects (column already in SCHEMA_STATEMENTS).
     ("0017_dashboards_add_last_run_at",
      "ALTER TABLE dashboards ADD COLUMN last_run_at VARCHAR"),
+    # 0018: v0.2.8 — exact SQL of the last successful run, kept separate from the
+    # (freely-edited) draft so the header can offer "Restore last run".
+    ("0018_dashboards_add_last_run_sql",
+     "ALTER TABLE dashboards ADD COLUMN last_run_sql VARCHAR"),
 ]
 
 

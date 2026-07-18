@@ -35,6 +35,9 @@ function createDashboardStore() {
     // Draft auto-save (sqlviz-ux-dashboard-editing-v1.0 §1). last_run_at drives
     // the "Last run X min ago" prompt after a refresh.
     let lastRunAt        = $state<string | null>(null);
+    // Exact SQL of the last successful run (persisted, separate from the draft)
+    // so the header can offer "Restore last run" while the two differ.
+    let lastRunSql       = $state('');
     // The SQL last persisted to the dashboard draft — used to tell a real user
     // edit apart from a programmatic load (which must not mark the draft dirty).
     let lastSavedSql     = '';
@@ -75,6 +78,10 @@ function createDashboardStore() {
     }
 
     const statementCount = $derived(splitStatements(sql).length);
+
+    // "Restore last run" is offered while there is a prior successful run whose
+    // SQL differs from the current draft.
+    const canRestoreLastRun = $derived(lastRunSql !== '' && sql !== lastRunSql);
 
     /** Reloads the dashboards + folders lists (after any create/rename/move/delete). */
     async function refreshExplorer() {
@@ -161,6 +168,21 @@ function createDashboardStore() {
             .catch(() => { executionStore.saveStatus = 'draft'; });
     }
 
+    /**
+     * Replace the current draft with the SQL of the last successful run.
+     * The change is treated like any edit — it auto-saves and the "Restore"
+     * affordance disappears once the two match again.
+     */
+    function restoreLastRun() {
+        if (lastRunSql === '' || sql === lastRunSql) return;
+        sql = lastRunSql;
+        onSqlChanged(sql);
+        queueMicrotask(() => {
+            get(editorRef).setContent?.(lastRunSql);
+            get(editorRef).focusStatement?.(0);
+        });
+    }
+
     /** Loads the first existing dashboard, if any. Called once on mount. */
     async function bootstrap() {
         dashboardsLoading = true;
@@ -184,6 +206,7 @@ function createDashboardStore() {
             dashboardId = active.id;
             persistActive(active.id);
             lastRunAt = active.last_run_at;
+            lastRunSql = active.last_run_sql ?? '';
 
             const panels = await fetch(`/api/v1/panels?dashboard_id=${dashboardId}`)
                 .then(r => r.json()) as Array<{ id: string; sql_content: string; sort_order: number }>;
@@ -280,11 +303,14 @@ function createDashboardStore() {
             // Successful run: persist the exact draft + a last-run timestamp so a
             // refresh can show "Last run X ago" (UX spec §"Run exitoso").
             const runAt = new Date().toISOString();
+            const ranSql = sql;
             lastRunAt = runAt;
-            markSqlSaved(sql);
+            lastRunSql = ranSql;
+            markSqlSaved(ranSql);
             apiPatch(`/api/v1/dashboards/${activeDashId}`, {
-                sql_content: sql,
+                sql_content: ranSql,
                 last_run_at: runAt,
+                last_run_sql: ranSql,
             }).catch(() => {});
 
             // Load rich-control domains (dropdown options / slider bounds).
@@ -373,6 +399,7 @@ function createDashboardStore() {
             sql             = '';
             markSqlSaved('');
             lastRunAt       = null;
+            lastRunSql      = '';
             executedResults = [];
             layout          = null;
             // Force the Monaco editor empty — a new dashboard must never inherit
@@ -411,6 +438,7 @@ function createDashboardStore() {
             panelIds    = panels.map(p => p.id);
             panelSQLs   = panels.map(p => p.sql_content);
             lastRunAt   = dash.last_run_at;
+            lastRunSql  = dash.last_run_sql ?? '';
             executedResults = [];
             layout      = null;
 
@@ -735,6 +763,7 @@ function createDashboardStore() {
 
         get hasLayout() { return hasLayout; },
         get lastRunAt() { return lastRunAt; },
+        get canRestoreLastRun() { return canRestoreLastRun; },
         get activeDashboard() { return activeDashboard; },
         get utilityPct() { return utilityPct; },
         get allFilterControls() { return allFilterControls; },
@@ -745,6 +774,7 @@ function createDashboardStore() {
         bootstrap,
         run,
         saveDraft,
+        restoreLastRun,
         handleDelete,
         handleEditSQL,
         handleExplain,

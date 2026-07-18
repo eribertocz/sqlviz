@@ -60,6 +60,7 @@ class DashboardUpdate(BaseModel):
     description: str | None = None
     sql_content: str | None = None   # Draft editor text (auto-saved).
     last_run_at: str | None = None   # ISO timestamp of the last successful run.
+    last_run_sql: str | None = None  # Exact SQL of the last successful run.
     # Sentinel-free "move to root": clients send folder_id="" to clear the folder.
 
 
@@ -76,6 +77,7 @@ class DashboardResponse(BaseModel):
     description: str | None = None
     sql_content: str = ""
     last_run_at: str | None = None
+    last_run_sql: str | None = None
 
 
 # ── Folder ───────────────────────────────────────────────────────────────────

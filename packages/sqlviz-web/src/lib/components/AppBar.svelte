@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { ChevronDown, ChevronUp, Loader2, Moon, Sun } from 'lucide-svelte';
+    import { ChevronDown, ChevronUp, Loader2, Moon, RotateCcw, Sun } from 'lucide-svelte';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { editMode } from '$lib/stores/editMode';
     import { executionStore } from '$lib/stores/executionStore.svelte';
@@ -80,6 +80,16 @@
                     {/if}
                     {status.text}
                 </span>
+            {/if}
+
+            {#if dashboardStore.canRestoreLastRun}
+                <button
+                    class="restore-btn"
+                    onclick={dashboardStore.restoreLastRun}
+                    title="Replace the draft with the SQL of the last successful run"
+                >
+                    <RotateCcw size={12} /> Restore last run
+                </button>
             {/if}
         {/if}
     </div>
@@ -212,6 +222,28 @@
     .save-status :global(.spin) { animation: appbar-spin 0.8s linear infinite; }
 
     @keyframes appbar-spin { to { transform: rotate(360deg); } }
+
+    .restore-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3125rem;
+        height: 24px;
+        padding: 0 0.5rem;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        color: var(--sqlviz-text-muted);
+        background: none;
+        border: 1px solid var(--sqlviz-border);
+        border-radius: var(--sqlviz-radius);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: color 0.12s, border-color 0.12s, background 0.12s;
+    }
+    .restore-btn:hover {
+        color: var(--sqlviz-primary);
+        border-color: var(--sqlviz-primary);
+        background: color-mix(in srgb, var(--sqlviz-primary) 8%, transparent);
+    }
 
     .mode-toggle {
         display: flex;

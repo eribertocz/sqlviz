@@ -246,6 +246,7 @@ class TestSchemaColumns:
             "id", "name", "folder_id", "connection_id",
             "sql_content", "sort_order", "created_at", "updated_at",
             "dashboard_hint", "dashboard_domain", "description", "last_run_at",
+            "last_run_sql",
         ]
 
     def test_shares_columns(self, conn: duckdb.DuckDBPyConnection) -> None:

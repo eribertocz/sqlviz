@@ -188,6 +188,7 @@ export interface DashboardInfo {
     description: string | null;
     sql_content: string;
     last_run_at: string | null;
+    last_run_sql: string | null;
 }
 
 /** A folder / group in the Dashboard Explorer (mirrors FolderResponse). */
