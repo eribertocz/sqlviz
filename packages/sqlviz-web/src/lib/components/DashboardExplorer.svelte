@@ -4,6 +4,7 @@
     import { uiStore } from '$lib/stores/uiStore.svelte';
     import { editMode } from '$lib/stores/editMode';
     import type { DashboardInfo } from '$lib/types';
+    import { draggable, droppable, type DragDropState } from '@thisux/sveltednd';
     import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
     import * as Dialog from '$lib/components/ui/dialog/index.js';
     import * as Tooltip from '$lib/components/ui/tooltip/index.js';
@@ -16,125 +17,202 @@
     import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
     import EllipsisIcon from '@lucide/svelte/icons/ellipsis-vertical';
     import PencilIcon from '@lucide/svelte/icons/pencil';
-    import FileTextIcon from '@lucide/svelte/icons/file-text';
     import FolderInputIcon from '@lucide/svelte/icons/folder-input';
     import Trash2Icon from '@lucide/svelte/icons/trash-2';
     import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
     import PanelLeftOpenIcon from '@lucide/svelte/icons/panel-left-open';
 
-    // Per-folder expand/collapse state in the edit tree (expanded by default).
     let folderCollapsed = $state<Record<string, boolean>>({});
-    // Row whose context menu is open (also driven by right-click).
     let openMenuId = $state<string | null>(null);
+    let openFolderMenuId = $state<string | null>(null);
 
-    // Dialog state — one dialog reused for each action kind.
-    let renameOpen = $state(false);
-    let descOpen = $state(false);
+    // Single edit dialog (name + description together).
+    let editOpen = $state(false);
+    let editName = $state('');
+    let editDesc = $state('');
+    let editTarget = $state<DashboardInfo | null>(null);
+
     let deleteOpen = $state(false);
+    let deleteTarget = $state<DashboardInfo | null>(null);
     let newFolderOpen = $state(false);
-    let target = $state<DashboardInfo | null>(null);
-    let fieldValue = $state('');
+    let newFolderName = $state('');
+    let deleteGroupOpen = $state(false);
+    let deleteGroupTarget = $state<{ id: string; name: string } | null>(null);
+
+    // Inline name editing (double-click / F2). One at a time.
+    let inline = $state<{ kind: 'dash' | 'folder'; id: string } | null>(null);
+    let inlineValue = $state('');
 
     const collapsed = $derived(uiStore.sidebarCollapsed);
     const folders = $derived(dashboardStore.folders);
     const dashboards = $derived(dashboardStore.allDashboards);
-    // Preview mode only shows non-empty groups.
     const nonEmptyFolders = $derived(folders.filter(f => inFolder(f.id).length > 0));
 
     function inFolder(folderId: string): DashboardInfo[] {
-        return dashboards.filter(d => d.folder_id === folderId);
+        return dashboards
+            .filter(d => d.folder_id === folderId)
+            .sort((a, b) => a.sort_order - b.sort_order);
     }
-    const ungrouped = $derived(dashboards.filter(d => !d.folder_id));
+    const ungrouped = $derived(
+        dashboards.filter(d => !d.folder_id).sort((a, b) => a.sort_order - b.sort_order)
+    );
 
     function toggleFolder(id: string) {
         folderCollapsed = { ...folderCollapsed, [id]: !folderCollapsed[id] };
     }
 
-    function openRename(d: DashboardInfo) { target = d; fieldValue = d.name; renameOpen = true; }
-    function openDesc(d: DashboardInfo)   { target = d; fieldValue = d.description ?? ''; descOpen = true; }
-    function openDelete(d: DashboardInfo) { target = d; deleteOpen = true; }
+    // ── Inline editing ───────────────────────────────────────────────────────
+    function startInline(kind: 'dash' | 'folder', id: string, current: string) {
+        inline = { kind, id };
+        inlineValue = current;
+    }
+    function commitInline() {
+        if (!inline) return;
+        if (inline.kind === 'dash') dashboardStore.renameDashboard(inline.id, inlineValue);
+        else dashboardStore.renameFolder(inline.id, inlineValue);
+        inline = null;
+    }
+    function cancelInline() { inline = null; }
+    function inlineKeydown(e: KeyboardEvent) {
+        if (e.key === 'Enter') { e.preventDefault(); commitInline(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancelInline(); }
+    }
+    function selectOnMount(node: HTMLInputElement) {
+        node.focus();
+        node.select();
+    }
+    function rowKeydown(e: KeyboardEvent, d: DashboardInfo) {
+        if (e.key === 'F2') { e.preventDefault(); startInline('dash', d.id, d.name); }
+    }
 
-    function submitRename() {
-        if (target) dashboardStore.renameDashboard(target.id, fieldValue);
-        renameOpen = false;
+    // ── Dialog actions ───────────────────────────────────────────────────────
+    function openEdit(d: DashboardInfo) {
+        editTarget = d; editName = d.name; editDesc = d.description ?? ''; editOpen = true;
     }
-    function submitDesc() {
-        if (target) dashboardStore.setDashboardDescription(target.id, fieldValue.trim());
-        descOpen = false;
+    function submitEdit() {
+        if (editTarget) dashboardStore.updateDashboard(editTarget.id, editName, editDesc);
+        editOpen = false;
     }
+    function openDelete(d: DashboardInfo) { deleteTarget = d; deleteOpen = true; }
     function confirmDelete() {
-        if (target) dashboardStore.deleteDashboardById(target.id);
+        if (deleteTarget) dashboardStore.deleteDashboardById(deleteTarget.id);
         deleteOpen = false;
     }
+    function openDeleteGroup(id: string, name: string) { deleteGroupTarget = { id, name }; deleteGroupOpen = true; }
+    function confirmDeleteGroup() {
+        if (deleteGroupTarget) dashboardStore.deleteFolder(deleteGroupTarget.id);
+        deleteGroupOpen = false;
+    }
     function submitNewFolder() {
-        if (fieldValue.trim()) dashboardStore.createFolder(fieldValue);
+        if (newFolderName.trim()) dashboardStore.createFolder(newFolderName);
         newFolderOpen = false;
     }
 
     function newDashboard() { dashboardStore.createDashboard('New Dashboard', null); }
-    function newGroup() { fieldValue = ''; newFolderOpen = true; }
+    function newGroup() { newFolderName = ''; newFolderOpen = true; }
+
+    // ── Drag & drop ──────────────────────────────────────────────────────────
+    function container(folderId: string | null): string {
+        return `dnd-${folderId ?? 'root'}`;
+    }
+    // Drop onto a row → reorder relative to it (and move folders if needed).
+    function onRowDrop(state: DragDropState<DashboardInfo>, targetDash: DashboardInfo) {
+        const drag = state.draggedItem;
+        if (!drag || drag.id === targetDash.id) return;
+        dashboardStore.reorderDashboard(
+            drag.id,
+            targetDash.id,
+            state.dropPosition ?? 'before',
+            targetDash.folder_id ?? null,
+        );
+    }
+    // Drop onto a folder header / root zone → move into it (append).
+    function onFolderDrop(state: DragDropState<DashboardInfo>, folderId: string | null) {
+        const drag = state.draggedItem;
+        if (!drag || (drag.folder_id ?? null) === folderId) return;
+        dashboardStore.moveDashboardToFolder(drag.id, folderId);
+    }
 </script>
 
-<!-- ── Edit-mode row: icon + name + management menu ────────────────────────── -->
+<!-- ── Edit-mode row: draggable + droppable, inline edit, management menu ────── -->
 {#snippet editRow(d: DashboardInfo, indented: boolean)}
     {@const IconCmp = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
-    <div class="row" class:active={d.id === dashboardStore.dashboardId} class:indented>
-        <button
-            class="row-main"
-            onclick={() => dashboardStore.loadDashboard(d.id)}
-            oncontextmenu={(e) => { e.preventDefault(); openMenuId = d.id; }}
-            title={d.description || d.name}
-        >
-            <span class="row-icon"><IconCmp size={14} /></span>
-            <span class="row-name">{d.name}</span>
-        </button>
+    <div
+        class="row"
+        class:active={d.id === dashboardStore.dashboardId}
+        class:indented
+        use:draggable={{ container: container(d.folder_id ?? null), dragData: d, disabled: !!inline, attributes: { draggingClass: 'svelte-dnd-dragging' } }}
+        use:droppable={{ container: container(d.folder_id ?? null), callbacks: { onDrop: (s) => onRowDrop(s as DragDropState<DashboardInfo>, d) } }}
+    >
+        {#if inline?.kind === 'dash' && inline.id === d.id}
+            <span class="row-icon inline-icon"><IconCmp size={14} /></span>
+            <input
+                class="inline-input"
+                bind:value={inlineValue}
+                use:selectOnMount
+                onkeydown={inlineKeydown}
+                onblur={commitInline}
+            />
+        {:else}
+            <button
+                class="row-main"
+                onclick={() => dashboardStore.loadDashboard(d.id)}
+                ondblclick={() => startInline('dash', d.id, d.name)}
+                onkeydown={(e) => rowKeydown(e, d)}
+                oncontextmenu={(e) => { e.preventDefault(); openMenuId = d.id; }}
+                title={d.description || d.name}
+            >
+                <span class="row-icon"><IconCmp size={14} /></span>
+                <span class="row-name">{d.name}</span>
+            </button>
 
-        <DropdownMenu.Root
-            open={openMenuId === d.id}
-            onOpenChange={(o) => { openMenuId = o ? d.id : (openMenuId === d.id ? null : openMenuId); }}
-        >
-            <DropdownMenu.Trigger class="row-kebab" aria-label="Dashboard options">
-                <EllipsisIcon size={14} />
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="start" class="w-48">
-                <DropdownMenu.Item onSelect={() => openRename(d)}>
-                    <PencilIcon class="size-4" /> Rename
-                </DropdownMenu.Item>
-                <DropdownMenu.Item onSelect={() => openDesc(d)}>
-                    <FileTextIcon class="size-4" /> Edit description
-                </DropdownMenu.Item>
-                <DropdownMenu.Sub>
-                    <DropdownMenu.SubTrigger>
-                        <FolderInputIcon class="size-4" /> Move to group
-                    </DropdownMenu.SubTrigger>
-                    <DropdownMenu.SubContent class="w-44">
-                        {#if d.folder_id}
-                            <DropdownMenu.Item onSelect={() => dashboardStore.moveDashboardToFolder(d.id, null)}>
-                                Ungrouped
-                            </DropdownMenu.Item>
-                        {/if}
-                        {#each folders as f (f.id)}
-                            {#if f.id !== d.folder_id}
-                                <DropdownMenu.Item onSelect={() => dashboardStore.moveDashboardToFolder(d.id, f.id)}>
-                                    {f.name}
+            <DropdownMenu.Root
+                open={openMenuId === d.id}
+                onOpenChange={(o) => { openMenuId = o ? d.id : (openMenuId === d.id ? null : openMenuId); }}
+            >
+                <DropdownMenu.Trigger class="row-kebab" aria-label="Dashboard options">
+                    <EllipsisIcon size={14} />
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content align="start" class="w-48">
+                    <DropdownMenu.Item onSelect={() => startInline('dash', d.id, d.name)}>
+                        <PencilIcon class="size-4" /> Rename (inline)
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item onSelect={() => openEdit(d)}>
+                        <PencilIcon class="size-4" /> Edit name & description
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Sub>
+                        <DropdownMenu.SubTrigger>
+                            <FolderInputIcon class="size-4" /> Move to group
+                        </DropdownMenu.SubTrigger>
+                        <DropdownMenu.SubContent class="w-44">
+                            {#if d.folder_id}
+                                <DropdownMenu.Item onSelect={() => dashboardStore.moveDashboardToFolder(d.id, null)}>
+                                    Ungrouped
                                 </DropdownMenu.Item>
                             {/if}
-                        {/each}
-                        {#if folders.length === 0}
-                            <DropdownMenu.Item disabled>No groups yet</DropdownMenu.Item>
-                        {/if}
-                    </DropdownMenu.SubContent>
-                </DropdownMenu.Sub>
-                <DropdownMenu.Separator />
-                <DropdownMenu.Item variant="destructive" onSelect={() => openDelete(d)}>
-                    <Trash2Icon class="size-4" /> Delete
-                </DropdownMenu.Item>
-            </DropdownMenu.Content>
-        </DropdownMenu.Root>
+                            {#each folders as f (f.id)}
+                                {#if f.id !== d.folder_id}
+                                    <DropdownMenu.Item onSelect={() => dashboardStore.moveDashboardToFolder(d.id, f.id)}>
+                                        {f.name}
+                                    </DropdownMenu.Item>
+                                {/if}
+                            {/each}
+                            {#if folders.length === 0}
+                                <DropdownMenu.Item disabled>No groups yet</DropdownMenu.Item>
+                            {/if}
+                        </DropdownMenu.SubContent>
+                    </DropdownMenu.Sub>
+                    <DropdownMenu.Separator />
+                    <DropdownMenu.Item variant="destructive" onSelect={() => openDelete(d)}>
+                        <Trash2Icon class="size-4" /> Delete
+                    </DropdownMenu.Item>
+                </DropdownMenu.Content>
+            </DropdownMenu.Root>
+        {/if}
     </div>
 {/snippet}
 
-<!-- ── Preview-mode row: icon + name, navigation only ──────────────────────── -->
+<!-- ── Preview-mode row: navigation only ───────────────────────────────────── -->
 {#snippet previewRow(d: DashboardInfo)}
     {@const IconCmp = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
     <button
@@ -148,7 +226,7 @@
     </button>
 {/snippet}
 
-<!-- ── Collapsed rail: icon only, tooltip on hover ─────────────────────────── -->
+<!-- ── Collapsed rail icon ─────────────────────────────────────────────────── -->
 {#snippet railIcon(d: DashboardInfo)}
     {@const IconCmp = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
     <Tooltip.Root>
@@ -163,11 +241,7 @@
     </Tooltip.Root>
 {/snippet}
 
-<nav
-    class="explorer"
-    class:collapsed
-    aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}
->
+<nav class="explorer" class:collapsed aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}>
     <div class="explorer-header" class:collapsed>
         {#if !collapsed}
             <span class="explorer-title">{$editMode ? 'Explorer' : 'Dashboards'}</span>
@@ -205,7 +279,6 @@
             {/each}
 
         {:else if collapsed}
-            <!-- Collapsed rail — both modes: icons + separators between groups -->
             <Tooltip.Provider delayDuration={200}>
                 {#each nonEmptyFolders as f (f.id)}
                     {#each inFolder(f.id) as d (d.id)}
@@ -219,29 +292,68 @@
             </Tooltip.Provider>
 
         {:else if $editMode}
-            <!-- Edit tree — VSCode-style folders + management -->
             {#each folders as f (f.id)}
-                <button class="folder-header" onclick={() => toggleFolder(f.id)}>
-                    <span class="chev" class:open={!folderCollapsed[f.id]}><ChevronRightIcon size={14} /></span>
-                    <FolderIcon size={14} />
-                    <span class="folder-name">{f.name}</span>
-                    <span class="folder-count">{inFolder(f.id).length}</span>
-                </button>
+                <div
+                    class="folder-header-wrap"
+                    use:droppable={{ container: container(f.id), callbacks: { onDrop: (s) => onFolderDrop(s as DragDropState<DashboardInfo>, f.id) } }}
+                >
+                    {#if inline?.kind === 'folder' && inline.id === f.id}
+                        <span class="chev open"><ChevronRightIcon size={14} /></span>
+                        <FolderIcon size={14} />
+                        <input class="inline-input folder-inline" bind:value={inlineValue}
+                            use:selectOnMount onkeydown={inlineKeydown} onblur={commitInline} />
+                    {:else}
+                        <button
+                            class="folder-header"
+                            onclick={() => toggleFolder(f.id)}
+                            ondblclick={() => startInline('folder', f.id, f.name)}
+                            onkeydown={(e) => { if (e.key === 'F2') { e.preventDefault(); startInline('folder', f.id, f.name); } }}
+                        >
+                            <span class="chev" class:open={!folderCollapsed[f.id]}><ChevronRightIcon size={14} /></span>
+                            <FolderIcon size={14} />
+                            <span class="folder-name">{f.name}</span>
+                            <span class="folder-count">{inFolder(f.id).length}</span>
+                        </button>
+                        <DropdownMenu.Root
+                            open={openFolderMenuId === f.id}
+                            onOpenChange={(o) => { openFolderMenuId = o ? f.id : (openFolderMenuId === f.id ? null : openFolderMenuId); }}
+                        >
+                            <DropdownMenu.Trigger class="row-kebab folder-kebab" aria-label="Group options">
+                                <EllipsisIcon size={14} />
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Content align="start" class="w-44">
+                                <DropdownMenu.Item onSelect={() => startInline('folder', f.id, f.name)}>
+                                    <PencilIcon class="size-4" /> Rename group
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Separator />
+                                <DropdownMenu.Item variant="destructive" onSelect={() => openDeleteGroup(f.id, f.name)}>
+                                    <Trash2Icon class="size-4" /> Delete group
+                                </DropdownMenu.Item>
+                            </DropdownMenu.Content>
+                        </DropdownMenu.Root>
+                    {/if}
+                </div>
                 {#if !folderCollapsed[f.id]}
                     {#each inFolder(f.id) as d (d.id)}
                         {@render editRow(d, true)}
                     {/each}
                 {/if}
             {/each}
-            {#each ungrouped as d (d.id)}
-                {@render editRow(d, false)}
-            {/each}
-            {#if dashboards.length === 0}
-                <p class="empty">No dashboards yet. Create one with the + button.</p>
-            {/if}
+
+            <!-- Root drop zone (also holds ungrouped dashboards) -->
+            <div
+                class="root-dropzone"
+                use:droppable={{ container: container(null), callbacks: { onDrop: (s) => onFolderDrop(s as DragDropState<DashboardInfo>, null) } }}
+            >
+                {#each ungrouped as d (d.id)}
+                    {@render editRow(d, false)}
+                {/each}
+                {#if dashboards.length === 0}
+                    <p class="empty">No dashboards yet. Create one with the + button.</p>
+                {/if}
+            </div>
 
         {:else}
-            <!-- Preview — group labels + separators, navigation only -->
             {#each nonEmptyFolders as f (f.id)}
                 <div class="group-label"><span>{f.name}</span><span class="group-line"></span></div>
                 {#each inFolder(f.id) as d (d.id)}
@@ -269,42 +381,32 @@
     {/if}
 </nav>
 
-<!-- Rename dialog -->
-<Dialog.Root bind:open={renameOpen}>
-    <Dialog.Content class="sm:max-w-sm">
-        <Dialog.Header><Dialog.Title>Rename dashboard</Dialog.Title></Dialog.Header>
-        <Input bind:value={fieldValue} placeholder="Dashboard name"
-            onkeydown={(e) => e.key === 'Enter' && submitRename()} />
-        <Dialog.Footer>
-            <Button variant="ghost" size="sm" onclick={() => (renameOpen = false)}>Cancel</Button>
-            <Button size="sm" onclick={submitRename}>Save</Button>
-        </Dialog.Footer>
-    </Dialog.Content>
-</Dialog.Root>
-
-<!-- Edit description dialog -->
-<Dialog.Root bind:open={descOpen}>
+<!-- Edit name + description (single step) -->
+<Dialog.Root bind:open={editOpen}>
     <Dialog.Content class="sm:max-w-md">
-        <Dialog.Header>
-            <Dialog.Title>Edit description</Dialog.Title>
-            <Dialog.Description>Shown as a tooltip on the dashboard in the explorer.</Dialog.Description>
-        </Dialog.Header>
-        <Input bind:value={fieldValue} placeholder="Short description (optional)"
-            onkeydown={(e) => e.key === 'Enter' && submitDesc()} />
+        <Dialog.Header><Dialog.Title>Edit dashboard</Dialog.Title></Dialog.Header>
+        <div class="dialog-fields">
+            <label class="field-label" for="edit-name">Name</label>
+            <Input id="edit-name" bind:value={editName} placeholder="Dashboard name"
+                onkeydown={(e) => e.key === 'Enter' && submitEdit()} />
+            <label class="field-label" for="edit-desc">Description</label>
+            <Input id="edit-desc" bind:value={editDesc} placeholder="Short description (optional)"
+                onkeydown={(e) => e.key === 'Enter' && submitEdit()} />
+        </div>
         <Dialog.Footer>
-            <Button variant="ghost" size="sm" onclick={() => (descOpen = false)}>Cancel</Button>
-            <Button size="sm" onclick={submitDesc}>Save</Button>
+            <Button variant="ghost" size="sm" onclick={() => (editOpen = false)}>Cancel</Button>
+            <Button size="sm" onclick={submitEdit}>Save</Button>
         </Dialog.Footer>
     </Dialog.Content>
 </Dialog.Root>
 
-<!-- Delete confirmation -->
+<!-- Delete dashboard -->
 <Dialog.Root bind:open={deleteOpen}>
     <Dialog.Content class="sm:max-w-sm">
         <Dialog.Header>
             <Dialog.Title>Delete dashboard</Dialog.Title>
             <Dialog.Description>
-                "{target?.name}" and its panels will be permanently deleted. This cannot be undone.
+                "{deleteTarget?.name}" and its panels will be permanently deleted. This cannot be undone.
             </Dialog.Description>
         </Dialog.Header>
         <Dialog.Footer>
@@ -314,11 +416,27 @@
     </Dialog.Content>
 </Dialog.Root>
 
+<!-- Delete group -->
+<Dialog.Root bind:open={deleteGroupOpen}>
+    <Dialog.Content class="sm:max-w-sm">
+        <Dialog.Header>
+            <Dialog.Title>Delete group</Dialog.Title>
+            <Dialog.Description>
+                "{deleteGroupTarget?.name}" will be removed. Its dashboards are kept and moved to the root.
+            </Dialog.Description>
+        </Dialog.Header>
+        <Dialog.Footer>
+            <Button variant="ghost" size="sm" onclick={() => (deleteGroupOpen = false)}>Cancel</Button>
+            <Button variant="destructive" size="sm" onclick={confirmDeleteGroup}>Delete group</Button>
+        </Dialog.Footer>
+    </Dialog.Content>
+</Dialog.Root>
+
 <!-- New group -->
 <Dialog.Root bind:open={newFolderOpen}>
     <Dialog.Content class="sm:max-w-sm">
         <Dialog.Header><Dialog.Title>New group</Dialog.Title></Dialog.Header>
-        <Input bind:value={fieldValue} placeholder="Group name"
+        <Input bind:value={newFolderName} placeholder="Group name"
             onkeydown={(e) => e.key === 'Enter' && submitNewFolder()} />
         <Dialog.Footer>
             <Button variant="ghost" size="sm" onclick={() => (newFolderOpen = false)}>Cancel</Button>
@@ -392,15 +510,9 @@
         gap: 0.125rem;
     }
 
-    .skeleton-row {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.4375rem 0.5rem;
-    }
+    .skeleton-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.4375rem 0.5rem; }
     .skeleton-rail { padding: 0.25rem 0; }
 
-    /* Collapsed rail */
     :global(.rail-icon) {
         display: flex;
         align-items: center;
@@ -419,21 +531,21 @@
         background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent);
         color: var(--sqlviz-primary);
     }
-    .rail-sep {
-        width: 24px;
-        height: 1px;
-        margin: 0.25rem 0;
-        background: var(--sqlviz-hairline);
-    }
+    .rail-sep { width: 24px; height: 1px; margin: 0.25rem 0; background: var(--sqlviz-hairline); }
 
-    /* Edit tree folder header */
+    .folder-header-wrap {
+        display: flex;
+        align-items: center;
+        margin-top: 0.125rem;
+        border-radius: var(--sqlviz-radius);
+    }
     .folder-header {
         display: flex;
         align-items: center;
         gap: 0.375rem;
-        width: 100%;
+        flex: 1;
+        min-width: 0;
         padding: 0.375rem 0.5rem;
-        margin-top: 0.125rem;
         background: none;
         border: none;
         border-radius: var(--sqlviz-radius);
@@ -451,13 +563,9 @@
     .folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .folder-count { font-size: 0.6875rem; opacity: 0.7; font-weight: 500; }
 
-    /* Preview group label + separator line */
-    .group-label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 0.5rem 0.375rem;
-    }
+    .root-dropzone { min-height: 24px; }
+
+    .group-label { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0.5rem 0.375rem; }
     .group-label span:first-child {
         font-size: 0.6875rem;
         font-weight: 700;
@@ -504,6 +612,7 @@
     .preview-row.active { background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent); color: var(--sqlviz-primary); }
 
     .row-icon { flex-shrink: 0; display: flex; align-items: center; }
+    .inline-icon { padding-left: 0.5rem; }
     .row-name {
         font-size: 0.8125rem;
         overflow: hidden;
@@ -511,6 +620,20 @@
         white-space: nowrap;
         line-height: 1.3;
     }
+
+    .inline-input {
+        flex: 1;
+        min-width: 0;
+        margin: 0.25rem 0.375rem 0.25rem 0.5rem;
+        padding: 0.125rem 0.375rem;
+        font-size: 0.8125rem;
+        background: var(--sqlviz-bg);
+        color: var(--sqlviz-text);
+        border: 1px solid var(--sqlviz-primary);
+        border-radius: var(--sqlviz-radius);
+        outline: none;
+    }
+    .folder-inline { font-weight: 600; }
 
     :global(.row-kebab) {
         display: flex;
@@ -528,19 +651,19 @@
         transition: opacity 0.12s, background 0.12s;
     }
     .row:hover :global(.row-kebab),
-    .row.active :global(.row-kebab) { opacity: 1; }
+    .row.active :global(.row-kebab),
+    .folder-header-wrap:hover :global(.folder-kebab) { opacity: 1; }
     :global(.row-kebab:hover) { background: var(--sqlviz-border); color: var(--sqlviz-text); }
 
-    .empty {
-        padding: 0.75rem 0.5rem;
-        font-size: 0.75rem;
-        color: var(--sqlviz-text-muted);
-        line-height: 1.4;
-    }
+    .empty { padding: 0.75rem 0.5rem; font-size: 0.75rem; color: var(--sqlviz-text-muted); line-height: 1.4; }
 
-    .explorer-footer {
-        padding: 0.5rem;
-        border-top: 1px solid var(--sqlviz-hairline);
-        flex-shrink: 0;
+    .explorer-footer { padding: 0.5rem; border-top: 1px solid var(--sqlviz-hairline); flex-shrink: 0; }
+
+    .dialog-fields { display: flex; flex-direction: column; gap: 0.375rem; }
+    .field-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--sqlviz-text-muted);
+        margin-top: 0.25rem;
     }
 </style>

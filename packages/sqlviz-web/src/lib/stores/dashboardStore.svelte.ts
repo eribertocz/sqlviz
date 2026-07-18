@@ -369,6 +369,86 @@ function createDashboardStore() {
         }
     }
 
+    /** Update a dashboard's name and description in a single request. */
+    async function updateDashboard(id: string, name: string, description: string) {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        try {
+            await apiPatch(`/api/v1/dashboards/${id}`, { name: trimmed, description: description.trim() });
+            await refreshExplorer();
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Could not save dashboard.');
+        }
+    }
+
+    /** Rename a folder (group). */
+    async function renameFolder(id: string, name: string) {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        try {
+            await apiPatch(`/api/v1/folders/${id}`, { name: trimmed });
+            await refreshExplorer();
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Could not rename group.');
+        }
+    }
+
+    /**
+     * Delete a folder (group). The backend re-parents its dashboards to root
+     * (folder_id → NULL), so nothing is lost — only the container is removed.
+     */
+    async function deleteFolder(id: string) {
+        try {
+            await apiDelete(`/api/v1/folders/${id}`);
+            await refreshExplorer();
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Could not delete group.');
+        }
+    }
+
+    /**
+     * Drag-and-drop reorder / move. Places `dragId` before/after `targetId`
+     * inside `targetFolderId` (null = root) and persists the new order via
+     * per-dashboard sort_order, plus the dragged item's folder_id if it moved.
+     */
+    async function reorderDashboard(
+        dragId: string,
+        targetId: string | null,
+        position: 'before' | 'after',
+        targetFolderId: string | null,
+    ) {
+        if (dragId === targetId) return;
+        const dragged = allDashboards.find(d => d.id === dragId);
+        if (!dragged) return;
+
+        // Ordered list of the destination folder, excluding the dragged item.
+        const dest = allDashboards
+            .filter(d => (d.folder_id ?? null) === targetFolderId && d.id !== dragId)
+            .sort((a, b) => a.sort_order - b.sort_order);
+
+        let insertAt = dest.length;
+        if (targetId) {
+            const ti = dest.findIndex(d => d.id === targetId);
+            if (ti !== -1) insertAt = position === 'before' ? ti : ti + 1;
+        }
+        dest.splice(insertAt, 0, dragged);
+
+        const folderChanged = (dragged.folder_id ?? null) !== targetFolderId;
+        try {
+            await Promise.all(dest.map((d, i) => {
+                const body: Record<string, unknown> = {};
+                if (d.sort_order !== i) body.sort_order = i;
+                if (d.id === dragId && folderChanged) body.folder_id = targetFolderId ?? '';
+                return Object.keys(body).length
+                    ? apiPatch(`/api/v1/dashboards/${d.id}`, body)
+                    : Promise.resolve();
+            }));
+            await refreshExplorer();
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Could not reorder.');
+        }
+    }
+
     /** Chart type override: PATCH → re-execute → recompose (DOC6 §12.1). */
     async function handleChartOverride(panelId: string, chartType: string) {
         try {
@@ -549,9 +629,13 @@ function createDashboardStore() {
         loadDashboard,
         renameDashboard,
         setDashboardDescription,
+        updateDashboard,
         moveDashboardToFolder,
+        reorderDashboard,
         deleteDashboardById,
         createFolder,
+        renameFolder,
+        deleteFolder,
         handleChartOverride,
         handleWidthOverride,
         handleHeightOverride,

@@ -151,3 +151,19 @@ body {
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 6px);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * @thisux/sveltednd — theme the drop indicator and drag-over feedback to the
+ * SQLviz palette (the library ships a hardcoded blue). Applied globally since
+ * the library adds these classes to elements imperatively during a drag.
+ * ───────────────────────────────────────────────────────────────────────── */
+.drop-before::before,
+.drop-after::after,
+.drop-left::before,
+.drop-right::after {
+  background-color: var(--sqlviz-primary) !important;
+}
+
+.svelte-dnd-dragging {
+  opacity: 0.5;
+}
