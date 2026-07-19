@@ -1213,6 +1213,51 @@ Auto-layout UX final mile                   DOC 8 §6          V0.2 / V0.3
 
 ---
 
+## 13. Estructura de versiones — post-V0.2 (semver)
+
+> Esta sección alinea DOC10 con el roadmap oficial completo:
+> `docs/architecture/sqlviz-roadmap.md`.
+
+**V0.2 es una serie de patches, no una minor por feature.** Todo lo descrito en
+este documento (el Cognitive Dashboard Compiler, DOC5 §18) se entrega y se
+endurece a lo largo de la serie **V0.2.x** (v0.2.1 … v0.2.11+). Cada `v0.2.z`
+es un patch: correcciones, estabilización de contratos y UX incremental sobre
+la misma capacidad de V0.2. No hay una "V0.2.n = feature nueva mayor"; las
+capacidades mayores empiezan en V0.3.
+
+**Desde V0.3.0 cada minor (`vX.Y.0`) es una versión mayor temática** con su
+propio plan de construcción, seguida de su propia serie de patches `vX.Y.z`:
+
+```
+Minor        Tema                                     Plan de construcción
+──────────────────────────────────────────────────────────────────────────
+V0.3.0   Semantic Dashboard Intelligence          DOC9 §"V0.3"
+          (Knowledge Graph, InformationGain,
+           Coverage, Curiosity, Uncertainty)
+V0.4.0   Filter Engine — Parameter Intelligence   DOC11  ← plan dedicado
+          (20 motores; motores 9–16 y 18)          (nivel de detalle DOC10)
+V0.5.0   Connectors & Data Sources                 (por definir)
+V0.6.0   Combo Charts + Advanced Visualizations    (por definir)
+V1.0.0   Cognitive BI Operating System (10 niveles) DOC9 §"V1.0"
+          (+ motores de filtro 17, 19, 20)
+```
+
+Reasignaciones respecto a la tabla §12 (que fue escrita cuando el horizonte
+posterior a V0.2 se agrupaba genéricamente como "V0.3+"):
+
+- **Cloud mode** (§12: "V0.4") pasa a formar parte del alcance de conectores
+  → **V0.5.0** (Connectors & Data Sources).
+- **Multi-source dashboards** (§12: "V0.3+") → **V0.5.0**.
+- El **Filter Engine / Parameter Intelligence** —que en V0.2 vive como los
+  filtros paramétricos + los 8 primeros motores parciales— se formaliza como
+  **V0.4.0** con su propio documento de construcción, **DOC11**.
+
+El resto de la tabla §12 (Knowledge Graph, FeedbackEngine estadístico, Insight/
+Narrative/Semantic Engine, Cross-filtering, Dashboard Composer) se mantiene
+dentro de **V0.3.0** (Semantic Dashboard Intelligence) y su serie V0.3.x.
+
+---
+
 *SQLviz V0.2 Construction Plan — v0.1.0*
 *"No reconstruir SQLviz. Convertir sqlviz-inference en el Cognitive Dashboard*
 *Compiler, empezando por los dos contratos: DataProfile de entrada, VisualSpec*
