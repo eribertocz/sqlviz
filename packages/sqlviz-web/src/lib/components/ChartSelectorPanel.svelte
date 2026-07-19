@@ -25,10 +25,13 @@
         return 'score-vlow';
     }
 
-    let { result, onSelect, onClose }: {
+    let { result, onSelect, onClose, embedded = false }: {
         result: InferenceResult;
         onSelect: (chartType: string) => void;
         onClose: () => void;
+        // When embedded in the Panel Properties panel, drop the modal chrome
+        // (header, fixed sizing) so it flows as a plain section.
+        embedded?: boolean;
     } = $props();
 
     // Engine's pure winner (stable across re-executes for same SQL/data).
@@ -73,11 +76,13 @@
 <!-- Close on Escape -->
 <svelte:window onkeydown={(e) => { if (e.key === 'Escape') onClose(); }} />
 
-<div class="chart-selector" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="dialog" aria-label="Chart type selector" tabindex="-1">
-    <div class="selector-header">
-        <span class="selector-title">Chart type</span>
-        <button class="close-btn" onclick={onClose} aria-label="Close"><X size={15} /></button>
-    </div>
+<div class="chart-selector" class:embedded onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="dialog" aria-label="Chart type selector" tabindex="-1">
+    {#if !embedded}
+        <div class="selector-header">
+            <span class="selector-title">Chart type</span>
+            <button class="close-btn" onclick={onClose} aria-label="Close"><X size={15} /></button>
+        </div>
+    {/if}
 
     <div class="candidates">
         {#if recommended.length > 0}
@@ -158,6 +163,16 @@
         width: 260px;
         font-size: 0.8125rem;
         overflow: hidden;
+    }
+
+    /* Embedded in the Panel Properties panel — no modal chrome, flows full width. */
+    .chart-selector.embedded {
+        background: none;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        width: 100%;
+        overflow: visible;
     }
 
     .selector-header {

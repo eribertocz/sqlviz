@@ -64,9 +64,9 @@
             onEditSQL={dashboardStore.handleEditSQL}
             onExplain={dashboardStore.handleExplain}
             onDelete={dashboardStore.handleDelete}
-            onChartOverride={dashboardStore.handleChartOverride}
-            onWidthOverride={dashboardStore.handleWidthOverride}
-            onHeightOverride={dashboardStore.handleHeightOverride}
+            onSelectPanel={dashboardStore.openPanelProperties}
+            selectedPanelId={dashboardStore.propertiesPanelId}
+            colorOverrides={dashboardStore.colorOverrides}
         />
     {/if}
 </div>

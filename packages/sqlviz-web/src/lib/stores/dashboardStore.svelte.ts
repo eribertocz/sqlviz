@@ -27,6 +27,11 @@ function createDashboardStore() {
     let layout           = $state<DashboardLayout | null>(null);
     let sql               = $state('');
 
+    // Panel Properties panel (v0.2.9): which panel's side panel is open, plus
+    // session-only palette overrides per panel (keyed by panel_id).
+    let propertiesPanelId = $state<string | null>(null);
+    let colorOverrides    = $state<Record<string, string[]>>({});
+
     // Domain (distinct values / numeric bounds) per filter variable, keyed by
     // control.variable. Populated lazily after execution so dropdown / multiselect
     // / range_slider controls can render real options instead of a text box.
@@ -71,6 +76,17 @@ function createDashboardStore() {
     });
 
     const hasFilters = $derived(allFilterControls.length > 0);
+
+    // The panel whose Properties panel is currently open (looked up in layout).
+    const selectedPanel = $derived.by(() => {
+        if (!layout || !propertiesPanelId) return null;
+        for (const row of layout.rows) {
+            for (const p of row.panels) {
+                if (p.panel_id === propertiesPanelId) return p;
+            }
+        }
+        return null;
+    });
 
     /** Splits editor SQL into individual statements — one statement becomes one panel. */
     function splitStatements(text: string): string[] {
@@ -656,6 +672,81 @@ function createDashboardStore() {
         };
     }
 
+    // ── Panel Properties panel (v0.2.9) ──────────────────────────────────────
+    function openPanelProperties(panelId: string) { propertiesPanelId = panelId; }
+    function closePanelProperties() { propertiesPanelId = null; }
+
+    /** Immutably replace one panel's inference_result in the local layout. */
+    function patchPanelResult(panelId: string, patch: Partial<InferenceResult>) {
+        if (!layout) return;
+        layout = {
+            ...layout,
+            rows: layout.rows.map(row => ({
+                panels: row.panels.map(p =>
+                    p.panel_id === panelId
+                        ? { ...p, inference_result: { ...p.inference_result, ...patch } }
+                        : p
+                ),
+            })),
+        };
+    }
+
+    /** Session-only title override — updates the panel header immediately. */
+    function handleTitleOverride(panelId: string, title: string) {
+        patchPanelResult(panelId, { title });
+    }
+
+    /** Session-only X/Y axis override — mutates the panel's visual_spec. */
+    function handleAxisOverride(
+        panelId: string,
+        patch: { x_field?: string | null; y_fields?: string[] },
+    ) {
+        if (!layout) return;
+        layout = {
+            ...layout,
+            rows: layout.rows.map(row => ({
+                panels: row.panels.map(p => {
+                    if (p.panel_id !== panelId || !p.inference_result.visual_spec) return p;
+                    return {
+                        ...p,
+                        inference_result: {
+                            ...p.inference_result,
+                            visual_spec: { ...p.inference_result.visual_spec, ...patch },
+                        },
+                    };
+                }),
+            })),
+        };
+    }
+
+    /** Session-only palette override; null clears it (back to theme palette). */
+    function handleColorOverride(panelId: string, palette: string[] | null) {
+        const next = { ...colorOverrides };
+        if (palette) next[panelId] = palette;
+        else delete next[panelId];
+        colorOverrides = next;
+    }
+
+    /** Edit a single panel's SQL: PATCH → re-execute that panel → recompose. */
+    async function handlePanelSqlChange(panelId: string, newSql: string) {
+        const trimmed = newSql.trim();
+        if (!trimmed) return;
+        try {
+            await apiPatch(`/api/v1/panels/${panelId}`, { sql_content: trimmed });
+            const exec = await apiPost<{ inference_result: InferenceResult; data: Record<string, unknown>[] }>(
+                `/api/v1/panels/${panelId}/execute`
+            );
+            executedResults = executedResults.map(r =>
+                r.panel_id === panelId ? { panel_id: panelId, ...exec } : r
+            );
+            const idx = panelIds.indexOf(panelId);
+            if (idx >= 0) panelSQLs[idx] = trimmed;
+            layout = await recompose(executedResults);
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Could not run panel SQL.');
+        }
+    }
+
     /**
      * Fetch the domain (distinct values / numeric bounds) for every filter
      * control that renders a rich widget, so the FilterBar can show a real
@@ -764,6 +855,9 @@ function createDashboardStore() {
         get hasLayout() { return hasLayout; },
         get lastRunAt() { return lastRunAt; },
         get canRestoreLastRun() { return canRestoreLastRun; },
+        get propertiesPanelId() { return propertiesPanelId; },
+        get selectedPanel() { return selectedPanel; },
+        get colorOverrides() { return colorOverrides; },
         get activeDashboard() { return activeDashboard; },
         get utilityPct() { return utilityPct; },
         get allFilterControls() { return allFilterControls; },
@@ -793,6 +887,12 @@ function createDashboardStore() {
         handleWidthOverride,
         handleHeightOverride,
         handleFilterChange,
+        openPanelProperties,
+        closePanelProperties,
+        handleTitleOverride,
+        handleAxisOverride,
+        handleColorOverride,
+        handlePanelSqlChange,
     };
 }
 

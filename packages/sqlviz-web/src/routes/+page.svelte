@@ -5,6 +5,7 @@
     import DashboardArea from '$lib/components/DashboardArea.svelte';
     import DashboardScorePanel from '$lib/components/DashboardScorePanel.svelte';
     import DashboardExplorer from '$lib/components/DashboardExplorer.svelte';
+    import PanelPropertiesPanel from '$lib/components/PanelPropertiesPanel.svelte';
     import EditorSection from '$lib/components/EditorSection.svelte';
     import ExplainPanel from '$lib/components/ExplainPanel.svelte';
     import FilterBar from '$lib/components/FilterBar.svelte';
@@ -88,6 +89,11 @@
                 <DashboardArea />
             {/if}
         </div>
+
+        <!-- Panel Properties panel — right sidebar, opens on panel click (v0.2.9) -->
+        {#if $editMode && dashboardStore.selectedPanel}
+            <PanelPropertiesPanel panel={dashboardStore.selectedPanel} />
+        {/if}
 
         <!-- Dashboard Score Panel slide-in (DOC6 §12.3, edit mode only) -->
         {#if $editMode && uiStore.showScorePanel && dashboardStore.layout}

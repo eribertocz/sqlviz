@@ -3,9 +3,11 @@
     import * as echarts from 'echarts';
     import type { VisualSpec } from '$lib/types';
 
-    let { visualSpec, data }: {
+    let { visualSpec, data, palette }: {
         visualSpec: VisualSpec | null;
         data: Record<string, unknown>[];
+        // Session-only palette override from the Panel Properties panel (v0.2.9).
+        palette?: string[];
     } = $props();
 
     // DOC6 §2 colors reproduced as JS constants (CSS vars not readable by ECharts)
@@ -41,6 +43,7 @@
     function buildOption(): echarts.EChartsOption {
         if (!visualSpec || data.length === 0) return BASE;
 
+        const PAL = (palette && palette.length > 0) ? palette : C.palette;
         const xField = visualSpec.x_field ?? '';
         const yField = visualSpec.y_fields[0] ?? '';
 
@@ -104,7 +107,7 @@
                         data: data.map((r, i) => ({
                             name: String(r[xField]),
                             value: Number(r[yField]),
-                            itemStyle: { color: C.palette[i % C.palette.length] },
+                            itemStyle: { color: PAL[i % PAL.length] },
                         })),
                         label: { color: C.muted, fontSize: 11 },
                         emphasis: { label: { color: C.text, fontWeight: 'bold' } },
@@ -164,7 +167,7 @@
     });
 
     $effect(() => {
-        const _dep = [visualSpec, data];
+        const _dep = [visualSpec, data, palette];
         if (chart) chart.setOption(buildOption(), { notMerge: true });
     });
 </script>
