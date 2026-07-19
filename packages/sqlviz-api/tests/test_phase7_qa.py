@@ -147,6 +147,24 @@ class TestAuthFlows:
         assert resp.status_code == 401
         assert resp.json() == {"detail": "Not authenticated"}
 
+    def test_static_assets_served_without_session(
+        self, auth_client: TestClient
+    ) -> None:
+        """Static assets (JS/CSS) must load without a session, or the login SPA
+        can never boot (regression: /login rendered blank because /_app/*.js
+        requests were redirected to /login instead of served)."""
+        import re
+
+        html = auth_client.get("/login").text
+        match = re.search(r'(?:src|href)="(/_app/[^"]+\.js)"', html)
+        assert match, "expected a /_app/*.js asset reference in index.html"
+        asset_path = match.group(1)
+
+        resp = auth_client.get(asset_path, follow_redirects=False)
+        assert resp.status_code == 200, (
+            f"asset {asset_path} should be served, got {resp.status_code}"
+        )
+
 
 # ── §3 Dashboard and Panel Flows ──────────────────────────────────────────────
 

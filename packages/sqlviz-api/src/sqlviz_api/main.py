@@ -95,11 +95,22 @@ def create_app(
         protected.frontend("/", directory=str(frontend_dist))
         app.include_router(protected)
 
+        _dist_root = frontend_dist.resolve()
+
         # Convert frontend 401s to browser-friendly responses:
-        #   /login → serve index.html so the login form always renders
-        #   everything else → 302 to /login
-        # API (/api/*) and share-view (/view/*) routes are excluded — they
-        # keep returning JSON 401 as the API contract requires.
+        #   /login                 → serve index.html so the login form renders
+        #   an existing static file → serve it publicly (JS/CSS/fonts/images)
+        #   any other page route    → 302 to /login
+        # API (/api/*) and share-view (/view/*) routes are excluded — they keep
+        # returning JSON 401 as the API contract requires.
+        #
+        # Serving static assets without auth is required: the whole frontend
+        # (including the login page) lives behind require_admin, so the bundle's
+        # /_app/*.js and /_app/*.css requests would otherwise 401 → redirect to
+        # /login (HTML) → the browser receives HTML instead of JS → the SPA
+        # never boots and /login renders blank. Assets are the same for every
+        # user and carry no data, so serving them publicly is safe; the API
+        # (which does carry data) stays protected.
         @app.exception_handler(HTTPException)
         async def _frontend_auth_redirect(
             request: Request, exc: HTTPException
@@ -107,8 +118,13 @@ def create_app(
             if exc.status_code == 401 and not request.url.path.startswith(
                 ("/api/", "/view/")
             ):
-                if request.url.path.rstrip("/") == "/login":
+                path = request.url.path
+                if path.rstrip("/") == "/login":
                     return FileResponse(_index_html)
+                # Serve a real static file publicly (path-traversal guarded).
+                candidate = (frontend_dist / path.lstrip("/")).resolve()
+                if _dist_root in candidate.parents and candidate.is_file():
+                    return FileResponse(str(candidate))
                 return RedirectResponse(url="/login", status_code=302)
             return await http_exception_handler(request, exc)
 

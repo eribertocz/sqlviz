@@ -50,13 +50,21 @@ def serve(
     """
     demo_mode = db_path is None
 
-    # Phase 6 — read-only viewer connection for non-admin requests.
+    # Phase 6 — separate viewer connection for non-admin requests.
+    # A second *read-only* connection to the same on-disk DuckDB file cannot be
+    # opened in-process: `duckdb.connect(path, read_only=True)` spins up a new
+    # database instance, and DuckDB refuses two instances of the same file with
+    # differing read/write configs ("Can't open a connection to same database
+    # file with a different configuration"). Use a cursor on the admin
+    # connection instead — an independent connection to the *same* instance.
+    # Read-only isolation for viewers is enforced at the API layer (write
+    # endpoints require admin), not by a DuckDB connection flag.
     viewer_conn: duckdb.DuckDBPyConnection | None = None
     if db_path is not None:
         try:
-            viewer_conn = duckdb.connect(db_path, read_only=True)
+            viewer_conn = conn.cursor()
         except Exception as exc:  # noqa: BLE001
-            print(f"  [warn] Could not open read-only viewer connection: {exc}")
+            print(f"  [warn] Could not open viewer connection: {exc}")
 
     app = create_app(conn, viewer_conn=viewer_conn, demo_mode=demo_mode)
 
