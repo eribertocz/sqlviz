@@ -9,6 +9,14 @@ How it works:
     fully usable with the tables that already existed.  The failed
     migration is NOT recorded, so it will be retried on next open.
 
+Idempotency:
+  Every schema-add migration uses `ADD COLUMN IF NOT EXISTS`, so it is a
+  clean no-op on a fresh project (whose columns already come from
+  SCHEMA_STATEMENTS) instead of raising "column already exists".  This means
+  it SUCCEEDS and is recorded on the first open, and is therefore skipped on
+  every subsequent open — no repeated failures, no traceback spam when
+  re-opening an existing project.
+
 Adding a migration:
   Append a new (id, sql) tuple to MIGRATIONS.  The id must be unique
   and should follow the convention "NNNN_short_description"
@@ -34,7 +42,7 @@ MIGRATIONS: list[tuple[str, str]] = [
     # SCHEMA_STATEMENTS; this migration handles files created before the change.
     (
         "0001_shares_add_nonce",
-        "ALTER TABLE shares ADD COLUMN nonce VARCHAR DEFAULT ''",
+        "ALTER TABLE shares ADD COLUMN IF NOT EXISTS nonce VARCHAR DEFAULT ''",
     ),
     # 0002–0011: V0.2 Fase E — override columns on panels (DOC10 §6.14).
     # fingerprint links panels to brain.duckdb patterns.
@@ -42,55 +50,53 @@ MIGRATIONS: list[tuple[str, str]] = [
     # selected_* starts equal to inferred_*; updated when user overrides.
     # *_user_override is NULL until the user explicitly corrects a field.
     ("0002_panels_add_fingerprint",
-     "ALTER TABLE panels ADD COLUMN fingerprint VARCHAR"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS fingerprint VARCHAR"),
     ("0003_panels_add_inferred_chart_type",
-     "ALTER TABLE panels ADD COLUMN inferred_chart_type VARCHAR"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS inferred_chart_type VARCHAR"),
     ("0004_panels_add_selected_chart_type",
-     "ALTER TABLE panels ADD COLUMN selected_chart_type VARCHAR"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS selected_chart_type VARCHAR"),
     ("0005_panels_add_chart_user_override",
-     "ALTER TABLE panels ADD COLUMN chart_user_override VARCHAR"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS chart_user_override VARCHAR"),
     ("0006_panels_add_inferred_col_span",
-     "ALTER TABLE panels ADD COLUMN inferred_col_span INTEGER"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS inferred_col_span INTEGER"),
     ("0007_panels_add_selected_col_span",
-     "ALTER TABLE panels ADD COLUMN selected_col_span INTEGER"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS selected_col_span INTEGER"),
     ("0008_panels_add_col_span_user_override",
-     "ALTER TABLE panels ADD COLUMN col_span_user_override INTEGER"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS col_span_user_override INTEGER"),
     ("0009_panels_add_inferred_height_px",
-     "ALTER TABLE panels ADD COLUMN inferred_height_px INTEGER"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS inferred_height_px INTEGER"),
     ("0010_panels_add_selected_height_px",
-     "ALTER TABLE panels ADD COLUMN selected_height_px INTEGER"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS selected_height_px INTEGER"),
     ("0011_panels_add_height_user_override",
-     "ALTER TABLE panels ADD COLUMN height_user_override INTEGER"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS height_user_override INTEGER"),
     # 0012–0013: dashboard classification (sidebar icons, DOC6 §12)
     # dashboard_hint   — fine-grained semantic label (e.g. "user_retention")
     # dashboard_domain — coarse category  (e.g. "product", "finance")
     ("0012_dashboards_add_dashboard_hint",
-     "ALTER TABLE dashboards ADD COLUMN dashboard_hint VARCHAR"),
+     "ALTER TABLE dashboards ADD COLUMN IF NOT EXISTS dashboard_hint VARCHAR"),
     ("0013_dashboards_add_dashboard_domain",
-     "ALTER TABLE dashboards ADD COLUMN dashboard_domain VARCHAR"),
+     "ALTER TABLE dashboards ADD COLUMN IF NOT EXISTS dashboard_domain VARCHAR"),
     # 0014: store intent_winner per panel so the classifier can use it
     ("0014_panels_add_inferred_intent_type",
-     "ALTER TABLE panels ADD COLUMN inferred_intent_type VARCHAR"),
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS inferred_intent_type VARCHAR"),
     # 0015: v0.2.4 — backfill schema_version in _sqlviz_meta for existing projects.
     # New projects have this key set by create_project(); this migration handles
     # files created before v0.2.4.
     ("0015_meta_set_schema_version",
      "INSERT INTO _sqlviz_meta VALUES ('schema_version', '1') ON CONFLICT DO NOTHING"),
     # 0016: v0.2.7 — dashboard description (shown/edited in the Dashboard Explorer).
-    # Like the other schema-add migrations, this is a no-op on fresh projects
-    # (the column already exists via SCHEMA_STATEMENTS, so the runner catches
-    # the "already exists" error); it adds the column on DBs created before v0.2.7.
+    # Idempotent no-op on fresh projects; adds the column on DBs created before v0.2.7.
     ("0016_dashboards_add_description",
-     "ALTER TABLE dashboards ADD COLUMN description VARCHAR"),
+     "ALTER TABLE dashboards ADD COLUMN IF NOT EXISTS description VARCHAR"),
     # 0017: v0.2.8 — last successful run timestamp (Draft auto-save UX). Lets a
     # refreshed browser show "Last run X min ago" without re-executing. No-op on
     # fresh projects (column already in SCHEMA_STATEMENTS).
     ("0017_dashboards_add_last_run_at",
-     "ALTER TABLE dashboards ADD COLUMN last_run_at VARCHAR"),
+     "ALTER TABLE dashboards ADD COLUMN IF NOT EXISTS last_run_at VARCHAR"),
     # 0018: v0.2.8 — exact SQL of the last successful run, kept separate from the
     # (freely-edited) draft so the header can offer "Restore last run".
     ("0018_dashboards_add_last_run_sql",
-     "ALTER TABLE dashboards ADD COLUMN last_run_sql VARCHAR"),
+     "ALTER TABLE dashboards ADD COLUMN IF NOT EXISTS last_run_sql VARCHAR"),
 ]
 
 

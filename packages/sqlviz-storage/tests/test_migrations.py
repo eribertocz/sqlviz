@@ -33,29 +33,38 @@ def _column_names(conn: duckdb.DuckDBPyConnection, table: str) -> list[str]:
 # ── Baseline: no migrations ───────────────────────────────────────────────────
 
 class TestNoMigrations:
-    # DDL migrations (0001-0014) fail on fresh projects because SCHEMA_STATEMENTS
-    # already creates all columns. Data migrations that succeed (e.g., 0015
-    # backfill schema_version) are recorded even on fresh projects.
+    # Every migration is idempotent (schema-add uses ADD COLUMN IF NOT EXISTS;
+    # data uses INSERT ON CONFLICT DO NOTHING), so ALL of them succeed and are
+    # recorded on a fresh project — which means re-opening never re-runs them
+    # (and never spams "column already exists" tracebacks).
 
-    def test_fresh_project_has_only_data_migrations(self, tmp_path: Path) -> None:
+    def test_fresh_project_records_all_migrations(self, tmp_path: Path) -> None:
         p = str(tmp_path / "p.sqlviz")
         create_project(p).close()
         conn = open_project(p)
         ids = _applied_ids(conn)
         conn.close()
-        # Only 0015 (data migration: INSERT ON CONFLICT DO NOTHING) succeeds
-        # on a fresh project. DDL migrations fail because columns already exist.
-        assert ids == ["0015_meta_set_schema_version"]
+        assert ids == [m[0] for m in mig_module.MIGRATIONS]
+
+    def test_reopening_reruns_no_migrations(self, tmp_path: Path) -> None:
+        # Regression: opening an existing project must not re-run (and re-fail)
+        # the schema-add migrations. All are recorded on the first open and
+        # skipped thereafter.
+        p = str(tmp_path / "p.sqlviz")
+        create_project(p).close()
+        open_project(p).close()          # first open records all migrations
+        conn = open_project(p)           # second open: nothing new to apply
+        ids = _applied_ids(conn)
+        conn.close()
+        assert ids == [m[0] for m in mig_module.MIGRATIONS]
 
     def test_schema_migrations_table_exists_after_open(self, tmp_path: Path) -> None:
         p = str(tmp_path / "p.sqlviz")
         create_project(p).close()
         conn = open_project(p)
-        # Table must be queryable (no exception)
         count = conn.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()
         conn.close()
-        # 0015 (data migration) is recorded on fresh projects
-        assert count is not None and count[0] == 1
+        assert count is not None and count[0] == len(mig_module.MIGRATIONS)
 
 
 # ── Single migration ──────────────────────────────────────────────────────────
