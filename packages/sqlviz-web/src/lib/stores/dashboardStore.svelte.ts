@@ -1,13 +1,22 @@
+import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { apiDelete, apiGet, apiPatch, apiPost, recompose, type ExecResult } from '$lib/api';
 import type { DashboardInfo, DashboardLayout, FilterControl, FilterDomain, FolderInfo, InferenceResult } from '$lib/types';
 import { editorRef } from './editorRef';
 import { explainTarget } from './explainStore';
 import { executionStore } from './executionStore.svelte';
-import { filterValues } from './filterValues';
+import { filterValues } from './filterValues.svelte';
 import { uiStore } from './uiStore.svelte';
 
 export type { ExecResult };
+
+/** Compare two filter values (scalars, or arrays for multiselect). */
+function sameFilterValue(a: unknown, b: unknown): boolean {
+    if (Array.isArray(a) && Array.isArray(b)) {
+        return a.length === b.length && a.every((x, i) => x === b[i]);
+    }
+    return a === b;
+}
 
 /**
  * Owns the dashboard/panel state cluster that used to live directly in
@@ -786,7 +795,7 @@ function createDashboardStore() {
     }
 
     async function executeFilteredPanels(
-        changedVar: string,
+        changedVars: Set<string>,
         currentFV: Record<string, unknown>,
     ) {
         const updatedResults = [...executedResults];
@@ -798,7 +807,8 @@ function createDashboardStore() {
                 fc.variable.split(',').map(v => v.trim())
             );
 
-            if (!panelVars.includes(changedVar)) continue;
+            // Re-run a panel once if any of its variables changed.
+            if (!panelVars.some(v => changedVars.has(v))) continue;
 
             // Send every variable, including empty ones. An empty value means
             // "All": the backend neutralizes that predicate and returns all
@@ -830,14 +840,46 @@ function createDashboardStore() {
         }
     }
 
+    // A filter change is now purely a state write; the $effect below reacts.
     function handleFilterChange(varName: string, value: unknown) {
-        filterValues.update(fv => ({ ...fv, [varName]: value }));
+        filterValues.set(varName, value);
+    }
 
-        clearTimeout(filterDebounceTimer);
-        filterDebounceTimer = window.setTimeout(() => {
-            const currentFV = { ...get(filterValues), [varName]: value };
-            executeFilteredPanels(varName, currentFV);
-        }, 350);
+    // ── Reactive filter re-execution (Svelte 5 runes) ─────────────────────────
+    // Re-run the affected panels whenever a filter value changes. The effect
+    // tracks filterValues.current (read synchronously below) and nothing else;
+    // the actual query runs inside a debounced callback whose reads
+    // (executedResults, panelIds) are NOT tracked, so writing executedResults
+    // there cannot retrigger the effect — no feedback loop.
+    let prevFilterSnapshot: Record<string, unknown> = {};
+    const pendingChangedVars = new Set<string>();
+
+    if (browser) {
+        $effect.root(() => {
+            $effect(() => {
+                const snapshot = { ...filterValues.current }; // tracked dependency
+                const keys = new Set([
+                    ...Object.keys(snapshot),
+                    ...Object.keys(prevFilterSnapshot),
+                ]);
+                for (const key of keys) {
+                    if (!sameFilterValue(snapshot[key], prevFilterSnapshot[key])) {
+                        pendingChangedVars.add(key);
+                    }
+                }
+                prevFilterSnapshot = snapshot;
+                if (pendingChangedVars.size === 0) return;
+
+                // Debounce: coalesce rapid changes (e.g. dragging a range slider),
+                // accumulating every changed variable until the timer fires.
+                clearTimeout(filterDebounceTimer);
+                filterDebounceTimer = window.setTimeout(() => {
+                    const changed = new Set(pendingChangedVars);
+                    pendingChangedVars.clear();
+                    void executeFilteredPanels(changed, snapshot);
+                }, 350);
+            });
+        });
     }
 
     return {
