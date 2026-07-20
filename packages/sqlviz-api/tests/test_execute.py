@@ -168,3 +168,77 @@ class TestExecuteWithVariables:
             "column_type": "DECIMAL",
             "scope": "global",
         }]
+
+
+# ── "All" semantics: empty/absent variable = show all rows ────────────────────
+
+class TestFilterAllSemantics:
+    """Empty/absent filter values neutralize their predicate ("All").
+
+    Covers two reported bugs:
+      1. Picking a dropdown's "All" (empty value) must show all data.
+      2. The first Run (no values yet) must render the chart with all data,
+         not an empty fallback.
+    """
+
+    _SQL = (
+        "SELECT region FROM (VALUES ('A'), ('B'), ('C')) t(region) "
+        "WHERE region = $region"
+    )
+
+    def test_first_run_without_values_renders_all_rows(self, client: TestClient) -> None:
+        # Bug #2: no body at all (the first Run) → real data, not a fallback.
+        panel_id = _make_panel(client, self._SQL)
+        body = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        assert body["inference_result"]["fallback_applied"] is False
+        assert len(body["data"]) == 3
+        # The filter bar is still revealed alongside the data.
+        assert any(
+            c["variable"] == "region"
+            for c in body["inference_result"]["filter_controls"]
+        )
+
+    def test_empty_string_value_renders_all_rows(self, client: TestClient) -> None:
+        # Bug #1: dropdown "All" emits "" → all rows, not zero.
+        panel_id = _make_panel(client, self._SQL)
+        body = client.post(
+            f"/api/v1/panels/{panel_id}/execute",
+            json={"variables": {"region": ""}},
+        ).json()
+        assert len(body["data"]) == 3
+
+    def test_empty_multiselect_renders_all_rows(self, client: TestClient) -> None:
+        sql = (
+            "SELECT region FROM (VALUES ('A'), ('B'), ('C')) t(region) "
+            "WHERE region IN ($region)"
+        )
+        panel_id = _make_panel(client, sql)
+        body = client.post(
+            f"/api/v1/panels/{panel_id}/execute",
+            json={"variables": {"region": []}},
+        ).json()
+        assert len(body["data"]) == 3
+
+    def test_all_on_one_filter_keeps_the_other_active(self, client: TestClient) -> None:
+        sql = (
+            "SELECT region, price FROM "
+            "(VALUES ('A', 10), ('B', 50), ('C', 90)) t(region, price) "
+            "WHERE region = $region AND price >= $min"
+        )
+        panel_id = _make_panel(client, sql)
+        body = client.post(
+            f"/api/v1/panels/{panel_id}/execute",
+            json={"variables": {"region": "", "min": 40}},
+        ).json()
+        # region = All, price >= 40 → B (50) and C (90) survive.
+        assert {r["region"] for r in body["data"]} == {"B", "C"}
+
+    def test_zero_is_a_real_value_not_all(self, client: TestClient) -> None:
+        # 0 / False are legitimate selections, never "All".
+        sql = "SELECT n FROM (VALUES (0), (1), (2)) t(n) WHERE n = $n"
+        panel_id = _make_panel(client, sql)
+        body = client.post(
+            f"/api/v1/panels/{panel_id}/execute",
+            json={"variables": {"n": 0}},
+        ).json()
+        assert body["data"] == [{"n": 0}]

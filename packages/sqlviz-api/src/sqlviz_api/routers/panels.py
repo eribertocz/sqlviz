@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 from sqlviz_core.models import ColumnSchema
 from sqlviz_inference.dashboard.dashboard_classifier import classify_dashboard
 from sqlviz_inference.filters.domain import build_domain_query
+from sqlviz_inference.filters.neutralize import neutralize_filters
 from sqlviz_storage.brain_db import get_brain_connection
 from sqlviz_storage.override_system import apply_override, store_inference
 
@@ -36,6 +37,23 @@ from sqlviz_api.models import (
 from sqlviz_api.serialization import json_safe
 
 _VARIABLE_RE = re.compile(r"\$(\w+)")
+
+
+def _is_empty_filter_value(value: Any) -> bool:
+    """True when a filter value means "All" (no filtering on this dimension).
+
+    "All" is represented by an empty value: None, the empty string (what the
+    dropdown/date/search controls emit for their "All" option), or an empty
+    list (a multiselect with nothing picked). Note that ``0`` and ``False`` are
+    NOT empty — they are legitimate numeric/toggle selections that must filter.
+    """
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value == ""
+    if isinstance(value, (list, tuple)):
+        return len(value) == 0
+    return False
 
 
 def _rewrite_in_clauses_for_lists(sql: str, variables: dict[str, Any]) -> str:
@@ -243,6 +261,39 @@ def _update_dashboard_classification(
         pass  # classification is non-critical; never block the execute response
 
 
+def _inference_only_response(
+    sql: str,
+    db: DbDep,
+    brain: Any,
+    debug: bool,
+) -> JSONResponse:
+    """Render the filter bar without data when the query can't be executed.
+
+    Reached only when "All"/no values cannot be neutralized (SQL sqlglot can't
+    parse, or a $variable outside a boolean predicate). Probes the query with
+    every $variable bound to NULL to recover real column types — without this,
+    FilterEngine sees no schema, so every $variable defaults to VARCHAR and
+    numeric/date columns render as plain text controls (and range pairs never
+    merge). NULL-bound execution is safe: comparisons short-circuit to NULL, so
+    it returns 0 rows and leaks nothing.
+    """
+    schema: list[ColumnSchema] = []
+    try:
+        probe_vars = dict.fromkeys(_VARIABLE_RE.findall(sql))
+        db.execute(sql, probe_vars)
+        schema = [ColumnSchema(name=str(d[0]), type=str(d[1])) for d in db.description or []]
+    except duckdb.Error:
+        pass  # fall back to schema-less inference — no worse than before
+
+    result = sqlviz_inference.infer(sql, schema=schema, brain_conn=brain, debug=debug)
+    result = dataclasses.replace(
+        result,
+        fallback_applied=True,
+        fallback_reason="Set filter values to see data",
+    )
+    return JSONResponse(content={"inference_result": result.to_dict(), "data": []})
+
+
 @router.post("/{panel_id}/execute")
 def execute_panel(
     panel_id: str,
@@ -255,51 +306,64 @@ def execute_panel(
     Accepts an optional body with {variables: {name: value}} for $variable
     substitution (filter controls, Phase 5.7).
 
-    SQL with $variables but no values provided → 200 with fallback_applied=True
-    (inference runs on SQL structure; filter_controls are populated so the UI
-    can show the filter bar).
+    Empty/absent variables mean "All": their predicate is neutralized (see
+    neutralize_filters) so the query returns every row for that dimension. A
+    panel with $variables and no values therefore renders real data on the very
+    first Run, and picking a dropdown's "All" option shows the unfiltered data.
 
+    Query that can't be neutralized (unparseable, or a $variable used outside a
+    boolean predicate) → 200 with fallback_applied=True + empty data, so the
+    filter bar still renders.
     SQL syntax error → 200 with fallback_applied=True + empty data.
     Missing table (CatalogException) → 422. Panel not found → 404.
     """
     panel = _fetch_one(db, panel_id)
     sql = panel.sql_content
-    variables: dict[str, Any] = body.variables if body else {}
+    raw_vars: dict[str, Any] = body.variables if body else {}
 
     brain = get_brain_connection()
 
-    # If SQL has $params but no values are provided, run inference-only so the
-    # frontend can display the filter bar before any data is fetched.
-    if _VARIABLE_RE.search(sql) and not variables:
-        # Probe the query with every $variable bound to NULL to recover real
-        # column types. Without this, FilterEngine never sees a schema, so
-        # every $variable defaults to VARCHAR — numeric/date columns render
-        # as plain text dropdowns instead of numeric/date controls, and
-        # range pairs (range_slider / date_range_picker) never merge since
-        # pairing requires both sides to already be classified "numeric" or
-        # "date_picker". NULL-bound execution is safe: it always returns 0
-        # rows (the comparisons short-circuit to NULL), so no data leaks.
-        schema: list[ColumnSchema] = []
-        try:
-            probe_vars = dict.fromkeys(_VARIABLE_RE.findall(sql))
-            db.execute(sql, probe_vars)
-            schema = [ColumnSchema(name=str(d[0]), type=str(d[1])) for d in db.description or []]
-        except duckdb.Error:
-            pass  # fall back to schema-less inference below — no worse than before
+    # "All" semantics: a filter whose value is empty (None / "" / []) — or one
+    # the client never sent — must not filter. We neutralize its predicate so
+    # the panel returns every row for that dimension. This is what lets both the
+    # dropdown "All" option and the very first Run (no values chosen yet) render
+    # real data instead of an empty chart.
+    sql_var_names = list(dict.fromkeys(_VARIABLE_RE.findall(sql)))
+    active_vars = {
+        name: raw_vars[name]
+        for name in sql_var_names
+        if name in raw_vars and not _is_empty_filter_value(raw_vars[name])
+    }
+    all_vars = [name for name in sql_var_names if name not in active_vars]
 
-        result = sqlviz_inference.infer(sql, schema=schema, brain_conn=brain, debug=debug)
-        result = dataclasses.replace(
-            result,
-            fallback_applied=True,
-            fallback_reason="Set filter values to see data",
-        )
-        return JSONResponse(content={"inference_result": result.to_dict(), "data": []})
+    # "Reveal" case: the panel has $variables but the user has chosen no value
+    # for any of them (first Run, or every filter on "All"). Here the query is
+    # a means to reveal the filter bar, so a query that cannot execute (missing
+    # table, etc.) must still return the controls — never a hard 422.
+    is_reveal = bool(sql_var_names) and not active_vars
+
+    run_sql = sql
+    if all_vars:
+        neutralized = neutralize_filters(sql, all_vars)
+        if neutralized is None:
+            # Cannot safely strip the $placeholders (unparseable SQL, or a
+            # variable used outside a boolean predicate). Fall back to
+            # inference-only so the filter bar still renders; data stays empty
+            # until every variable is given a concrete value.
+            return _inference_only_response(sql, db, brain, debug)
+        run_sql = neutralized
+
+    # Bind only variables that survive neutralization: a range like
+    # `col BETWEEN $a AND $b` collapses to TRUE when either bound is "All", so
+    # its other bound is gone from run_sql and must not be bound.
+    remaining = set(_VARIABLE_RE.findall(run_sql))
+    bind_vars = {k: v for k, v in active_vars.items() if k in remaining}
 
     try:
-        if variables:
-            db.execute(_rewrite_in_clauses_for_lists(sql, variables), variables)
+        if bind_vars:
+            db.execute(_rewrite_in_clauses_for_lists(run_sql, bind_vars), bind_vars)
         else:
-            db.execute(sql)
+            db.execute(run_sql)
     except duckdb.ParserException:
         result = sqlviz_inference.infer(sql, brain_conn=brain, debug=debug)
         result = dataclasses.replace(
@@ -308,9 +372,10 @@ def execute_panel(
             fallback_reason="SQL syntax error — query could not be parsed",
         )
         return JSONResponse(content={"inference_result": result.to_dict(), "data": []})
-    except duckdb.CatalogException as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except duckdb.Error as exc:
+        # First Run / all-"All": reveal the filter bar instead of failing hard.
+        if is_reveal:
+            return _inference_only_response(sql, db, brain, debug)
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     desc = db.description or []

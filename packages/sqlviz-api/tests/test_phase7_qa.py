@@ -389,10 +389,12 @@ class TestFilterFlows:
         body = client.post(f"/api/v1/panels/{panel['id']}/execute").json()
         assert body["inference_result"]["filter_controls"] != []
 
-    def test_variable_without_value_returns_empty_data(
+    def test_variable_without_value_renders_all_rows(
         self, client: TestClient
     ) -> None:
-        """§11.3 — Execute with $var and no values → data=[] (inference-only mode)."""
+        """Execute with $var and no values → "All": the predicate is neutralized
+        and every row is returned so the first Run renders the chart (not the
+        old inference-only empty-data mode)."""
         dash = client.post("/api/v1/dashboards", json={"name": "D"}).json()
         panel = client.post("/api/v1/panels", json={
             "dashboard_id": dash["id"],
@@ -400,7 +402,8 @@ class TestFilterFlows:
             "sql_content": "SELECT v FROM (VALUES ('A'),('B')) t(v) WHERE v = $region",
         }).json()
         body = client.post(f"/api/v1/panels/{panel['id']}/execute").json()
-        assert body["data"] == []
+        assert body["data"] == [{"v": "A"}, {"v": "B"}]
+        assert body["inference_result"]["fallback_applied"] is False
 
 
 # ── §7 Explainability ─────────────────────────────────────────────────────────
