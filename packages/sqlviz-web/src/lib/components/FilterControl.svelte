@@ -12,6 +12,7 @@
     import CheckIcon from '@lucide/svelte/icons/check';
     import CalendarIcon from '@lucide/svelte/icons/calendar';
     import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+    import XIcon from '@lucide/svelte/icons/x';
 
     let { control, filterVals, domain, onChange }: {
         control: FilterControl;
@@ -113,15 +114,26 @@
             <Select.Root type="single" value={currentVal as string}
                 onValueChange={(v) => onChange(vars[0], v ?? '')}>
                 <Select.Trigger class="h-7 min-w-[120px] text-xs">
-                    {currentVal ? String(currentVal) : 'All'}
+                    {#if currentVal}
+                        {String(currentVal)}
+                    {:else}
+                        <span class="filter-placeholder">Select…</span>
+                    {/if}
                 </Select.Trigger>
                 <Select.Content>
-                    <Select.Item value="">All</Select.Item>
                     {#each options as opt}
                         <Select.Item value={opt} label={opt}>{opt}</Select.Item>
                     {/each}
                 </Select.Content>
             </Select.Root>
+            {#if currentVal}
+                <!-- Empty state = "no filter". Clearing removes the filter so
+                     all rows show again (backend treats empty as "All"). -->
+                <button type="button" class="filter-clear" title="Clear filter"
+                    aria-label="Clear filter" onclick={() => onChange(vars[0], '')}>
+                    <XIcon class="size-3" />
+                </button>
+            {/if}
         {:else}
             <Input type="text" class="h-7 w-[140px] text-xs" placeholder="value…"
                 value={currentVal as string} oninput={onSearch} />
@@ -247,5 +259,29 @@
         color: var(--sqlviz-text-muted);
         font-size: 0.75rem;
         flex-shrink: 0;
+    }
+
+    .filter-placeholder {
+        color: var(--sqlviz-text-muted);
+    }
+
+    .filter-clear {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 1.75rem;
+        width: 1.75rem;
+        border: 1px solid transparent;
+        border-radius: 0.375rem;
+        color: var(--sqlviz-text-muted);
+        background: transparent;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: color 0.12s ease, background 0.12s ease;
+    }
+
+    .filter-clear:hover {
+        color: var(--sqlviz-text);
+        background: rgba(127, 127, 127, 0.12);
     }
 </style>
