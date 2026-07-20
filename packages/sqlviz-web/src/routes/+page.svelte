@@ -14,7 +14,7 @@
     import WelcomeScreen from '$lib/components/WelcomeScreen.svelte';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { editMode } from '$lib/stores/editMode';
-    import { filterValues } from '$lib/stores/filterValues';
+    import { filterValues } from '$lib/stores/filterValues.svelte';
     import { uiStore } from '$lib/stores/uiStore.svelte';
 
     // Welcome screen: no dashboards exist and none is active (fresh install).
@@ -74,7 +74,7 @@
                 {#if dashboardStore.hasFilters}
                     <FilterBar
                         controls={dashboardStore.allFilterControls}
-                        filterVals={$filterValues}
+                        filterVals={filterValues.current}
                         domains={dashboardStore.filterDomains}
                         onChange={dashboardStore.handleFilterChange}
                     />
