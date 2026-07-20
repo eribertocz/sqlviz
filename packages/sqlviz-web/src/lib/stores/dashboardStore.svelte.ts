@@ -800,13 +800,13 @@ function createDashboardStore() {
 
             if (!panelVars.includes(changedVar)) continue;
 
-            const allProvided = panelVars.every(v => {
-                const val = currentFV[v];
-                return val !== undefined && val !== '' && val !== null;
-            });
-            if (!allProvided) continue;
-
-            const variables = Object.fromEntries(panelVars.map(v => [v, currentFV[v]]));
+            // Send every variable, including empty ones. An empty value means
+            // "All": the backend neutralizes that predicate and returns all
+            // rows for the dimension. Skipping empties here is what previously
+            // made the dropdown's "All" option render nothing.
+            const variables = Object.fromEntries(
+                panelVars.map(v => [v, currentFV[v] ?? '']),
+            );
             const panelId = panelIds[i];
 
             try {
