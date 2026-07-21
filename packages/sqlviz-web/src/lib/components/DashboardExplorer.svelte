@@ -443,9 +443,6 @@
                 onclick={(e) => { if (e.target === e.currentTarget) selectRoot(); }}
                 use:droppable={{ container: container(null), callbacks: { onDrop: (s) => onFolderDrop(s as DragDropState<DashboardInfo>, null) } }}
             >
-                <button class="root-label" onclick={selectRoot} title="Select the root as the creation target">
-                    Root
-                </button>
                 {#if creating?.kind === 'dash' && creating.folderId === null}
                     {@render createRow(false)}
                 {/if}
@@ -625,18 +622,24 @@
     .rail-sep { width: 24px; height: 1px; margin: 0.25rem 0; background: var(--sqlviz-hairline); }
 
     .folder-header-wrap {
+        position: relative;
         display: flex;
         align-items: center;
         margin-top: 0.125rem;
         border-radius: var(--sqlviz-radius);
-        box-shadow: inset 0 0 0 1px transparent;
-        transition: background 0.12s, box-shadow 0.12s;
     }
-    /* Selected creation target — a bordered "ring" that reads clearly apart from
-       the active dashboard's filled highlight (.row.active). */
-    .folder-header-wrap.selected {
-        background: color-mix(in srgb, var(--sqlviz-primary) 7%, transparent);
-        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sqlviz-primary) 45%, transparent);
+    /* VSCode-style selection: a thin primary line on the left edge only — no
+       box, no fill. The filled highlight stays reserved for the active
+       dashboard (.row.active), keeping position and active clearly distinct. */
+    .folder-header-wrap.selected::before,
+    .root-dropzone.selected::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--sqlviz-primary);
     }
     .folder-header {
         display: flex;
@@ -662,36 +665,13 @@
     .folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .folder-count { font-size: 0.6875rem; opacity: 0.7; font-weight: 500; }
 
+    /* Ungrouped dashboards sit here as loose items directly in the sidebar; the
+       zone itself is invisible — it only provides the empty click target and,
+       when the root is the selected creation target, the thin left line. */
     .root-dropzone {
+        position: relative;
         min-height: 96px;
-        margin-top: 0.375rem;
-        padding: 0.125rem 0.125rem 0.5rem;
-        border-radius: var(--sqlviz-radius);
-        box-shadow: inset 0 0 0 1px transparent;
-        transition: background 0.12s, box-shadow 0.12s;
     }
-    .root-dropzone.selected {
-        background: color-mix(in srgb, var(--sqlviz-primary) 5%, transparent);
-        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sqlviz-primary) 35%, transparent);
-    }
-    /* Small section-label button that both marks the root and selects it. */
-    .root-label {
-        display: block;
-        width: 100%;
-        text-align: left;
-        padding: 0.25rem 0.5rem;
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 0.6875rem;
-        font-weight: 700;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
-        color: var(--sqlviz-text-muted);
-        transition: color 0.12s;
-    }
-    .root-label:hover { color: var(--sqlviz-text); }
-    .root-dropzone.selected .root-label { color: var(--sqlviz-primary); }
 
     .group-label { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0.5rem 0.375rem; }
     .group-label span:first-child {
