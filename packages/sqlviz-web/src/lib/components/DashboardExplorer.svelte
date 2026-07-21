@@ -586,10 +586,15 @@
 
     .explorer-body {
         flex: 1;
+        display: flex;
+        flex-direction: column;
         overflow-y: auto;
         overflow-x: hidden;
         padding: 0 0.375rem 0.5rem;
     }
+    /* Keep tree items at their natural height so the body scrolls instead of
+       squishing them — only the root zone is allowed to grow. */
+    .explorer-body > * { flex-shrink: 0; }
     .explorer.collapsed .explorer-body {
         padding: 0.25rem 0;
         display: flex;
@@ -670,6 +675,10 @@
        when the root is the selected creation target, the thin left line. */
     .root-dropzone {
         position: relative;
+        /* Fill all remaining vertical space so the root is one continuous zone
+           down to the bottom — and its left selection line spans the whole
+           area, VSCode-style. Never shrinks below its content. */
+        flex: 1 0 auto;
         min-height: 96px;
     }
 
