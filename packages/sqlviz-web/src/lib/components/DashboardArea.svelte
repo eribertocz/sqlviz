@@ -6,15 +6,15 @@
     import { editMode } from '$lib/stores/editMode';
     import { executionStore } from '$lib/stores/executionStore.svelte';
 
-    import { Play } from 'lucide-svelte';
-
     // While executing with no layout yet, show one skeleton card per statement
     // (clamped) so the dashboard area previews its incoming shape.
     const skeletonCount = $derived(Math.min(Math.max(dashboardStore.statementCount, 1), 6));
 
-    // After a refresh we don't re-run automatically (UX spec §Refresh); instead
-    // show "Last run X ago" + Run Again when there is a prior successful run.
-    const showLastRun = $derived(
+    // With no cached view to show, "Last run X ago" is surfaced as a purely
+    // informational line (no action) beneath the empty-state prompt. Results are
+    // restored from the in-memory cache on navigation; a manual re-run rebuilds
+    // them when the cache is cold (e.g. after a page reload).
+    const showLastRunInfo = $derived(
         !dashboardStore.hasLayout && !executionStore.executing
         && dashboardStore.lastRunAt !== null && dashboardStore.statementCount > 0
     );
@@ -43,21 +43,19 @@
                 </div>
             {/each}
         </div>
-    {:else if showLastRun}
-        <div class="last-run">
-            <p class="last-run-text">Last run {agoLabel(dashboardStore.lastRunAt!)}</p>
-            <button class="run-again" onclick={dashboardStore.run}>
-                <Play size={13} fill="currentColor" /> Run Again
-            </button>
-        </div>
     {:else if !dashboardStore.hasLayout}
-        <StateMessage
-            kind="empty"
-            message={$editMode
-                ? 'Press Ctrl+Enter to run and see results here'
-                : 'Switch to Edit mode to write SQL and create panels'}
-            hint={$editMode ? 'Separate multiple queries with ; — each becomes a panel' : undefined}
-        />
+        <div class="empty-wrap">
+            <StateMessage
+                kind="empty"
+                message={$editMode
+                    ? 'Press Ctrl+Enter to run and see results here'
+                    : 'Switch to Edit mode to write SQL and create panels'}
+                hint={$editMode ? 'Separate multiple queries with ; — each becomes a panel' : undefined}
+            />
+            {#if showLastRunInfo}
+                <p class="last-run-info">Last run {agoLabel(dashboardStore.lastRunAt!)}</p>
+            {/if}
+        </div>
     {:else if dashboardStore.layout}
         <DashboardGrid
             layout={dashboardStore.layout}
@@ -84,32 +82,18 @@
         justify-content: center;
     }
 
-    .last-run {
+    .empty-wrap {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 0.875rem;
     }
-    .last-run-text {
+    .last-run-info {
         margin: 0;
-        font-size: 0.875rem;
-        color: var(--sqlviz-text-muted);
-    }
-    .run-again {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4375rem;
-        padding: 0.4375rem 0.875rem;
-        background: var(--sqlviz-primary);
-        color: #fff;
-        border: none;
-        border-radius: var(--sqlviz-radius);
         font-size: 0.8125rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: filter 0.12s;
+        color: var(--sqlviz-text-muted);
+        opacity: 0.75;
     }
-    .run-again:hover { filter: brightness(1.1); }
 
     .skeleton-grid {
         display: grid;

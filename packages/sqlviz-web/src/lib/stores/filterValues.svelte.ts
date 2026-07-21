@@ -27,4 +27,13 @@ export const filterValues = {
     reset(): void {
         values = {};
     },
+
+    /**
+     * Replace every filter value in one shot (e.g. restoring a dashboard's
+     * cached filter selection on navigation). Callers that must avoid a filter
+     * re-execution should sync the store's change-detection snapshot to match.
+     */
+    replace(next: Record<string, unknown>): void {
+        values = { ...next };
+    },
 };

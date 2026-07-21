@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { apiDelete, apiGet, apiPatch, apiPost, recompose, type ExecResult } from '$lib/api';
 import type { DashboardInfo, DashboardLayout, FilterControl, FilterDomain, FolderInfo, InferenceResult } from '$lib/types';
+import { dashboardCache } from './dashboardCache.svelte';
 import { editorRef } from './editorRef';
 import { explainTarget } from './explainStore';
 import { executionStore } from './executionStore.svelte';
@@ -59,6 +60,12 @@ function createDashboardStore() {
     let filterDebounceTimer = 0;
     let saveDebounceTimer   = 0;
     const ACTIVE_KEY = 'sqlviz-active-dashboard';
+
+    // Filter change-detection state (declared up here so dashboard-switch logic
+    // can reset it in lockstep with a cache restore, suppressing a spurious
+    // re-execution). The reactive $effect that consumes them lives near the end.
+    let prevFilterSnapshot: Record<string, unknown> = {};
+    const pendingChangedVars = new Set<string>();
 
     const hasLayout = $derived(layout !== null && layout.rows.length > 0);
     const activeDashboard = $derived(allDashboards.find(d => d.id === dashboardId) ?? null);
@@ -140,6 +147,12 @@ function createDashboardStore() {
     /** Called from the public `sql` setter on every editor change. */
     function onSqlChanged(v: string) {
         if (!dashboardId) return;
+        // The cached view is only valid while the draft matches the SQL that
+        // produced it. Any divergence makes those charts stale — drop the entry
+        // so navigating back shows an empty editor (a re-run) rather than results
+        // that no longer match the query.
+        const cached = dashboardCache.get(dashboardId);
+        if (cached && cached.sql !== v) dashboardCache.invalidate(dashboardId);
         if (v === lastSavedSql) {
             // Back to the saved state (e.g. programmatic load / undo) — clean.
             clearTimeout(saveDebounceTimer);
@@ -376,6 +389,10 @@ function createDashboardStore() {
 
         if (newResults.length === 0) {
             layout = null;
+            // No results left to cache — drop the stale entry so navigating back
+            // doesn't restore the just-deleted panels (the auto-cache effect skips
+            // empty views, so it can't clear this on its own).
+            if (dashboardId) dashboardCache.invalidate(dashboardId);
             return;
         }
 
@@ -427,6 +444,9 @@ function createDashboardStore() {
             lastRunSql      = '';
             executedResults = [];
             layout          = null;
+            filterDomains   = {};
+            filterValues.reset();
+            prevFilterSnapshot = {};
             // Force the Monaco editor empty — a new dashboard must never inherit
             // the previous dashboard's query — then place the cursor at the start.
             queueMicrotask(() => {
@@ -440,14 +460,23 @@ function createDashboardStore() {
 
     /**
      * Switch to a different dashboard. Auto-saves the current draft first, then
-     * loads the target's draft + last-run info. Does NOT re-execute (UX spec
-     * §"Cambiar de Dashboard": show last charts / Run Again, no auto-run).
+     * loads the target's draft + last-run info.
+     *
+     * Navigation is now instant when the target has a cached view (a prior run
+     * this session): its charts, layout, filter domains and filter selection are
+     * restored from memory. With no cache the view is empty — the user re-runs.
+     * Either way the Monaco editor shows the selected dashboard's own SQL, and
+     * nothing is auto-executed (UX spec §"Cambiar de Dashboard").
      */
     async function loadDashboard(id: string) {
         if (id === dashboardId || executionStore.executing) return;
 
         // Silently persist the current dashboard's draft before leaving it.
         saveDraft();
+
+        // Drop any pending filter re-execution meant for the dashboard we leave.
+        clearTimeout(filterDebounceTimer);
+        pendingChangedVars.clear();
 
         try {
             const [dash, panels] = await Promise.all([
@@ -460,12 +489,31 @@ function createDashboardStore() {
 
             dashboardId = id;
             persistActive(id);
-            panelIds    = panels.map(p => p.id);
-            panelSQLs   = panels.map(p => p.sql_content);
             lastRunAt   = dash.last_run_at;
             lastRunSql  = dash.last_run_sql ?? '';
-            executedResults = [];
-            layout      = null;
+
+            const cached = dashboardCache.get(id);
+            if (cached) {
+                // Cache hit — restore the executed view instantly (no re-run).
+                panelIds        = [...cached.panelIds];
+                panelSQLs       = [...cached.panelSQLs];
+                executedResults = cached.executedResults;
+                layout          = cached.layout;
+                filterDomains   = cached.filterDomains;
+                // Restore the filter selection; sync the change-detection
+                // snapshot so this does NOT trigger a filter re-execution.
+                filterValues.replace(cached.filterValues);
+                prevFilterSnapshot = { ...cached.filterValues };
+            } else {
+                // Cache miss — empty view; results appear only on a manual re-run.
+                panelIds        = panels.map(p => p.id);
+                panelSQLs       = panels.map(p => p.sql_content);
+                executedResults = [];
+                layout          = null;
+                filterDomains   = {};
+                filterValues.reset();
+                prevFilterSnapshot = {};
+            }
 
             // Prefer the saved draft; fall back to the committed panel SQL.
             const draft = dash.sql_content || panelSQLs.join(';\n\n');
@@ -517,6 +565,8 @@ function createDashboardStore() {
     async function deleteDashboardById(id: string) {
         try {
             await apiDelete(`/api/v1/dashboards/${id}`);
+            // Drop its cached view regardless of whether it was the active one.
+            dashboardCache.invalidate(id);
             if (id === dashboardId) {
                 dashboardId = null;
                 panelIds = [];
@@ -524,6 +574,9 @@ function createDashboardStore() {
                 sql = '';
                 executedResults = [];
                 layout = null;
+                filterDomains = {};
+                filterValues.reset();
+                prevFilterSnapshot = {};
             }
             await refreshExplorer();
         } catch (e: unknown) {
@@ -845,17 +898,47 @@ function createDashboardStore() {
         filterValues.set(varName, value);
     }
 
+    /**
+     * Snapshot the current dashboard's executed view into the in-memory cache,
+     * keyed by dashboard_id, so navigating back restores it instantly. `sql` is
+     * stored as `lastRunSql` — the query these results actually correspond to —
+     * which is what `onSqlChanged` compares against to invalidate.
+     */
+    function cacheCurrentView() {
+        if (!dashboardId || executedResults.length === 0) return;
+        dashboardCache.set(dashboardId, {
+            sql: lastRunSql,
+            panelIds: [...panelIds],
+            panelSQLs: [...panelSQLs],
+            executedResults,
+            layout,
+            filterDomains,
+            filterValues: { ...filterValues.current },
+        });
+    }
+
     // ── Reactive filter re-execution (Svelte 5 runes) ─────────────────────────
     // Re-run the affected panels whenever a filter value changes. The effect
     // tracks filterValues.current (read synchronously below) and nothing else;
     // the actual query runs inside a debounced callback whose reads
     // (executedResults, panelIds) are NOT tracked, so writing executedResults
     // there cannot retrigger the effect — no feedback loop.
-    let prevFilterSnapshot: Record<string, unknown> = {};
-    const pendingChangedVars = new Set<string>();
-
     if (browser) {
         $effect.root(() => {
+            // Auto-cache: whenever the active dashboard's executed view changes
+            // (run, filter re-exec, chart/panel override, delete), mirror it into
+            // the results cache. Reads dashboardId + executedResults + layout +
+            // filterDomains, so it re-runs on any of them. Fires once per batch
+            // with the final values, so the transient empty state during a
+            // dashboard switch is never observed.
+            $effect(() => {
+                void dashboardId;
+                void executedResults;
+                void layout;
+                void filterDomains;
+                cacheCurrentView();
+            });
+
             $effect(() => {
                 const snapshot = { ...filterValues.current }; // tracked dependency
                 const keys = new Set([
