@@ -111,12 +111,23 @@
         deleteGroupOpen = false;
     }
 
+    // ── Sidebar position/selection (VSCode-style) ────────────────────────────
+    // The user's chosen creation target: a folder id, or null for the root.
+    // This is DISTINCT from the active dashboard (dashboardStore.dashboardId):
+    // clicking a folder — or the empty root area — sets where the next new
+    // dashboard lands, regardless of whether that folder already has contents.
+    let selectedFolderId = $state<string | null>(null);
+    function selectFolder(id: string) { selectedFolderId = id; }
+    function selectRoot() { selectedFolderId = null; }
+
     // ── Inline creation (VSCode-style) ───────────────────────────────────────
-    /** Where a new item lands: the active dashboard's folder, or root. */
-    function currentFolderId(): string | null {
-        return dashboardStore.activeDashboard?.folder_id ?? null;
+    function newDashboard() {
+        // Guard a stale selection (its folder was deleted) → fall back to root.
+        const target = selectedFolderId && folders.some(f => f.id === selectedFolderId)
+            ? selectedFolderId
+            : null;
+        startCreate('dash', target);
     }
-    function newDashboard() { startCreate('dash', currentFolderId()); }
     // Folders never nest for now → a new group is always created at the root.
     function newGroup() { startCreate('folder', null); }
 
@@ -203,7 +214,7 @@
             <span class="drag-handle" aria-hidden="true" title="Drag to reorder or move"><GripVerticalIcon size={12} /></span>
             <button
                 class="row-main"
-                onclick={() => dashboardStore.loadDashboard(d.id)}
+                onclick={() => { selectedFolderId = d.folder_id ?? null; dashboardStore.loadDashboard(d.id); }}
                 ondblclick={() => startInline('dash', d.id, d.name)}
                 onkeydown={(e) => rowKeydown(e, d)}
                 oncontextmenu={(e) => { e.preventDefault(); openMenuId = d.id; }}
@@ -334,7 +345,12 @@
         {/if}
     </div>
 
-    <div class="explorer-body">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+        class="explorer-body"
+        onclick={(e) => { if ($editMode && e.target === e.currentTarget) selectRoot(); }}
+    >
         {#if dashboardStore.dashboardsLoading}
             {#each Array(5) as _, i (i)}
                 {#if collapsed}
@@ -368,6 +384,7 @@
             {#each folders as f (f.id)}
                 <div
                     class="folder-header-wrap"
+                    class:selected={selectedFolderId === f.id}
                     use:droppable={{ container: container(f.id), callbacks: { onDrop: (s) => onFolderDrop(s as DragDropState<DashboardInfo>, f.id) } }}
                 >
                     {#if inline?.kind === 'folder' && inline.id === f.id}
@@ -378,7 +395,7 @@
                     {:else}
                         <button
                             class="folder-header"
-                            onclick={() => toggleFolder(f.id)}
+                            onclick={() => { selectFolder(f.id); toggleFolder(f.id); }}
                             ondblclick={() => startInline('folder', f.id, f.name)}
                             onkeydown={(e) => { if (e.key === 'F2') { e.preventDefault(); startInline('folder', f.id, f.name); } }}
                         >
@@ -416,11 +433,19 @@
                 {/if}
             {/each}
 
-            <!-- Root drop zone (also holds ungrouped dashboards) -->
+            <!-- Root drop zone (also holds ungrouped dashboards). Clicking its
+                 empty area selects the root as the creation target. -->
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
                 class="root-dropzone"
+                class:selected={selectedFolderId === null}
+                onclick={(e) => { if (e.target === e.currentTarget) selectRoot(); }}
                 use:droppable={{ container: container(null), callbacks: { onDrop: (s) => onFolderDrop(s as DragDropState<DashboardInfo>, null) } }}
             >
+                <button class="root-label" onclick={selectRoot} title="Select the root as the creation target">
+                    Root
+                </button>
                 {#if creating?.kind === 'dash' && creating.folderId === null}
                     {@render createRow(false)}
                 {/if}
@@ -604,6 +629,14 @@
         align-items: center;
         margin-top: 0.125rem;
         border-radius: var(--sqlviz-radius);
+        box-shadow: inset 0 0 0 1px transparent;
+        transition: background 0.12s, box-shadow 0.12s;
+    }
+    /* Selected creation target — a bordered "ring" that reads clearly apart from
+       the active dashboard's filled highlight (.row.active). */
+    .folder-header-wrap.selected {
+        background: color-mix(in srgb, var(--sqlviz-primary) 7%, transparent);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sqlviz-primary) 45%, transparent);
     }
     .folder-header {
         display: flex;
@@ -629,7 +662,36 @@
     .folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .folder-count { font-size: 0.6875rem; opacity: 0.7; font-weight: 500; }
 
-    .root-dropzone { min-height: 24px; }
+    .root-dropzone {
+        min-height: 96px;
+        margin-top: 0.375rem;
+        padding: 0.125rem 0.125rem 0.5rem;
+        border-radius: var(--sqlviz-radius);
+        box-shadow: inset 0 0 0 1px transparent;
+        transition: background 0.12s, box-shadow 0.12s;
+    }
+    .root-dropzone.selected {
+        background: color-mix(in srgb, var(--sqlviz-primary) 5%, transparent);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sqlviz-primary) 35%, transparent);
+    }
+    /* Small section-label button that both marks the root and selects it. */
+    .root-label {
+        display: block;
+        width: 100%;
+        text-align: left;
+        padding: 0.25rem 0.5rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--sqlviz-text-muted);
+        transition: color 0.12s;
+    }
+    .root-label:hover { color: var(--sqlviz-text); }
+    .root-dropzone.selected .root-label { color: var(--sqlviz-primary); }
 
     .group-label { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0.5rem 0.375rem; }
     .group-label span:first-child {

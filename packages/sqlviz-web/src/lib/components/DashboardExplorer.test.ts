@@ -65,6 +65,33 @@ describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
         createFolder.mockRestore();
     });
 
+    it('creates a new dashboard inside the folder the user selected', async () => {
+        // Bootstrap with one (empty) folder so it renders a selectable header.
+        vi.stubGlobal('fetch', vi.fn((url: string) => Promise.resolve({
+            ok: true, status: 200,
+            json: () => Promise.resolve(
+                String(url).includes('/folders')
+                    ? [{ id: 'f1', name: 'Sales', sort_order: 0, parent_id: null }]
+                    : [],
+            ),
+        } as Response)));
+        await dashboardStore.bootstrap();
+        const createDashboard = vi.spyOn(dashboardStore, 'createDashboard').mockResolvedValue(undefined);
+        editMode.set(true);
+        const screen = render(DashboardExplorer);
+
+        // Select the folder, then create a dashboard — it must land inside it,
+        // even though the folder has no dashboards yet.
+        await fireEvent.click(screen.getByText('Sales'));
+        await fireEvent.click(screen.getByLabelText('New dashboard'));
+        const input = await screen.findByPlaceholderText('Nombre del dashboard');
+        await fireEvent.input(input, { target: { value: 'Q3 report' } });
+        await fireEvent.keyDown(input, { key: 'Enter' });
+
+        expect(createDashboard).toHaveBeenCalledWith('Q3 report', 'f1');
+        createDashboard.mockRestore();
+    });
+
     it('shows a subtle validation message when the name is empty on Enter', async () => {
         stubEmptyFetch();
         await dashboardStore.bootstrap();
