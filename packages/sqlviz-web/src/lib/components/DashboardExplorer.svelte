@@ -35,14 +35,19 @@
 
     let deleteOpen = $state(false);
     let deleteTarget = $state<DashboardInfo | null>(null);
-    let newFolderOpen = $state(false);
-    let newFolderName = $state('');
     let deleteGroupOpen = $state(false);
     let deleteGroupTarget = $state<{ id: string; name: string } | null>(null);
 
     // Inline name editing (double-click / F2). One at a time.
     let inline = $state<{ kind: 'dash' | 'folder'; id: string } | null>(null);
     let inlineValue = $state('');
+
+    // Inline creation (VSCode-style): a new folder or dashboard is named directly
+    // in the tree with an input — no modal. `folderId` is the target parent
+    // (null = root). Folders never nest, so folder creation is always at root.
+    let creating = $state<{ kind: 'dash' | 'folder'; folderId: string | null } | null>(null);
+    let creatingValue = $state('');
+    let creatingError = $state('');
 
     const collapsed = $derived(uiStore.sidebarCollapsed);
     const folders = $derived(dashboardStore.folders);
@@ -64,6 +69,7 @@
 
     // ── Inline editing ───────────────────────────────────────────────────────
     function startInline(kind: 'dash' | 'folder', id: string, current: string) {
+        cancelCreate();
         inline = { kind, id };
         inlineValue = current;
     }
@@ -104,13 +110,52 @@
         if (deleteGroupTarget) dashboardStore.deleteFolder(deleteGroupTarget.id);
         deleteGroupOpen = false;
     }
-    function submitNewFolder() {
-        if (newFolderName.trim()) dashboardStore.createFolder(newFolderName);
-        newFolderOpen = false;
-    }
 
-    function newDashboard() { dashboardStore.createDashboard('New Dashboard', null); }
-    function newGroup() { newFolderName = ''; newFolderOpen = true; }
+    // ── Inline creation (VSCode-style) ───────────────────────────────────────
+    /** Where a new item lands: the active dashboard's folder, or root. */
+    function currentFolderId(): string | null {
+        return dashboardStore.activeDashboard?.folder_id ?? null;
+    }
+    function newDashboard() { startCreate('dash', currentFolderId()); }
+    // Folders never nest for now → a new group is always created at the root.
+    function newGroup() { startCreate('folder', null); }
+
+    function startCreate(kind: 'dash' | 'folder', folderId: string | null) {
+        inline = null;
+        creating = { kind, folderId };
+        creatingValue = '';
+        creatingError = '';
+        // Reveal the input if the target folder was collapsed.
+        if (folderId) folderCollapsed = { ...folderCollapsed, [folderId]: false };
+    }
+    function cancelCreate() {
+        creating = null;
+        creatingValue = '';
+        creatingError = '';
+    }
+    function commitCreate() {
+        if (!creating) return;
+        const name = creatingValue.trim();
+        if (!name) {
+            creatingError = creating.kind === 'folder'
+                ? 'Debes especificar un nombre para la carpeta'
+                : 'Debes especificar un nombre para el dashboard';
+            return;
+        }
+        if (creating.kind === 'folder') dashboardStore.createFolder(name);
+        else dashboardStore.createDashboard(name, creating.folderId);
+        cancelCreate();
+    }
+    function createKeydown(e: KeyboardEvent) {
+        if (e.key === 'Enter') { e.preventDefault(); commitCreate(); }
+        else if (e.key === 'Escape') { e.preventDefault(); cancelCreate(); }
+    }
+    // Blur commits a filled name (VSCode) or quietly cancels an empty one.
+    function createBlur() {
+        if (!creating) return;
+        if (creatingValue.trim()) commitCreate();
+        else cancelCreate();
+    }
 
     // ── Drag & drop ──────────────────────────────────────────────────────────
     function container(folderId: string | null): string {
@@ -243,6 +288,28 @@
     </Tooltip.Root>
 {/snippet}
 
+<!-- ── Inline creation input (folder or dashboard) ─────────────────────────── -->
+{#snippet createRow(indented: boolean)}
+    {@const IconCmp = creating?.kind === 'folder' ? FolderIcon : resolveDashboardIcon(null, null)}
+    <div class="create-wrap" class:indented>
+        <div class="create-input-row">
+            <span class="row-icon inline-icon"><IconCmp size={14} /></span>
+            <input
+                class="inline-input"
+                bind:value={creatingValue}
+                use:selectOnMount
+                onkeydown={createKeydown}
+                onblur={createBlur}
+                placeholder={creating?.kind === 'folder' ? 'Nombre de la carpeta' : 'Nombre del dashboard'}
+                aria-label={creating?.kind === 'folder' ? 'New group name' : 'New dashboard name'}
+            />
+        </div>
+        {#if creatingError}
+            <p class="create-error">{creatingError}</p>
+        {/if}
+    </div>
+{/snippet}
+
 <nav class="explorer" class:collapsed aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}>
     <div class="explorer-header" class:collapsed>
         {#if !collapsed}
@@ -294,6 +361,10 @@
             </Tooltip.Provider>
 
         {:else if $editMode}
+            <!-- New folder input (always at root — folders don't nest) -->
+            {#if creating?.kind === 'folder'}
+                {@render createRow(false)}
+            {/if}
             {#each folders as f (f.id)}
                 <div
                     class="folder-header-wrap"
@@ -336,6 +407,9 @@
                     {/if}
                 </div>
                 {#if !folderCollapsed[f.id]}
+                    {#if creating?.kind === 'dash' && creating.folderId === f.id}
+                        {@render createRow(true)}
+                    {/if}
                     {#each inFolder(f.id) as d (d.id)}
                         {@render editRow(d, true)}
                     {/each}
@@ -347,10 +421,13 @@
                 class="root-dropzone"
                 use:droppable={{ container: container(null), callbacks: { onDrop: (s) => onFolderDrop(s as DragDropState<DashboardInfo>, null) } }}
             >
+                {#if creating?.kind === 'dash' && creating.folderId === null}
+                    {@render createRow(false)}
+                {/if}
                 {#each ungrouped as d (d.id)}
                     {@render editRow(d, false)}
                 {/each}
-                {#if dashboards.length === 0}
+                {#if dashboards.length === 0 && !creating}
                     <p class="empty">No dashboards yet. Create one with the + button.</p>
                 {/if}
             </div>
@@ -430,19 +507,6 @@
         <Dialog.Footer>
             <Button variant="ghost" size="sm" onclick={() => (deleteGroupOpen = false)}>Cancel</Button>
             <Button variant="destructive" size="sm" onclick={confirmDeleteGroup}>Delete group</Button>
-        </Dialog.Footer>
-    </Dialog.Content>
-</Dialog.Root>
-
-<!-- New group -->
-<Dialog.Root bind:open={newFolderOpen}>
-    <Dialog.Content class="sm:max-w-sm">
-        <Dialog.Header><Dialog.Title>New group</Dialog.Title></Dialog.Header>
-        <Input bind:value={newFolderName} placeholder="Group name"
-            onkeydown={(e) => e.key === 'Enter' && submitNewFolder()} />
-        <Dialog.Footer>
-            <Button variant="ghost" size="sm" onclick={() => (newFolderOpen = false)}>Cancel</Button>
-            <Button size="sm" onclick={submitNewFolder}>Create</Button>
         </Dialog.Footer>
     </Dialog.Content>
 </Dialog.Root>
@@ -652,6 +716,18 @@
         outline: none;
     }
     .folder-inline { font-weight: 600; }
+
+    /* Inline creation (VSCode-style) */
+    .create-wrap { display: flex; flex-direction: column; }
+    .create-wrap.indented { margin-left: 0.75rem; }
+    .create-input-row { display: flex; align-items: center; }
+    .create-error {
+        margin: 0 0 0.375rem 1.375rem;
+        font-size: 0.6875rem;
+        line-height: 1.3;
+        color: var(--sqlviz-negative);
+        opacity: 0.85;
+    }
 
     :global(.row-kebab) {
         display: flex;
