@@ -60,7 +60,7 @@
                         type: 'line',
                         data: yData,
                         smooth: 0.4,
-                        color: C.primary,
+                        color: PAL[0],
                         lineStyle: { width: 2 },
                         areaStyle: { opacity: 0.08 },
                         symbol: 'circle',
@@ -76,7 +76,7 @@
                     series: [{
                         type: 'bar',
                         data: yData,
-                        color: C.primary,
+                        color: PAL[0],
                         barMaxWidth: 48,
                         itemStyle: { borderRadius: [3, 3, 0, 0] },
                     }],
@@ -91,7 +91,7 @@
                     series: [{
                         type: 'bar',
                         data: yData,
-                        color: C.primary,
+                        color: PAL[0],
                         barMaxWidth: 32,
                         itemStyle: { borderRadius: [0, 3, 3, 0] },
                     }],
@@ -125,7 +125,7 @@
                         type: 'scatter',
                         data: data.map(r => [Number(r[sx]), Number(r[sy])]),
                         symbolSize: 8,
-                        color: C.primary,
+                        color: PAL[0],
                     }],
                 };
             }
@@ -138,7 +138,7 @@
                     series: [{
                         type: 'bar',
                         data: yData,
-                        color: C.primary,
+                        color: PAL[0],
                         barCategoryGap: '2%',
                         itemStyle: { borderRadius: 0 },
                     }],
