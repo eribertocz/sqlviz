@@ -847,6 +847,30 @@ function createDashboardStore() {
         filterDomains = domains;
     }
 
+    /**
+     * Refresh changed panels' data + inference in the CURRENT layout, keyed by
+     * panel_id, without touching their position or size. This is what makes a
+     * filter change update the charts in place: re-running `recompose` instead
+     * would send the new results back through the layout optimizer, which can
+     * reorder / re-flow the panels — exactly the "charts jump around when I
+     * filter" bug. Geometry (final_col_span, col_offset, row_index) and the
+     * row/panel ordering are preserved verbatim.
+     */
+    function applyResultsToLayout(current: DashboardLayout, results: ExecResult[]): DashboardLayout {
+        const byId = new Map(results.map(r => [r.panel_id, r]));
+        return {
+            ...current,
+            rows: current.rows.map(row => ({
+                panels: row.panels.map(p => {
+                    const r = byId.get(p.panel_id);
+                    return r
+                        ? { ...p, inference_result: r.inference_result, data: r.data }
+                        : p;
+                }),
+            })),
+        };
+    }
+
     async function executeFilteredPanels(
         changedVars: Set<string>,
         currentFV: Record<string, unknown>,
@@ -886,10 +910,17 @@ function createDashboardStore() {
 
         if (!anyChanged) return;
         executedResults = updatedResults;
-        try {
-            layout = await recompose(updatedResults);
-        } catch {
-            // Layout stays as-is if recompose fails
+        // Update the charts in place — never re-run the optimizer here, or the
+        // panels would reorder on every filter change. Fall back to a full
+        // compose only if there is somehow no layout to patch yet.
+        if (layout) {
+            layout = applyResultsToLayout(layout, updatedResults);
+        } else {
+            try {
+                layout = await recompose(updatedResults);
+            } catch {
+                // Layout stays as-is if recompose fails
+            }
         }
     }
 
