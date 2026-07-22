@@ -349,6 +349,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
         class="explorer-body"
+        class:fill={$editMode && !collapsed}
         onclick={(e) => { if ($editMode && e.target === e.currentTarget) selectRoot(); }}
     >
         {#if dashboardStore.dashboardsLoading}
@@ -586,15 +587,20 @@
 
     .explorer-body {
         flex: 1;
-        display: flex;
-        flex-direction: column;
         overflow-y: auto;
         overflow-x: hidden;
         padding: 0 0.375rem 0.5rem;
     }
-    /* Keep tree items at their natural height so the body scrolls instead of
-       squishing them — only the root zone is allowed to grow. */
-    .explorer-body > * { flex-shrink: 0; }
+    /* Edit mode only: lay the tree out as a column so the root zone can grow to
+       fill the leftover space. Items keep their natural height (flex-shrink: 0)
+       and never grow — only .root-dropzone does. Preview mode stays a plain
+       block, so .row-main's flex:1 (meant for horizontal fill inside a .row)
+       can't stretch loose preview items vertically. */
+    .explorer-body.fill {
+        display: flex;
+        flex-direction: column;
+    }
+    .explorer-body.fill > * { flex-shrink: 0; }
     .explorer.collapsed .explorer-body {
         padding: 0.25rem 0;
         display: flex;
