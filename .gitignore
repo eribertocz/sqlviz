@@ -26,3 +26,6 @@ packages/sqlviz-api/src/sqlviz_api/static/dist/
 .DS_Store
 Thumbs.db
 *.sql
+
+# ── Local tooling ─────────────────────────────────────────────────────────────
+.claude/
