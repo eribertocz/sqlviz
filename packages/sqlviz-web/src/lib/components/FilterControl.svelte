@@ -14,12 +14,19 @@
     import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
     import XIcon from '@lucide/svelte/icons/x';
 
-    let { control, filterVals, domain, onChange }: {
+    let { control, filterVals, domain, onChange, pill = false }: {
         control: FilterControl;
         filterVals: Record<string, unknown>;
         domain?: FilterDomain;
         onChange: (varName: string, value: unknown) => void;
+        /** Compact pill rendering for header filter chips. */
+        pill?: boolean;
     } = $props();
+
+    // Marker class appended to a control's trigger/input when rendered as a
+    // header chip — the pill styles below neutralize the shadcn trigger frame
+    // so the outer .filter-control.pill reads as one small pill.
+    const chip = $derived(pill ? 'filter-chip-el' : '');
 
     const vars = $derived(control.variable.split(',').map(v => v.trim()));
 
@@ -106,14 +113,14 @@
     );
 </script>
 
-<div class="filter-control">
+<div class="filter-control" class:pill>
     <span class="filter-label">{control.label}</span>
 
     {#if control.control_type === 'dropdown'}
         {#if hasOptions}
             <Select.Root type="single" value={currentVal as string}
                 onValueChange={(v) => onChange(vars[0], v ?? '')}>
-                <Select.Trigger class="h-7 min-w-[120px] text-xs">
+                <Select.Trigger class="h-7 min-w-[120px] text-xs {chip}">
                     {#if currentVal}
                         {String(currentVal)}
                     {:else}
@@ -135,14 +142,14 @@
                 </button>
             {/if}
         {:else}
-            <Input type="text" class="h-7 w-[140px] text-xs" placeholder="value…"
+            <Input type="text" class="h-7 w-[140px] text-xs {chip}" placeholder="value…"
                 value={currentVal as string} oninput={onSearch} />
         {/if}
 
     {:else if control.control_type === 'multiselect'}
         {#if hasOptions}
             <Popover.Root bind:open={comboOpen}>
-                <Popover.Trigger class="inline-flex h-7 min-w-[140px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs">
+                <Popover.Trigger class="inline-flex h-7 min-w-[140px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
                     {comboLabel}
                     <ChevronsUpDownIcon class="ml-2 size-3 opacity-50" />
                 </Popover.Trigger>
@@ -164,13 +171,13 @@
                 </Popover.Content>
             </Popover.Root>
         {:else}
-            <Input type="text" class="h-7 w-[160px] text-xs" placeholder="val1, val2…"
+            <Input type="text" class="h-7 w-[160px] text-xs {chip}" placeholder="val1, val2…"
                 value={selectedArray.join(', ')} oninput={onMultiselectText} />
         {/if}
 
     {:else if control.control_type === 'date_picker'}
         <Popover.Root>
-            <Popover.Trigger class="inline-flex h-7 min-w-[140px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs">
+            <Popover.Trigger class="inline-flex h-7 min-w-[140px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
                 {dateLabel}
                 <CalendarIcon class="ml-2 size-3 opacity-50" />
             </Popover.Trigger>
@@ -181,7 +188,7 @@
 
     {:else if control.control_type === 'date_range_picker'}
         <Popover.Root>
-            <Popover.Trigger class="inline-flex h-7 min-w-[170px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs">
+            <Popover.Trigger class="inline-flex h-7 min-w-[170px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
                 {rangeLabel}
                 <CalendarIcon class="ml-2 size-3 opacity-50" />
             </Popover.Trigger>
@@ -194,7 +201,7 @@
         </Popover.Root>
 
     {:else if control.control_type === 'numeric'}
-        <Input type="number" class="h-7 w-[90px] text-xs" placeholder="0"
+        <Input type="number" class="h-7 w-[90px] text-xs {chip}" placeholder="0"
             value={currentVal as number} oninput={onNumber} />
 
     {:else if control.control_type === 'range_slider'}
@@ -216,7 +223,7 @@
         {/if}
 
     {:else if control.control_type === 'search'}
-        <Input type="text" class="h-7 w-[160px] text-xs" placeholder="%keyword%"
+        <Input type="text" class="h-7 w-[160px] text-xs {chip}" placeholder="%keyword%"
             value={currentVal as string} oninput={onSearch} />
 
     {:else if control.control_type === 'toggle'}
@@ -283,5 +290,53 @@
     .filter-clear:hover {
         color: var(--sqlviz-text);
         background: rgba(127, 127, 127, 0.12);
+    }
+
+    /* ── Header chip (pill) rendering ─────────────────────────────────────── */
+    .filter-control.pill {
+        gap: 0.375rem;
+        padding: 3px 10px;
+        border: 1px solid var(--sqlviz-border);
+        border-radius: 100px;
+        background: var(--sqlviz-bg);
+        font-size: 11px;
+        line-height: 1.4;
+        cursor: pointer;
+        transition: border-color 0.12s ease, background 0.12s ease;
+    }
+    .filter-control.pill:hover { border-color: var(--sqlviz-primary); }
+
+    .filter-control.pill .filter-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0;
+    }
+
+    /* Neutralize the shadcn trigger/input frame so the outer pill is the only
+       visible chrome; the trigger itself still opens its control on click. */
+    .filter-control.pill :global(.filter-chip-el) {
+        height: auto !important;
+        min-height: 0 !important;
+        min-width: 0 !important;
+        width: auto !important;
+        padding: 0 !important;
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border-radius: 100px !important;
+        font-size: 11px !important;
+        color: var(--sqlviz-text);
+        gap: 0.25rem !important;
+    }
+    .filter-control.pill :global(.filter-chip-el:focus-visible) {
+        outline: none;
+        box-shadow: none !important;
+    }
+    /* Shrink the caret / calendar glyphs to match the 11px chip. */
+    .filter-control.pill :global(.filter-chip-el svg) {
+        width: 12px !important;
+        height: 12px !important;
+        opacity: 0.6;
     }
 </style>

@@ -93,6 +93,7 @@
                     {#each dashboardStore.allFilterControls as control (control.variable)}
                         <FilterControl
                             {control}
+                            pill
                             filterVals={filterValues.current}
                             domain={dashboardStore.filterDomains[control.variable]}
                             onChange={dashboardStore.handleFilterChange}

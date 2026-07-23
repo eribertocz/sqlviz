@@ -1,6 +1,5 @@
 <script lang="ts">
     import { resolveDashboardIcon } from '$lib/dashboardIcons';
-    import BrandMark from '$lib/components/BrandMark.svelte';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { uiStore } from '$lib/stores/uiStore.svelte';
     import { editMode } from '$lib/stores/editMode';
@@ -326,18 +325,14 @@
 {/snippet}
 
 <nav class="explorer" class:collapsed aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}>
-    <!-- ── Sidebar header (44px) — brand + collapse toggle ─────────────────── -->
+    <!-- ── Sidebar header (44px) — wordmark + collapse toggle ──────────────── -->
     <div class="sidebar-header" class:collapsed>
         {#if !collapsed}
-            <div class="brand">
-                <BrandMark size={18} />
-                <span class="brand-name">SQLviz</span>
-            </div>
+            <span class="brand-name">SQLviz</span>
             <button class="hbtn" onclick={uiStore.toggleSidebar} title="Collapse sidebar" aria-label="Collapse sidebar">
                 <PanelLeftCloseIcon size={16} />
             </button>
         {:else}
-            <div class="brand collapsed"><BrandMark size={18} /></div>
             <button class="hbtn" onclick={uiStore.toggleSidebar} title="Expand sidebar" aria-label="Expand sidebar">
                 <PanelLeftOpenIcon size={16} />
             </button>
@@ -597,10 +592,8 @@
         flex-shrink: 0;
         border-bottom: 1px solid var(--sqlviz-hairline);
     }
-    .sidebar-header.collapsed { justify-content: center; padding: 0; gap: 0.125rem; }
+    .sidebar-header.collapsed { justify-content: center; padding: 0; }
 
-    .brand { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-    .brand.collapsed { gap: 0; }
     .brand-name {
         font-size: 0.9375rem;
         font-weight: 700;

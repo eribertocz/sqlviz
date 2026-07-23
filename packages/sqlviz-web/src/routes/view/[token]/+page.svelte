@@ -325,6 +325,7 @@
                         {#each allFilterControls as control (control.variable)}
                             <FilterControlComponent
                                 {control}
+                                pill
                                 filterVals={viewerFilterValues}
                                 onChange={handleFilterChange}
                             />
