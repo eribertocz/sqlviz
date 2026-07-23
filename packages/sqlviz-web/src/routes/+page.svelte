@@ -8,13 +8,11 @@
     import PanelPropertiesPanel from '$lib/components/PanelPropertiesPanel.svelte';
     import EditorSection from '$lib/components/EditorSection.svelte';
     import ExplainPanel from '$lib/components/ExplainPanel.svelte';
-    import FilterBar from '$lib/components/FilterBar.svelte';
     import ToastHost from '$lib/components/ToastHost.svelte';
     import VerticalResizer from '$lib/components/VerticalResizer.svelte';
     import WelcomeScreen from '$lib/components/WelcomeScreen.svelte';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { editMode } from '$lib/stores/editMode';
-    import { filterValues } from '$lib/stores/filterValues.svelte';
     import { uiStore } from '$lib/stores/uiStore.svelte';
 
     // Welcome screen: no dashboards exist and none is active (fresh install).
@@ -70,16 +68,6 @@
                 <!-- Clean welcome screen — no dashboards yet -->
                 <WelcomeScreen />
             {:else}
-                <!-- Filter bar — both modes when panels have $variables -->
-                {#if dashboardStore.hasFilters}
-                    <FilterBar
-                        controls={dashboardStore.allFilterControls}
-                        filterVals={filterValues.current}
-                        domains={dashboardStore.filterDomains}
-                        onChange={dashboardStore.handleFilterChange}
-                    />
-                {/if}
-
                 <!-- Editor section — hidden in Preview mode -->
                 {#if $editMode}
                     <EditorSection />

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { resolveDashboardIcon } from '$lib/dashboardIcons';
+    import BrandMark from '$lib/components/BrandMark.svelte';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { uiStore } from '$lib/stores/uiStore.svelte';
     import { editMode } from '$lib/stores/editMode';
@@ -22,6 +23,9 @@
     import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
     import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
     import PanelLeftOpenIcon from '@lucide/svelte/icons/panel-left-open';
+    import SettingsIcon from '@lucide/svelte/icons/settings';
+    import SunIcon from '@lucide/svelte/icons/sun';
+    import MoonIcon from '@lucide/svelte/icons/moon';
 
     let folderCollapsed = $state<Record<string, boolean>>({});
     let openMenuId = $state<string | null>(null);
@@ -322,28 +326,38 @@
 {/snippet}
 
 <nav class="explorer" class:collapsed aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}>
-    <div class="explorer-header" class:collapsed>
+    <!-- ── Sidebar header (44px) — brand + collapse toggle ─────────────────── -->
+    <div class="sidebar-header" class:collapsed>
         {#if !collapsed}
-            <span class="explorer-title">{$editMode ? 'Explorer' : 'Dashboards'}</span>
-            <div class="explorer-actions">
-                {#if $editMode}
-                    <button class="hbtn" onclick={newGroup} title="New group" aria-label="New group">
-                        <FolderPlusIcon size={15} />
-                    </button>
-                    <button class="hbtn" onclick={newDashboard} title="New dashboard" aria-label="New dashboard">
-                        <PlusIcon size={16} />
-                    </button>
-                {/if}
-                <button class="hbtn" onclick={uiStore.toggleSidebar} title="Collapse sidebar" aria-label="Collapse sidebar">
-                    <PanelLeftCloseIcon size={16} />
-                </button>
+            <div class="brand">
+                <BrandMark size={18} />
+                <span class="brand-name">SQLviz</span>
             </div>
+            <button class="hbtn" onclick={uiStore.toggleSidebar} title="Collapse sidebar" aria-label="Collapse sidebar">
+                <PanelLeftCloseIcon size={16} />
+            </button>
         {:else}
+            <div class="brand collapsed"><BrandMark size={18} /></div>
             <button class="hbtn" onclick={uiStore.toggleSidebar} title="Expand sidebar" aria-label="Expand sidebar">
                 <PanelLeftOpenIcon size={16} />
             </button>
         {/if}
     </div>
+
+    <!-- ── EXPLORER toolbar (32px) — edit mode, expanded only ──────────────── -->
+    {#if $editMode && !collapsed}
+        <div class="explorer-toolbar">
+            <span class="explorer-title">Explorer</span>
+            <div class="explorer-actions">
+                <button class="hbtn" onclick={newGroup} title="New group" aria-label="New group">
+                    <FolderPlusIcon size={15} />
+                </button>
+                <button class="hbtn" onclick={newDashboard} title="New dashboard" aria-label="New dashboard">
+                    <PlusIcon size={16} />
+                </button>
+            </div>
+        </div>
+    {/if}
 
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -474,13 +488,38 @@
         {/if}
     </div>
 
-    {#if !collapsed && $editMode}
-        <div class="explorer-footer">
-            <Button variant="secondary" size="sm" class="w-full justify-start gap-2" onclick={newDashboard}>
-                <PlusIcon class="size-4" /> New Dashboard
-            </Button>
-        </div>
-    {/if}
+    <!-- ── Sidebar footer — Settings (admin) + theme toggle, both modes ─────── -->
+    <div class="sidebar-footer" class:collapsed>
+        {#if collapsed}
+            <Tooltip.Provider delayDuration={200}>
+                <Tooltip.Root>
+                    <Tooltip.Trigger class="foot-btn" onclick={() => uiStore.showToast('Settings coming soon')} aria-label="Settings">
+                        <SettingsIcon size={16} />
+                    </Tooltip.Trigger>
+                    <Tooltip.Content side="right">Settings</Tooltip.Content>
+                </Tooltip.Root>
+                <Tooltip.Root>
+                    <Tooltip.Trigger class="foot-btn" onclick={uiStore.toggleTheme}
+                        aria-label={uiStore.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+                        {#if uiStore.theme === 'dark'}<SunIcon size={16} />{:else}<MoonIcon size={16} />{/if}
+                    </Tooltip.Trigger>
+                    <Tooltip.Content side="right">{uiStore.theme === 'dark' ? 'Light mode' : 'Dark mode'}</Tooltip.Content>
+                </Tooltip.Root>
+            </Tooltip.Provider>
+        {:else}
+            <button class="foot-btn wide" onclick={() => uiStore.showToast('Settings coming soon')} aria-label="Settings">
+                <SettingsIcon size={16} /> <span>Settings</span>
+            </button>
+            <button class="foot-btn wide" onclick={uiStore.toggleTheme}
+                aria-label={uiStore.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+                {#if uiStore.theme === 'dark'}
+                    <SunIcon size={16} /> <span>Light mode</span>
+                {:else}
+                    <MoonIcon size={16} /> <span>Dark mode</span>
+                {/if}
+            </button>
+        {/if}
+    </div>
 </nav>
 
 <!-- Edit name + description (single step) -->
@@ -545,18 +584,42 @@
         overflow: hidden;
         transition: width 0.2s ease;
     }
-    .explorer.collapsed { width: 52px; }
+    .explorer.collapsed { width: 44px; }
 
-    .explorer-header {
+    /* ── Sidebar header (44px, fixed) ─────────────────────────── */
+    .sidebar-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 0.25rem;
-        padding: 0.5rem 0.5rem 0.5rem 0.875rem;
+        height: 44px;
+        padding: 0 0.5rem 0 0.875rem;
         flex-shrink: 0;
-        min-height: 40px;
+        border-bottom: 1px solid var(--sqlviz-hairline);
     }
-    .explorer-header.collapsed { justify-content: center; padding: 0.5rem 0; }
+    .sidebar-header.collapsed { justify-content: center; padding: 0; gap: 0.125rem; }
+
+    .brand { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+    .brand.collapsed { gap: 0; }
+    .brand-name {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--sqlviz-text);
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    /* ── EXPLORER toolbar (32px) ──────────────────────────────── */
+    .explorer-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.25rem;
+        height: 32px;
+        padding: 0 0.375rem 0 0.875rem;
+        flex-shrink: 0;
+    }
 
     .explorer-title {
         font-size: 0.6875rem;
@@ -808,7 +871,34 @@
 
     .empty { padding: 0.75rem 0.5rem; font-size: 0.75rem; color: var(--sqlviz-text-muted); line-height: 1.4; }
 
-    .explorer-footer { padding: 0.5rem; border-top: 1px solid var(--sqlviz-hairline); flex-shrink: 0; }
+    /* ── Sidebar footer — Settings + theme toggle ─────────────── */
+    .sidebar-footer {
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+        padding: 0.375rem;
+        border-top: 1px solid var(--sqlviz-hairline);
+        flex-shrink: 0;
+    }
+    .sidebar-footer.collapsed { align-items: center; }
+
+    :global(.foot-btn) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.625rem;
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: none;
+        color: var(--sqlviz-text-muted);
+        border-radius: var(--sqlviz-radius);
+        cursor: pointer;
+        font-size: 0.8125rem;
+        transition: background 0.12s, color 0.12s;
+    }
+    :global(.foot-btn.wide) { width: 100%; justify-content: flex-start; padding: 0 0.5rem; }
+    :global(.foot-btn:hover) { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
 
     .dialog-fields { display: flex; flex-direction: column; gap: 0.375rem; }
     .field-label {

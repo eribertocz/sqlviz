@@ -1,13 +1,19 @@
 <script lang="ts">
-    import { ChevronDown, ChevronUp, Loader2, Moon, RotateCcw, Sun } from 'lucide-svelte';
+    import { Code2, Eye, Loader2, RotateCcw, Share2 } from 'lucide-svelte';
+    import FilterControl from '$lib/components/FilterControl.svelte';
+    import ShareModal from '$lib/components/ShareModal.svelte';
+    import * as Tooltip from '$lib/components/ui/tooltip/index.js';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { editMode } from '$lib/stores/editMode';
     import { executionStore } from '$lib/stores/executionStore.svelte';
-    import { uiStore } from '$lib/stores/uiStore.svelte';
+    import { filterValues } from '$lib/stores/filterValues.svelte';
 
     // Inline dashboard-name editing (UX spec §"Cambiar nombre").
     let editingName = $state(false);
     let nameValue = $state('');
+
+    // Share modal (Section 4).
+    let shareOpen = $state(false);
 
     function startEditName() {
         const d = dashboardStore.activeDashboard;
@@ -38,21 +44,10 @@
         if (executionStore.saveStatus === 'draft')  return { text: 'Draft', kind: 'draft' };
         return null;
     });
-
-    function handleModeKeydown(e: KeyboardEvent) {
-        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        e.preventDefault();
-        const next = !$editMode;
-        editMode.set(next);
-        const group = (e.currentTarget as HTMLElement).parentElement;
-        group?.querySelectorAll<HTMLButtonElement>('.mode-btn')[next ? 1 : 0]?.focus();
-    }
 </script>
 
 <header class="app-bar">
     <div class="bar-left">
-        <span class="app-logo">SQLviz</span>
-
         {#if dashboardStore.activeDashboard}
             {#if editingName}
                 <input
@@ -91,71 +86,71 @@
                     <RotateCcw size={12} /> Restore last run
                 </button>
             {/if}
+
+            {#if dashboardStore.hasFilters}
+                <span class="bar-sep" aria-hidden="true"></span>
+                <div class="filters" role="group" aria-label="Dashboard filters">
+                    {#each dashboardStore.allFilterControls as control (control.variable)}
+                        <FilterControl
+                            {control}
+                            filterVals={filterValues.current}
+                            domain={dashboardStore.filterDomains[control.variable]}
+                            onChange={dashboardStore.handleFilterChange}
+                        />
+                    {/each}
+                </div>
+            {/if}
         {/if}
     </div>
 
     <div class="bar-right">
-        <!-- Dashboard Score button (DOC6 §12.3, edit mode only) -->
-        {#if $editMode}
-            <button
-                class="score-btn"
-                class:active={uiStore.showScorePanel}
-                aria-pressed={uiStore.showScorePanel}
-                onclick={() => uiStore.showScorePanel = !uiStore.showScorePanel}
-                title="Dashboard Score"
-            >
-                Score{dashboardStore.utilityPct != null ? `: ${dashboardStore.utilityPct}` : ''}
-                {#if uiStore.showScorePanel}
-                    <ChevronDown size={13} />
-                {:else}
-                    <ChevronUp size={13} />
-                {/if}
+        {#if dashboardStore.activeDashboard}
+            <button class="share-btn" onclick={() => (shareOpen = true)} title="Share dashboard">
+                <Share2 size={14} /> Share
             </button>
+
+            <Tooltip.Provider delayDuration={200}>
+                <Tooltip.Root>
+                    <Tooltip.Trigger
+                        class="mode-icon {!$editMode ? 'active' : ''}"
+                        aria-label="Preview"
+                        aria-pressed={!$editMode}
+                        onclick={() => editMode.set(false)}
+                    >
+                        <Eye size={16} />
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>Preview</Tooltip.Content>
+                </Tooltip.Root>
+                <Tooltip.Root>
+                    <Tooltip.Trigger
+                        class="mode-icon {$editMode ? 'active' : ''}"
+                        aria-label="Edit"
+                        aria-pressed={$editMode}
+                        onclick={() => editMode.set(true)}
+                    >
+                        <Code2 size={16} />
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>Edit</Tooltip.Content>
+                </Tooltip.Root>
+            </Tooltip.Provider>
         {/if}
-
-        <div class="mode-toggle" role="tablist" aria-label="Dashboard mode">
-            <button
-                class="mode-btn"
-                role="tab"
-                aria-selected={!$editMode}
-                tabindex={!$editMode ? 0 : -1}
-                class:active={!$editMode}
-                onclick={() => editMode.set(false)}
-                onkeydown={handleModeKeydown}
-            >Preview</button>
-            <button
-                class="mode-btn"
-                role="tab"
-                aria-selected={$editMode}
-                tabindex={$editMode ? 0 : -1}
-                class:active={$editMode}
-                onclick={() => editMode.set(true)}
-                onkeydown={handleModeKeydown}
-            >Edit</button>
-        </div>
-
-        <button
-            class="theme-btn"
-            onclick={uiStore.toggleTheme}
-            aria-label={uiStore.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={uiStore.theme === 'dark' ? 'Light mode' : 'Dark mode'}
-        >
-            {#if uiStore.theme === 'dark'}
-                <Sun size={16} />
-            {:else}
-                <Moon size={16} />
-            {/if}
-        </button>
     </div>
 </header>
 
+<ShareModal
+    bind:open={shareOpen}
+    dashboardId={dashboardStore.activeDashboard?.id ?? null}
+    dashboardName={dashboardStore.activeDashboard?.name ?? ''}
+/>
+
 <style>
     .app-bar {
-        height: 48px;
+        height: 44px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 1rem;
+        gap: 0.75rem;
+        padding: 0 0.875rem;
         background: var(--sqlviz-bg-surface);
         border-bottom: 1px solid var(--sqlviz-hairline);
         flex-shrink: 0;
@@ -166,45 +161,38 @@
         align-items: center;
         gap: 0.625rem;
         min-width: 0;
-    }
-
-    .app-logo {
-        font-size: 1rem;
-        font-weight: 700;
-        color: var(--sqlviz-primary);
-        letter-spacing: -0.02em;
-        flex-shrink: 0;
+        flex: 1;
+        overflow: hidden;
     }
 
     /* Active dashboard name */
     .dash-name {
-        font-size: 0.8125rem;
-        font-weight: 500;
-        color: var(--sqlviz-text-muted);
-        max-width: 180px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--sqlviz-text);
+        max-width: 200px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
         border: none;
         background: none;
-        border-left: 1px solid var(--sqlviz-border);
-        border-radius: 0;
-        padding: 0.125rem 0.375rem 0.125rem 0.625rem;
+        border-radius: var(--sqlviz-radius);
+        padding: 0.125rem 0.25rem;
         cursor: text;
+        flex-shrink: 0;
         transition: color 0.12s;
     }
-    .dash-name:hover { color: var(--sqlviz-text); }
+    .dash-name:hover { color: var(--sqlviz-primary); }
 
     .dash-name-input {
-        font-size: 0.8125rem;
-        font-weight: 500;
+        font-size: 0.875rem;
+        font-weight: 600;
         color: var(--sqlviz-text);
         background: var(--sqlviz-bg);
         border: 1px solid var(--sqlviz-primary);
         border-radius: var(--sqlviz-radius);
         padding: 0.125rem 0.375rem;
-        margin-left: 0.5rem;
-        max-width: 200px;
+        max-width: 220px;
         outline: none;
     }
 
@@ -215,6 +203,7 @@
         font-size: 0.6875rem;
         color: var(--sqlviz-text-muted);
         white-space: nowrap;
+        flex-shrink: 0;
     }
     .save-status .dot { color: var(--sqlviz-primary); font-size: 0.625rem; line-height: 1; }
     .save-status.running { color: var(--sqlviz-primary); }
@@ -237,6 +226,7 @@
         border-radius: var(--sqlviz-radius);
         cursor: pointer;
         white-space: nowrap;
+        flex-shrink: 0;
         transition: color 0.12s, border-color 0.12s, background 0.12s;
     }
     .restore-btn:hover {
@@ -245,46 +235,39 @@
         background: color-mix(in srgb, var(--sqlviz-primary) 8%, transparent);
     }
 
-    .mode-toggle {
+    /* Subtle vertical separator between the name and the filter chips */
+    .bar-sep {
+        width: 1px;
+        height: 20px;
+        background: var(--sqlviz-border);
+        flex-shrink: 0;
+    }
+
+    .filters {
         display: flex;
-        border: 1px solid var(--sqlviz-border);
-        border-radius: var(--sqlviz-radius);
-        overflow: hidden;
+        align-items: center;
+        gap: 1rem;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
     }
-
-    .mode-btn {
-        padding: 0.25rem 0.875rem;
-        background: none;
-        border: none;
-        cursor: pointer;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        color: var(--sqlviz-text-muted);
-        transition: background 0.15s, color 0.15s;
-    }
-
-    .mode-btn.active {
-        background: var(--sqlviz-primary);
-        color: #fff;
-    }
-
-    .mode-btn:not(.active):hover {
-        background: var(--sqlviz-bg-base);
-        color: var(--sqlviz-text);
-    }
+    .filters::-webkit-scrollbar { display: none; }
 
     .bar-right {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.375rem;
+        flex-shrink: 0;
     }
 
-    /* Score button (DOC6 §12.3, edit mode) */
-    .score-btn {
+    /* Share — bordered button with icon + label */
+    .share-btn {
         display: inline-flex;
         align-items: center;
-        gap: 0.25rem;
-        padding: 0.25rem 0.75rem;
+        gap: 0.375rem;
+        height: 28px;
+        padding: 0 0.75rem;
         background: none;
         border: 1px solid var(--sqlviz-border);
         border-radius: var(--sqlviz-radius);
@@ -295,31 +278,32 @@
         transition: background 0.15s, color 0.15s, border-color 0.15s;
         white-space: nowrap;
     }
-    .score-btn:hover, .score-btn.active {
-        background: var(--sqlviz-bg-base);
+    .share-btn:hover {
         color: var(--sqlviz-text);
         border-color: var(--sqlviz-primary);
+        background: color-mix(in srgb, var(--sqlviz-primary) 8%, transparent);
     }
 
-    .theme-btn {
-        width: 32px;
-        height: 32px;
-        display: flex;
+    /* Preview / Edit — borderless 28x28 icon buttons; active gets an accent tint */
+    :global(.mode-icon) {
+        display: inline-flex;
         align-items: center;
         justify-content: center;
+        width: 28px;
+        height: 28px;
+        border: none;
         background: none;
-        border: 1px solid var(--sqlviz-border);
         border-radius: var(--sqlviz-radius);
         cursor: pointer;
-        font-size: 1rem;
         color: var(--sqlviz-text-muted);
-        transition: background 0.15s, color 0.15s, border-color 0.15s;
-        line-height: 1;
+        transition: background 0.15s, color 0.15s;
     }
-
-    .theme-btn:hover {
-        background: var(--sqlviz-bg);
+    :global(.mode-icon:hover) {
+        background: var(--sqlviz-bg-base);
         color: var(--sqlviz-text);
-        border-color: var(--sqlviz-primary);
+    }
+    :global(.mode-icon.active) {
+        background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent);
+        color: var(--sqlviz-primary);
     }
 </style>

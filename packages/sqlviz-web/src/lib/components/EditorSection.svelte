@@ -49,7 +49,7 @@
     }
 
     .editor-toolbar {
-        height: 44px;
+        height: 32px;
         display: flex;
         align-items: center;
         gap: 0.75rem;
@@ -64,12 +64,13 @@
         display: flex;
         align-items: center;
         gap: 0.375rem;
-        padding: 0.3125rem 0.875rem;
+        height: 24px;
+        padding: 0 0.75rem;
         background: var(--sqlviz-primary);
         color: #fff;
         border: none;
         border-radius: var(--sqlviz-radius);
-        font-size: 0.8125rem;
+        font-size: 0.75rem;
         font-weight: 600;
         cursor: pointer;
         white-space: nowrap;

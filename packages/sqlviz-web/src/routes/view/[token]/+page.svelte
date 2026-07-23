@@ -1,8 +1,12 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import DashboardGrid from '$lib/components/DashboardGrid.svelte';
-    import FilterBar from '$lib/components/FilterBar.svelte';
+    import FilterControlComponent from '$lib/components/FilterControl.svelte';
+    import BrandMark from '$lib/components/BrandMark.svelte';
     import { editMode } from '$lib/stores/editMode';
+    import { uiStore } from '$lib/stores/uiStore.svelte';
+    import SunIcon from '@lucide/svelte/icons/sun';
+    import MoonIcon from '@lucide/svelte/icons/moon';
     import type {
         DashboardLayout,
         FilterControl,
@@ -193,6 +197,7 @@
     // ── Mount ──────────────────────────────────────────────────────────────────
     onMount(async () => {
         editMode.set(false);
+        uiStore.initTheme();
         const token = window.location.pathname.split('/').at(-1) ?? '';
 
         try {
@@ -280,31 +285,64 @@
 <!-- ── Unlocked (viewer) ─────────────────────────────────────── -->
 {:else if viewerState === 'unlocked'}
     <div class="viewer-shell">
-        <header class="viewer-bar">
-            <span class="viewer-wordmark">SQLviz</span>
-            {#if dashboardName}
-                <span class="viewer-sep">·</span>
-                <span class="viewer-title">{dashboardName}</span>
-            {/if}
-        </header>
+        <!-- Sidebar — navigation only, no management (Section 5) -->
+        <nav class="viewer-sidebar" aria-label="Dashboard navigation">
+            <div class="viewer-sidebar-header">
+                <BrandMark size={18} />
+                <span class="viewer-brand-name">SQLviz</span>
+            </div>
 
-        {#if hasFilters}
-            <FilterBar
-                controls={allFilterControls}
-                filterVals={viewerFilterValues}
-                onChange={handleFilterChange}
-            />
-        {/if}
+            <div class="viewer-sidebar-body">
+                <button class="viewer-nav-item active" aria-current="page">
+                    <span class="nav-dot" aria-hidden="true"></span>
+                    <span class="nav-name">{dashboardName || 'Dashboard'}</span>
+                </button>
+            </div>
 
-        <div class="viewer-content">
-            {#if layout}
-                <DashboardGrid {layout} />
-            {:else}
-                <div class="viewer-center-inner">
-                    <span class="viewer-spinner">⟳</span>
-                    <span class="viewer-msg">Building dashboard…</span>
-                </div>
-            {/if}
+            <!-- Footer — only the theme toggle for viewers -->
+            <div class="viewer-sidebar-footer">
+                <button
+                    class="foot-btn wide"
+                    onclick={uiStore.toggleTheme}
+                    aria-label={uiStore.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                    {#if uiStore.theme === 'dark'}
+                        <SunIcon size={16} /> <span>Light mode</span>
+                    {:else}
+                        <MoonIcon size={16} /> <span>Dark mode</span>
+                    {/if}
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main column -->
+        <div class="viewer-main">
+            <header class="viewer-bar">
+                <span class="viewer-title">{dashboardName || 'Dashboard'}</span>
+                {#if hasFilters}
+                    <span class="viewer-sep" aria-hidden="true"></span>
+                    <div class="viewer-filters" role="group" aria-label="Dashboard filters">
+                        {#each allFilterControls as control (control.variable)}
+                            <FilterControlComponent
+                                {control}
+                                filterVals={viewerFilterValues}
+                                onChange={handleFilterChange}
+                            />
+                        {/each}
+                    </div>
+                {/if}
+            </header>
+
+            <div class="viewer-content">
+                {#if layout}
+                    <DashboardGrid {layout} />
+                {:else}
+                    <div class="viewer-center-inner">
+                        <span class="viewer-spinner">⟳</span>
+                        <span class="viewer-msg">Building dashboard…</span>
+                    </div>
+                {/if}
+            </div>
         </div>
     </div>
 {/if}
@@ -420,45 +458,141 @@
     .auth-btn:hover:not(:disabled) { opacity: 0.85; }
     .auth-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    /* ── Viewer shell (unlocked) ─────────────────────────────── */
+    /* ── Viewer shell (unlocked) — sidebar + main ────────────── */
     .viewer-shell {
-        min-height: 100vh;
+        height: 100vh;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         background: var(--sqlviz-bg);
+        overflow: hidden;
     }
 
-    .viewer-bar {
-        height: 48px;
+    /* Sidebar */
+    .viewer-sidebar {
+        width: 240px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--sqlviz-bg-surface);
+        border-right: 1px solid var(--sqlviz-hairline);
+        overflow: hidden;
+    }
+
+    .viewer-sidebar-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: 44px;
+        padding: 0 0.875rem;
+        flex-shrink: 0;
+        border-bottom: 1px solid var(--sqlviz-hairline);
+    }
+
+    .viewer-brand-name {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--sqlviz-text);
+        letter-spacing: -0.01em;
+    }
+
+    .viewer-sidebar-body { flex: 1; overflow-y: auto; padding: 0.5rem 0.375rem; }
+
+    .viewer-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.4375rem 0.5rem;
+        background: none;
+        border: none;
+        border-radius: var(--sqlviz-radius);
+        color: var(--sqlviz-text-muted);
+        cursor: default;
+        text-align: left;
+        font-size: 0.8125rem;
+    }
+    .viewer-nav-item.active {
+        background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent);
+        color: var(--sqlviz-primary);
+    }
+    .nav-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+    }
+    .nav-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .viewer-sidebar-footer {
+        padding: 0.375rem;
+        border-top: 1px solid var(--sqlviz-hairline);
+        flex-shrink: 0;
+    }
+    .foot-btn {
         display: flex;
         align-items: center;
         gap: 0.625rem;
-        padding: 0 1rem;
+        width: 100%;
+        height: 32px;
+        padding: 0 0.5rem;
+        border: none;
+        background: none;
+        color: var(--sqlviz-text-muted);
+        border-radius: var(--sqlviz-radius);
+        cursor: pointer;
+        font-size: 0.8125rem;
+        transition: background 0.12s, color 0.12s;
+    }
+    .foot-btn:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
+
+    /* Main column */
+    .viewer-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .viewer-bar {
+        height: 44px;
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        padding: 0 0.875rem;
         background: var(--sqlviz-bg-surface);
-        border-bottom: 1px solid var(--sqlviz-border);
+        border-bottom: 1px solid var(--sqlviz-hairline);
         flex-shrink: 0;
     }
 
-    .viewer-wordmark {
-        font-size: 1rem;
-        font-weight: 700;
-        color: var(--sqlviz-primary);
-        letter-spacing: -0.02em;
-    }
-
     .viewer-sep {
-        color: var(--sqlviz-border);
-        font-size: 1rem;
+        width: 1px;
+        height: 20px;
+        background: var(--sqlviz-border);
+        flex-shrink: 0;
     }
 
     .viewer-title {
-        font-size: 0.9375rem;
-        font-weight: 500;
+        font-size: 0.875rem;
+        font-weight: 600;
         color: var(--sqlviz-text);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        flex-shrink: 0;
     }
+
+    .viewer-filters {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+    }
+    .viewer-filters::-webkit-scrollbar { display: none; }
 
     .viewer-content {
         flex: 1;
