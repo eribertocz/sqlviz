@@ -3,7 +3,13 @@
  *
  * A view is a named snapshot of the current filter values. Persisted in
  * localStorage, keyed by dashboard id, so combinations survive reloads without
- * a backend. Backed by `$state` so the header UI updates as views change.
+ * a backend.
+ *
+ * Reactivity note: the parsed data lives in a plain (non-reactive) map so that
+ * `list()` — which is called inside components' `$derived` — never writes
+ * `$state` during a read (that would throw `state_unsafe_mutation`). A separate
+ * `$state` version counter is read by `list()` and bumped by `save`/`remove`,
+ * which is what drives the UI to re-render.
  */
 export type FilterView = {
     id: string;
@@ -13,10 +19,11 @@ export type FilterView = {
 
 const keyFor = (dashboardId: string) => `sqlviz-filter-views:${dashboardId}`;
 
-let cache = $state<Record<string, FilterView[]>>({});
+const mem: Record<string, FilterView[]> = {};
+let version = $state(0);
 
-function load(dashboardId: string): void {
-    if (cache[dashboardId]) return;
+function ensureLoaded(dashboardId: string): void {
+    if (dashboardId in mem) return;
     let arr: FilterView[] = [];
     try {
         const raw = localStorage.getItem(keyFor(dashboardId));
@@ -24,40 +31,42 @@ function load(dashboardId: string): void {
     } catch {
         arr = [];
     }
-    cache = { ...cache, [dashboardId]: arr };
+    mem[dashboardId] = arr;
 }
 
 function persist(dashboardId: string, views: FilterView[]): void {
-    cache = { ...cache, [dashboardId]: views };
+    mem[dashboardId] = views;
     try {
         localStorage.setItem(keyFor(dashboardId), JSON.stringify(views));
     } catch {
         // Ignore quota / privacy-mode failures — views are a convenience.
     }
+    version++;
 }
 
 export const filterViews = {
     /** Reactive list of saved views for a dashboard. */
     list(dashboardId: string): FilterView[] {
-        load(dashboardId);
-        return cache[dashboardId] ?? [];
+        void version; // subscribe to changes without mutating state here
+        ensureLoaded(dashboardId);
+        return mem[dashboardId] ?? [];
     },
 
     /** Save the given values as a new named view; returns it. */
     save(dashboardId: string, name: string, values: Record<string, unknown>): FilterView {
-        load(dashboardId);
+        ensureLoaded(dashboardId);
         const view: FilterView = {
             id: crypto.randomUUID(),
             name: name.trim(),
             values: { ...values },
         };
-        persist(dashboardId, [...(cache[dashboardId] ?? []), view]);
+        persist(dashboardId, [...(mem[dashboardId] ?? []), view]);
         return view;
     },
 
     /** Remove a saved view by id. */
     remove(dashboardId: string, id: string): void {
-        load(dashboardId);
-        persist(dashboardId, (cache[dashboardId] ?? []).filter(v => v.id !== id));
+        ensureLoaded(dashboardId);
+        persist(dashboardId, (mem[dashboardId] ?? []).filter(v => v.id !== id));
     },
 };

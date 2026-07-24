@@ -53,13 +53,8 @@
     let creatingError = $state('');
 
     const collapsed = $derived(uiStore.sidebarCollapsed);
-    // Hover-peek: while collapsed to a rail, hovering floats the full tree over
-    // the canvas without pushing it. `expanded` drives what the template renders.
-    let peek = $state(false);
-    const expanded = $derived(!collapsed || peek);
-    let peekTimer = 0;
-    function onPeekEnter() { if (collapsed) { clearTimeout(peekTimer); peek = true; } }
-    function onPeekLeave() { peekTimer = window.setTimeout(() => { peek = false; }, 120); }
+    // Collapse/expand is manual only (the header button). No hover behavior.
+    const expanded = $derived(!collapsed);
 
     const folders = $derived(dashboardStore.folders);
     const dashboards = $derived(dashboardStore.allDashboards);
@@ -332,19 +327,7 @@
     </div>
 {/snippet}
 
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-<!-- The slot reserves the rail's 44px in flow; the nav floats to full width on
-     peek so the tree overlays the canvas instead of shifting it. -->
-<div class="explorer-slot" class:collapsed={collapsed && !peek}>
-<nav
-    class="explorer"
-    class:collapsed={collapsed && !peek}
-    class:peeking={collapsed && peek}
-    aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}
-    onmouseenter={onPeekEnter}
-    onmouseleave={onPeekLeave}
-    onfocusin={onPeekEnter}
->
+<nav class="explorer" class:collapsed aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}>
     <!-- ── Sidebar header (44px) — wordmark + collapse toggle ──────────────── -->
     <div class="sidebar-header" class:collapsed={!expanded}>
         {#if expanded}
@@ -538,7 +521,6 @@
         {/if}
     </div>
 </nav>
-</div>
 
 <!-- Edit name + description (single step) -->
 <Dialog.Root bind:open={editOpen}>
@@ -592,38 +574,17 @@
 </Dialog.Root>
 
 <style>
-    /* Slot reserves the in-flow footprint (rail 44px or pinned 240px); the nav
-       is absolutely positioned inside it so a peek can float wider than the
-       reserved width without reflowing the dashboard. */
-    .explorer-slot {
-        position: relative;
+    .explorer {
         width: 240px;
         flex-shrink: 0;
-        transition: width 0.2s ease;
-        z-index: 20;
-    }
-    .explorer-slot.collapsed { width: 44px; }
-
-    .explorer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: 240px;
         background: var(--sqlviz-bg-surface);
         border-right: 1px solid var(--sqlviz-hairline);
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        transition: width 0.2s ease, box-shadow 0.2s ease;
+        transition: width 0.2s ease;
     }
     .explorer.collapsed { width: 44px; }
-    /* Floating peek — full width with a drawer shadow, overlaying the canvas. */
-    .explorer.peeking {
-        width: 240px;
-        box-shadow: var(--sqlviz-shadow-drawer);
-        border-right-color: var(--sqlviz-border);
-    }
 
     /* ── Sidebar header (44px, fixed) ─────────────────────────── */
     .sidebar-header {
