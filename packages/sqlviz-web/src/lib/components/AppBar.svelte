@@ -1,6 +1,7 @@
 <script lang="ts">
     import { Code2, Eye, Loader2, RotateCcw, Share2 } from 'lucide-svelte';
     import FilterControl from '$lib/components/FilterControl.svelte';
+    import FilterViews from '$lib/components/FilterViews.svelte';
     import ShareModal from '$lib/components/ShareModal.svelte';
     import * as Tooltip from '$lib/components/ui/tooltip/index.js';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
@@ -99,6 +100,7 @@
                             onChange={dashboardStore.handleFilterChange}
                         />
                     {/each}
+                    <FilterViews />
                 </div>
             {/if}
         {/if}

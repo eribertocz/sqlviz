@@ -9,14 +9,23 @@ import { uiStore } from '$lib/stores/uiStore.svelte';
 afterEach(() => {
     cleanup();
     editMode.set(false);
+    // Reset to the rail-by-default state so tests stay isolated from the
+    // singleton uiStore that others toggle.
+    if (!uiStore.sidebarCollapsed) uiStore.toggleSidebar();
     vi.unstubAllGlobals();
 });
 
+// The sidebar is a rail by default (collapsed); the tree/toolbar only render
+// when expanded, so edit-flow tests expand it first.
+function expandSidebar() {
+    if (uiStore.sidebarCollapsed) uiStore.toggleSidebar();
+}
+
 describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
-    it('mounts in preview mode without throwing and shows a collapse toggle', () => {
+    it('mounts as a rail by default and shows an expand toggle', () => {
         editMode.set(false);
         const { getByLabelText } = render(DashboardExplorer);
-        expect(getByLabelText('Collapse sidebar')).toBeTruthy();
+        expect(getByLabelText('Expand sidebar')).toBeTruthy();
     });
 
     it('mounts in edit mode without throwing', () => {
@@ -49,6 +58,7 @@ describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
         await dashboardStore.bootstrap();
         const createFolder = vi.spyOn(dashboardStore, 'createFolder').mockResolvedValue(undefined);
         editMode.set(true);
+        expandSidebar();
         const screen = render(DashboardExplorer);
 
         // Clicking "New group" opens an inline input in the tree — never a modal.
@@ -78,6 +88,7 @@ describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
         await dashboardStore.bootstrap();
         const createDashboard = vi.spyOn(dashboardStore, 'createDashboard').mockResolvedValue(undefined);
         editMode.set(true);
+        expandSidebar();
         const screen = render(DashboardExplorer);
 
         // Select the folder, then create a dashboard — it must land inside it,
@@ -97,6 +108,7 @@ describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
         await dashboardStore.bootstrap();
         const createFolder = vi.spyOn(dashboardStore, 'createFolder').mockResolvedValue(undefined);
         editMode.set(true);
+        expandSidebar();
         const screen = render(DashboardExplorer);
 
         await fireEvent.click(screen.getByLabelText('New group'));
@@ -115,6 +127,7 @@ describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
         await dashboardStore.bootstrap();
         const createDashboard = vi.spyOn(dashboardStore, 'createDashboard').mockResolvedValue(undefined);
         editMode.set(true);
+        expandSidebar();
         const screen = render(DashboardExplorer);
 
         await fireEvent.click(screen.getByLabelText('New dashboard'));

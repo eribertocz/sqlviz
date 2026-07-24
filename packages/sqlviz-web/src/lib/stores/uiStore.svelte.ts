@@ -12,7 +12,13 @@ function createUiStore() {
     let newDashboardName  = $state('');
     let toast             = $state<string | null>(null);
     let editorHeightPx    = $state(DEFAULT_EDITOR_HEIGHT_PX);
-    let sidebarCollapsed  = $state(false);
+    // Rail-by-default (Notion/VS Code): the sidebar starts collapsed so the
+    // dashboard owns the canvas; a hover-peek restores the full tree on demand.
+    let sidebarCollapsed  = $state(true);
+    // Focus / Zen mode — hides all chrome for a full-bleed dashboard.
+    let focusMode         = $state(false);
+    // Editor drawer visibility (floats over the dashboard rather than pushing).
+    let editorOpen        = $state(true);
 
     let toastTimer = 0;
 
@@ -27,9 +33,9 @@ function createUiStore() {
         if (Number.isFinite(savedHeight) && savedHeight > 0) {
             editorHeightPx = clampHeight(savedHeight);
         }
-        if (localStorage.getItem(SIDEBAR_KEY) === '1') {
-            sidebarCollapsed = true;
-        }
+        const savedSidebar = localStorage.getItem(SIDEBAR_KEY);
+        if (savedSidebar === '0') sidebarCollapsed = false;
+        else if (savedSidebar === '1') sidebarCollapsed = true;
     }
 
     function toggleSidebar() {
@@ -46,6 +52,9 @@ function createUiStore() {
         }
         localStorage.setItem(THEME_KEY, theme);
     }
+
+    function toggleFocusMode() { focusMode = !focusMode; }
+    function toggleEditor()    { editorOpen = !editorOpen; }
 
     function clampHeight(px: number): number {
         return Math.min(MAX_EDITOR_HEIGHT_PX, Math.max(MIN_EDITOR_HEIGHT_PX, px));
@@ -73,10 +82,16 @@ function createUiStore() {
         get toast() { return toast; },
         get editorHeightPx() { return editorHeightPx; },
         get sidebarCollapsed() { return sidebarCollapsed; },
+        get focusMode() { return focusMode; },
+        set focusMode(v: boolean) { focusMode = v; },
+        get editorOpen() { return editorOpen; },
+        set editorOpen(v: boolean) { editorOpen = v; },
 
         initTheme,
         toggleTheme,
         toggleSidebar,
+        toggleFocusMode,
+        toggleEditor,
         setEditorHeight,
         showToast,
     };

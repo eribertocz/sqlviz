@@ -53,6 +53,14 @@
     let creatingError = $state('');
 
     const collapsed = $derived(uiStore.sidebarCollapsed);
+    // Hover-peek: while collapsed to a rail, hovering floats the full tree over
+    // the canvas without pushing it. `expanded` drives what the template renders.
+    let peek = $state(false);
+    const expanded = $derived(!collapsed || peek);
+    let peekTimer = 0;
+    function onPeekEnter() { if (collapsed) { clearTimeout(peekTimer); peek = true; } }
+    function onPeekLeave() { peekTimer = window.setTimeout(() => { peek = false; }, 120); }
+
     const folders = $derived(dashboardStore.folders);
     const dashboards = $derived(dashboardStore.allDashboards);
     const nonEmptyFolders = $derived(folders.filter(f => inFolder(f.id).length > 0));
@@ -324,12 +332,26 @@
     </div>
 {/snippet}
 
-<nav class="explorer" class:collapsed aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}>
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- The slot reserves the rail's 44px in flow; the nav floats to full width on
+     peek so the tree overlays the canvas instead of shifting it. -->
+<div class="explorer-slot" class:collapsed={collapsed && !peek}>
+<nav
+    class="explorer"
+    class:collapsed={collapsed && !peek}
+    class:peeking={collapsed && peek}
+    aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}
+    onmouseenter={onPeekEnter}
+    onmouseleave={onPeekLeave}
+    onfocusin={onPeekEnter}
+>
     <!-- ── Sidebar header (44px) — wordmark + collapse toggle ──────────────── -->
-    <div class="sidebar-header" class:collapsed>
-        {#if !collapsed}
+    <div class="sidebar-header" class:collapsed={!expanded}>
+        {#if expanded}
             <span class="brand-name">SQLviz</span>
-            <button class="hbtn" onclick={uiStore.toggleSidebar} title="Collapse sidebar" aria-label="Collapse sidebar">
+            <button class="hbtn" onclick={uiStore.toggleSidebar}
+                title={collapsed ? 'Pin sidebar open' : 'Collapse sidebar'}
+                aria-label={collapsed ? 'Pin sidebar open' : 'Collapse sidebar'}>
                 <PanelLeftCloseIcon size={16} />
             </button>
         {:else}
@@ -340,7 +362,7 @@
     </div>
 
     <!-- ── EXPLORER toolbar (32px) — edit mode, expanded only ──────────────── -->
-    {#if $editMode && !collapsed}
+    {#if $editMode && expanded}
         <div class="explorer-toolbar">
             <span class="explorer-title">Explorer</span>
             <div class="explorer-actions">
@@ -358,12 +380,12 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
         class="explorer-body"
-        class:fill={$editMode && !collapsed}
+        class:fill={$editMode && expanded}
         onclick={(e) => { if ($editMode && e.target === e.currentTarget) selectRoot(); }}
     >
         {#if dashboardStore.dashboardsLoading}
             {#each Array(5) as _, i (i)}
-                {#if collapsed}
+                {#if !expanded}
                     <div class="skeleton-rail"><Skeleton class="size-7 rounded-md" /></div>
                 {:else}
                     <div class="skeleton-row">
@@ -373,7 +395,7 @@
                 {/if}
             {/each}
 
-        {:else if collapsed}
+        {:else if !expanded}
             <Tooltip.Provider delayDuration={200}>
                 {#each nonEmptyFolders as f (f.id)}
                     {#each inFolder(f.id) as d (d.id)}
@@ -484,8 +506,8 @@
     </div>
 
     <!-- ── Sidebar footer — Settings (admin) + theme toggle, both modes ─────── -->
-    <div class="sidebar-footer" class:collapsed>
-        {#if collapsed}
+    <div class="sidebar-footer" class:collapsed={!expanded}>
+        {#if !expanded}
             <Tooltip.Provider delayDuration={200}>
                 <Tooltip.Root>
                     <Tooltip.Trigger class="foot-btn" onclick={() => uiStore.showToast('Settings coming soon')} aria-label="Settings">
@@ -516,6 +538,7 @@
         {/if}
     </div>
 </nav>
+</div>
 
 <!-- Edit name + description (single step) -->
 <Dialog.Root bind:open={editOpen}>
@@ -569,17 +592,38 @@
 </Dialog.Root>
 
 <style>
-    .explorer {
+    /* Slot reserves the in-flow footprint (rail 44px or pinned 240px); the nav
+       is absolutely positioned inside it so a peek can float wider than the
+       reserved width without reflowing the dashboard. */
+    .explorer-slot {
+        position: relative;
         width: 240px;
         flex-shrink: 0;
+        transition: width 0.2s ease;
+        z-index: 20;
+    }
+    .explorer-slot.collapsed { width: 44px; }
+
+    .explorer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 240px;
         background: var(--sqlviz-bg-surface);
         border-right: 1px solid var(--sqlviz-hairline);
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        transition: width 0.2s ease;
+        transition: width 0.2s ease, box-shadow 0.2s ease;
     }
     .explorer.collapsed { width: 44px; }
+    /* Floating peek — full width with a drawer shadow, overlaying the canvas. */
+    .explorer.peeking {
+        width: 240px;
+        box-shadow: var(--sqlviz-shadow-drawer);
+        border-right-color: var(--sqlviz-border);
+    }
 
     /* ── Sidebar header (44px, fixed) ─────────────────────────── */
     .sidebar-header {

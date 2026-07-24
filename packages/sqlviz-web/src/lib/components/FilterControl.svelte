@@ -28,6 +28,17 @@
     // so the outer .filter-control.pill reads as one small pill.
     const chip = $derived(pill ? 'filter-chip-el' : '');
 
+    // A pill reflects its state: ghost (dashed) when empty, accent when active.
+    const hasValue = $derived.by(() => {
+        if (control.control_type === 'multiselect') return selectedArray.length > 0;
+        if (control.control_type === 'range_slider'
+            || control.control_type === 'date_range_picker') {
+            return rangeFrom !== '' || rangeTo !== '';
+        }
+        if (control.control_type === 'toggle') return !!currentVal;
+        return currentVal !== '' && currentVal !== undefined && currentVal !== null;
+    });
+
     const vars = $derived(control.variable.split(',').map(v => v.trim()));
 
     const currentVal = $derived(filterVals[vars[0]] ?? '');
@@ -113,7 +124,7 @@
     );
 </script>
 
-<div class="filter-control" class:pill>
+<div class="filter-control" class:pill class:active={pill && hasValue}>
     <span class="filter-label">{control.label}</span>
 
     {#if control.control_type === 'dropdown'}
@@ -299,18 +310,26 @@
     }
 
     /* ── Header chip (pill) rendering ─────────────────────────────────────── */
+    /* Empty = ghost (dashed, muted); active = accent (solid, tinted). */
     .filter-control.pill {
         gap: 0.375rem;
         padding: 3px 10px;
-        border: 1px solid var(--sqlviz-border);
+        border: 1px dashed var(--sqlviz-border);
         border-radius: 100px;
-        background: var(--sqlviz-bg);
+        background: transparent;
         font-size: 11px;
         line-height: 1.4;
         cursor: pointer;
-        transition: border-color 0.12s ease, background 0.12s ease;
+        transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
     }
     .filter-control.pill:hover { border-color: var(--sqlviz-primary); }
+
+    .filter-control.pill.active {
+        border-style: solid;
+        border-color: color-mix(in srgb, var(--sqlviz-primary) 45%, var(--sqlviz-border));
+        background: color-mix(in srgb, var(--sqlviz-primary) 10%, transparent);
+    }
+    .filter-control.pill.active .filter-label { color: var(--sqlviz-primary); }
 
     .filter-control.pill .filter-label {
         font-size: 11px;

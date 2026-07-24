@@ -31,7 +31,9 @@ describe('/ (dashboard)', () => {
 
         render(Page);
 
-        expect(await screen.findByText('SQLviz')).toBeTruthy();
+        // Sidebar is a rail by default, so the app shell is proven by its
+        // expand toggle rather than the (now collapsed) wordmark.
+        expect(await screen.findByLabelText('Expand sidebar')).toBeTruthy();
         expect(await screen.findByText(/Switch to Edit mode to write SQL/i)).toBeTruthy();
     });
 });

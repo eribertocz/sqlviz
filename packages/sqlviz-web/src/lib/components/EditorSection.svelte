@@ -1,12 +1,12 @@
 <script lang="ts">
-    import { Loader2, Play, X } from 'lucide-svelte';
+    import { Loader2, Play, X, ChevronsDownUp } from 'lucide-svelte';
     import SQLEditor from '$lib/components/SQLEditor.svelte';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { executionStore } from '$lib/stores/executionStore.svelte';
     import { uiStore } from '$lib/stores/uiStore.svelte';
 </script>
 
-<div class="editor-section" style="height: {uiStore.editorHeightPx}px">
+<div class="editor-section">
     <div class="editor-toolbar">
         <button class="run-btn" onclick={dashboardStore.run} disabled={executionStore.executing}>
             <span class="run-icon">
@@ -20,19 +20,25 @@
         </button>
         <kbd class="shortcut">Ctrl+Enter</kbd>
 
-        {#if executionStore.errorMsg}
-            <div class="error-chip" title={executionStore.errorMsg}>
-                <X size={12} />
-                <span class="error-text">{executionStore.errorMsg}</span>
-            </div>
-        {:else if executionStore.executing && executionStore.statusMsg && dashboardStore.hasLayout}
-            <span class="exec-inline">{executionStore.statusMsg}</span>
-        {:else if dashboardStore.statementCount > 0}
-            <span class="statement-count">
-                {dashboardStore.statementCount} {dashboardStore.statementCount === 1 ? 'statement' : 'statements'}
-                → {dashboardStore.statementCount} {dashboardStore.statementCount === 1 ? 'panel' : 'panels'}
-            </span>
-        {/if}
+        <div class="toolbar-status">
+            {#if executionStore.errorMsg}
+                <div class="error-chip" title={executionStore.errorMsg}>
+                    <X size={12} />
+                    <span class="error-text">{executionStore.errorMsg}</span>
+                </div>
+            {:else if executionStore.executing && executionStore.statusMsg && dashboardStore.hasLayout}
+                <span class="exec-inline">{executionStore.statusMsg}</span>
+            {:else if dashboardStore.statementCount > 0}
+                <span class="statement-count">
+                    {dashboardStore.statementCount} {dashboardStore.statementCount === 1 ? 'statement' : 'statements'}
+                    → {dashboardStore.statementCount} {dashboardStore.statementCount === 1 ? 'panel' : 'panels'}
+                </span>
+            {/if}
+        </div>
+
+        <button class="editor-close" onclick={uiStore.toggleEditor} title="Hide editor (Ctrl+E)" aria-label="Hide editor">
+            <ChevronsDownUp size={14} />
+        </button>
     </div>
 
     <div class="editor-wrapper">
@@ -42,11 +48,36 @@
 
 <style>
     .editor-section {
-        flex-shrink: 0;
-        border-bottom: 1px solid var(--sqlviz-border);
+        flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
     }
+
+    .toolbar-status {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .editor-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        flex-shrink: 0;
+        border: none;
+        background: none;
+        color: var(--sqlviz-text-muted);
+        border-radius: var(--sqlviz-radius);
+        cursor: pointer;
+        transition: background 0.12s, color 0.12s;
+    }
+    .editor-close:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
 
     .editor-toolbar {
         height: 32px;
@@ -122,7 +153,6 @@
     }
 
     .statement-count {
-        margin-left: auto;
         flex-shrink: 1;
         min-width: 0;
         overflow: hidden;
