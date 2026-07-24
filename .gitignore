@@ -19,8 +19,9 @@ node_modules/
 packages/sqlviz-api/src/sqlviz_api/static/dist/
 
 # ── SQLviz runtime ────────────────────────────────────────────────────────────
-# User project databases — not source code
+# User project databases + DuckDB write-ahead logs — not source code
 *.sqlviz
+*.wal
 
 # ── Temp / OS ─────────────────────────────────────────────────────────────────
 .DS_Store
