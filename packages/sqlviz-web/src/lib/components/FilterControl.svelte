@@ -119,7 +119,7 @@
     {#if control.control_type === 'dropdown'}
         {#if hasOptions}
             <Select.Root type="single" value={currentVal as string}
-                onValueChange={(v) => onChange(vars[0], v ?? '')}>
+                onValueChange={(v) => onChange(vars[0], v === '__clear__' ? '' : (v ?? ''))}>
                 <Select.Trigger class="h-7 min-w-[120px] text-xs {chip}">
                     {#if currentVal}
                         {String(currentVal)}
@@ -128,14 +128,20 @@
                     {/if}
                 </Select.Trigger>
                 <Select.Content>
+                    <!-- Empty state = "no filter". The clear action lives inside
+                         the dropdown so the header pill stays clean (no × chip). -->
+                    {#if currentVal}
+                        <Select.Item value="__clear__" label="Clear filter">
+                            <XIcon class="mr-1 size-3.5" /> Clear filter
+                        </Select.Item>
+                        <Select.Separator />
+                    {/if}
                     {#each options as opt}
                         <Select.Item value={opt} label={opt}>{opt}</Select.Item>
                     {/each}
                 </Select.Content>
             </Select.Root>
-            {#if currentVal}
-                <!-- Empty state = "no filter". Clearing removes the filter so
-                     all rows show again (backend treats empty as "All"). -->
+            {#if currentVal && !pill}
                 <button type="button" class="filter-clear" title="Clear filter"
                     aria-label="Clear filter" onclick={() => onChange(vars[0], '')}>
                     <XIcon class="size-3" />

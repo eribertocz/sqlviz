@@ -106,33 +106,44 @@
 
     <div class="bar-right">
         {#if dashboardStore.activeDashboard}
-            <button class="share-btn" onclick={() => (shareOpen = true)} title="Share dashboard">
-                <Share2 size={14} /> Share
-            </button>
-
             <Tooltip.Provider delayDuration={200}>
+                <!-- Share — icon-only, 28x28, tooltip -->
                 <Tooltip.Root>
                     <Tooltip.Trigger
-                        class="mode-icon {!$editMode ? 'active' : ''}"
-                        aria-label="Preview"
-                        aria-pressed={!$editMode}
-                        onclick={() => editMode.set(false)}
+                        class="icon-btn"
+                        aria-label="Share"
+                        onclick={() => (shareOpen = true)}
                     >
-                        <Eye size={16} />
+                        <Share2 size={16} />
                     </Tooltip.Trigger>
-                    <Tooltip.Content>Preview</Tooltip.Content>
+                    <Tooltip.Content>Share</Tooltip.Content>
                 </Tooltip.Root>
-                <Tooltip.Root>
-                    <Tooltip.Trigger
-                        class="mode-icon {$editMode ? 'active' : ''}"
-                        aria-label="Edit"
-                        aria-pressed={$editMode}
-                        onclick={() => editMode.set(true)}
-                    >
-                        <Code2 size={16} />
-                    </Tooltip.Trigger>
-                    <Tooltip.Content>Edit</Tooltip.Content>
-                </Tooltip.Root>
+
+                <!-- Preview / Edit — segmented control (GitHub-style) -->
+                <div class="seg" role="group" aria-label="Dashboard mode">
+                    <Tooltip.Root>
+                        <Tooltip.Trigger
+                            class="seg-btn {!$editMode ? 'active' : ''}"
+                            aria-label="Preview"
+                            aria-pressed={!$editMode}
+                            onclick={() => editMode.set(false)}
+                        >
+                            <Eye size={16} />
+                        </Tooltip.Trigger>
+                        <Tooltip.Content>Preview</Tooltip.Content>
+                    </Tooltip.Root>
+                    <Tooltip.Root>
+                        <Tooltip.Trigger
+                            class="seg-btn seg-btn-r {$editMode ? 'active' : ''}"
+                            aria-label="Edit"
+                            aria-pressed={$editMode}
+                            onclick={() => editMode.set(true)}
+                        >
+                            <Code2 size={16} />
+                        </Tooltip.Trigger>
+                        <Tooltip.Content>Edit</Tooltip.Content>
+                    </Tooltip.Root>
+                </div>
             </Tooltip.Provider>
         {/if}
     </div>
@@ -262,31 +273,8 @@
         flex-shrink: 0;
     }
 
-    /* Share — bordered button with icon + label */
-    .share-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.375rem;
-        height: 28px;
-        padding: 0 0.75rem;
-        background: none;
-        border: 1px solid var(--sqlviz-border);
-        border-radius: var(--sqlviz-radius);
-        cursor: pointer;
-        font-size: 0.8125rem;
-        font-weight: 500;
-        color: var(--sqlviz-text-muted);
-        transition: background 0.15s, color 0.15s, border-color 0.15s;
-        white-space: nowrap;
-    }
-    .share-btn:hover {
-        color: var(--sqlviz-text);
-        border-color: var(--sqlviz-primary);
-        background: color-mix(in srgb, var(--sqlviz-primary) 8%, transparent);
-    }
-
-    /* Preview / Edit — borderless 28x28 icon buttons; active gets an accent tint */
-    :global(.mode-icon) {
+    /* Share — borderless 28x28 icon button with tooltip */
+    :global(.icon-btn) {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -299,11 +287,38 @@
         color: var(--sqlviz-text-muted);
         transition: background 0.15s, color 0.15s;
     }
-    :global(.mode-icon:hover) {
+    :global(.icon-btn:hover) {
         background: var(--sqlviz-bg-base);
         color: var(--sqlviz-text);
     }
-    :global(.mode-icon.active) {
+
+    /* Preview / Edit — segmented control: unified outer border, internal
+       divider, active segment gets the accent tint. */
+    .seg {
+        display: inline-flex;
+        align-items: stretch;
+        border: 1px solid var(--sqlviz-border);
+        border-radius: var(--sqlviz-radius);
+        overflow: hidden;
+    }
+    :global(.seg-btn) {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 28px;
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: var(--sqlviz-text-muted);
+        transition: background 0.15s, color 0.15s;
+    }
+    :global(.seg-btn.seg-btn-r) { border-left: 1px solid var(--sqlviz-border); }
+    :global(.seg-btn:hover:not(.active)) {
+        background: var(--sqlviz-bg-base);
+        color: var(--sqlviz-text);
+    }
+    :global(.seg-btn.active) {
         background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent);
         color: var(--sqlviz-primary);
     }
