@@ -73,9 +73,10 @@ def main() -> None:
     )
     parser.add_argument(
         "--host",
-        default="127.0.0.1",
+        default="0.0.0.0",
         metavar="HOST",
-        help="Bind address (default: 127.0.0.1).",
+        help="Bind address (default: 0.0.0.0 — reachable on your LAN so share "
+             "links work from other machines). Use 127.0.0.1 for localhost-only.",
     )
     parser.add_argument(
         "--no-browser",
