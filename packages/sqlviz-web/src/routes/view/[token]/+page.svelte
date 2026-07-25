@@ -513,7 +513,7 @@
 
     .viewer-brand { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
     .viewer-brand .brand-icon { display: block; flex-shrink: 0; }
-    .viewer-brand .brand-name { font-size: 0.9375rem; letter-spacing: -0.01em; white-space: nowrap; }
+    .viewer-brand .brand-name { font-family: 'Geist Sans', var(--sqlviz-font-sans); font-weight: 600; font-size: 0.9375rem; letter-spacing: -0.025em; white-space: nowrap; }
     .brand-sql { color: var(--sqlviz-text-primary); font-weight: 600; }
     .brand-viz { color: var(--sqlviz-primary); font-weight: 600; }
 

@@ -593,8 +593,10 @@
     .brand-icon { display: block; flex-shrink: 0; }
 
     .brand-name {
+        font-family: 'Geist Sans', var(--sqlviz-font-sans);
+        font-weight: 600;
         font-size: 0.9375rem;
-        letter-spacing: -0.01em;
+        letter-spacing: -0.025em;
         white-space: nowrap;
         overflow: hidden;
     }
