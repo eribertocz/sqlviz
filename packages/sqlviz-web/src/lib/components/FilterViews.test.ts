@@ -13,10 +13,9 @@ afterEach(() => {
 let n = 0;
 const freshId = () => `fv-dash-${++n}`;
 
-/** bits-ui popovers open on pointerdown, which jsdom does not derive from click. */
+/** bits-ui popovers open on a left-button click. */
 async function openPopover(trigger: Element) {
-    await fireEvent.pointerDown(trigger, { pointerType: 'mouse', button: 0 });
-    await fireEvent.click(trigger);
+    await fireEvent.click(trigger, { button: 0 });
 }
 
 function mount(dashboardId: string | null, currentValues: Record<string, unknown> = {}) {

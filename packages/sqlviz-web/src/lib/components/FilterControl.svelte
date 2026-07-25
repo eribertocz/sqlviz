@@ -1,6 +1,5 @@
 <script lang="ts">
     import type { FilterControl, FilterDomain } from '$lib/types';
-    import * as Select from '$lib/components/ui/select/index.js';
     import * as Popover from '$lib/components/ui/popover/index.js';
     import * as Command from '$lib/components/ui/command/index.js';
     import { Slider } from '$lib/components/ui/slider/index.js';
@@ -71,6 +70,7 @@
     ]);
 
     let comboOpen = $state(false);
+    let dropdownOpen = $state(false);
 
     // ── Date <-> string helpers (@internationalized/date) ────────────────────
     function toDate(s: unknown): DateValue | undefined {
@@ -96,6 +96,14 @@
         const arr = (e.target as HTMLInputElement).value
             .split(',').map(v => v.trim()).filter(Boolean);
         onChange(vars[0], arr);
+    }
+    function selectOption(opt: string) {
+        onChange(vars[0], opt);
+        dropdownOpen = false;
+    }
+    function clearDropdown() {
+        onChange(vars[0], '');
+        dropdownOpen = false;
     }
     function toggleOption(opt: string) {
         const next = selectedArray.includes(opt)
@@ -129,29 +137,46 @@
 
     {#if control.control_type === 'dropdown'}
         {#if hasOptions}
-            <Select.Root type="single" value={currentVal as string}
-                onValueChange={(v) => onChange(vars[0], v === '__clear__' ? '' : (v ?? ''))}>
-                <Select.Trigger class="h-7 min-w-[120px] text-xs {chip}">
+            <!-- Same searchable combobox as the multiselect below, but single
+                 choice: filter domains routinely run to dozens of values, where
+                 scrolling a plain list to find one is the slow way round. -->
+            <Popover.Root bind:open={dropdownOpen}>
+                <Popover.Trigger class="inline-flex h-7 min-w-[120px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
                     {#if currentVal}
                         {String(currentVal)}
                     {:else}
                         <span class="filter-placeholder">Select…</span>
                     {/if}
-                </Select.Trigger>
-                <Select.Content>
-                    <!-- Empty state = "no filter". The clear action lives inside
-                         the dropdown so the header pill stays clean (no × chip). -->
-                    {#if currentVal}
-                        <Select.Item value="__clear__" label="Clear filter">
-                            <XIcon class="mr-1 size-3.5" /> Clear filter
-                        </Select.Item>
-                        <Select.Separator />
-                    {/if}
-                    {#each options as opt}
-                        <Select.Item value={opt} label={opt}>{opt}</Select.Item>
-                    {/each}
-                </Select.Content>
-            </Select.Root>
+                    <ChevronsUpDownIcon class="ml-2 size-3 opacity-50" />
+                </Popover.Trigger>
+                <Popover.Content class="w-[220px] p-0" align="start">
+                    <Command.Root>
+                        <Command.Input placeholder="Search…" class="h-8 text-xs" />
+                        <Command.List>
+                            <Command.Empty>No results.</Command.Empty>
+                            <!-- Empty state = "no filter". The clear action lives
+                                 inside the dropdown so the header pill stays
+                                 clean (no × chip). -->
+                            {#if currentVal}
+                                <Command.Group>
+                                    <Command.Item value="Clear filter" onSelect={clearDropdown}>
+                                        <XIcon class="mr-2 size-3.5" /> Clear filter
+                                    </Command.Item>
+                                </Command.Group>
+                                <Command.Separator />
+                            {/if}
+                            <Command.Group>
+                                {#each options as opt}
+                                    <Command.Item value={opt} onSelect={() => selectOption(opt)}>
+                                        <CheckIcon class={`mr-2 size-4 ${currentVal === opt ? 'opacity-100' : 'opacity-0'}`} />
+                                        {opt}
+                                    </Command.Item>
+                                {/each}
+                            </Command.Group>
+                        </Command.List>
+                    </Command.Root>
+                </Popover.Content>
+            </Popover.Root>
             {#if currentVal && !pill}
                 <button type="button" class="filter-clear" title="Clear filter"
                     aria-label="Clear filter" onclick={() => onChange(vars[0], '')}>
