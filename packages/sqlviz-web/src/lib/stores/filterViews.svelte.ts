@@ -34,6 +34,18 @@ function ensureLoaded(dashboardId: string): void {
     mem[dashboardId] = arr;
 }
 
+/**
+ * `crypto.randomUUID` is gated to secure contexts, and dashboards are shared
+ * over `http://<LAN-IP>` — there it is undefined, so every save from a viewer
+ * on the network threw. `getRandomValues` carries no such restriction.
+ */
+function newId(): string {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    const buf = new Uint8Array(16);
+    crypto.getRandomValues(buf);
+    return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 function persist(dashboardId: string, views: FilterView[]): void {
     mem[dashboardId] = views;
     try {
@@ -56,7 +68,7 @@ export const filterViews = {
     save(dashboardId: string, name: string, values: Record<string, unknown>): FilterView {
         ensureLoaded(dashboardId);
         const view: FilterView = {
-            id: crypto.randomUUID(),
+            id: newId(),
             name: name.trim(),
             values: { ...values },
         };
