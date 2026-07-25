@@ -108,7 +108,11 @@ def create_app(
                     dest == "" and "text/html" in accept
                 )
                 if is_navigation:
-                    return FileResponse(_index_html)
+                    # no-store so the browser never reuses this shell for the
+                    # viewer's JSON fetch to the same /view/<token> URL.
+                    return FileResponse(
+                        _index_html, headers={"Cache-Control": "no-store"}
+                    )
             return await call_next(request)
 
         protected = APIRouter(dependencies=[Depends(require_admin)])

@@ -215,9 +215,13 @@
         const token = window.location.pathname.split('/').at(-1) ?? '';
 
         try {
-            // Explicit JSON so the SPA-shell middleware never serves this the
-            // HTML page (that would make resp.json() throw).
-            const resp = await fetch(`/view/${token}`, { headers: { Accept: 'application/json' } });
+            // Explicit JSON + no-store so the browser never reuses the cached
+            // SPA-shell HTML (same URL as this data fetch) — that would make
+            // resp.json() throw "Unexpected token '<'".
+            const resp = await fetch(`/view/${token}`, {
+                headers: { Accept: 'application/json' },
+                cache: 'no-store',
+            });
             if (!resp.ok) {
                 loadError = 'Dashboard not found or link has expired.';
                 viewerState = 'error';
