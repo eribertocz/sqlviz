@@ -74,6 +74,33 @@ body {
   font-family: var(--sqlviz-font-sans);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * Scrollbars — thin, floating, theme-aware.
+ *
+ * The thumb is a translucent tint of --sqlviz-text, so it reads as a soft grey
+ * on dark backgrounds and a soft charcoal on light ones — no white gutters, no
+ * OS chrome. A transparent border + padding-box clip gives the thumb breathing
+ * room so it looks like it floats (macOS / GitHub style). Components that hide
+ * their scrollbar (.filters, etc.) use higher-specificity rules and still win.
+ * ───────────────────────────────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--sqlviz-text) 22%, transparent) transparent;
+}
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--sqlviz-text) 20%, transparent);
+  border: 3px solid transparent;
+  border-radius: 100px;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--sqlviz-text) 38%, transparent);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner { background: transparent; }
+
 /* One consistent focus treatment everywhere. Components with their own
    :focus-visible rule (VerticalResizer, FilterControl, auth pages) add a
    higher-specificity class selector (e.g. `.resizer:focus-visible`), so

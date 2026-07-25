@@ -182,6 +182,9 @@
         z-index: 15;
         display: flex;
         flex-direction: column;
+        /* Subtle breathing room so Monaco's bottom edge doesn't sit flush
+           against the screen edge. */
+        padding-bottom: 8px;
         background: var(--sqlviz-bg-surface);
         border-top: 1px solid var(--sqlviz-border);
         box-shadow: var(--sqlviz-shadow-drawer);
