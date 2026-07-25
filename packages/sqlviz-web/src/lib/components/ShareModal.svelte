@@ -5,6 +5,9 @@
     import { apiPost } from '$lib/api';
     import CheckIcon from '@lucide/svelte/icons/check';
     import CopyIcon from '@lucide/svelte/icons/copy';
+    import EyeIcon from '@lucide/svelte/icons/eye';
+    import EyeOffIcon from '@lucide/svelte/icons/eye-off';
+    import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 
     let { open = $bindable(false), dashboardId, dashboardName }: {
         open?: boolean;
@@ -18,15 +21,27 @@
     let scope = $state<Scope>('dashboard');
     let mode = $state<ShareMode>('public');
     let password = $state('');
+    let showPassword = $state(false);
+
+    // Strong, unique, readable password (no ambiguous 0/O/1/l/I).
+    function generatePassword() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+        const n = 16;
+        const buf = new Uint32Array(n);
+        crypto.getRandomValues(buf);
+        password = Array.from(buf, x => chars[x % chars.length]).join('');
+        showPassword = true;
+        invalidateLink();
+    }
     let link = $state('');
     let creating = $state(false);
     let error = $state('');
     let copied = $state(false);
 
     const modes: { value: ShareMode; label: string; hint: string }[] = [
-        { value: 'private',  label: 'Private',            hint: 'Only you can access it' },
-        { value: 'password', label: 'Password protected', hint: 'Link plus a password' },
-        { value: 'public',   label: 'Public',             hint: 'Anyone with the link' },
+        { value: 'private',  label: 'Private (preview)',   hint: 'Only you — preview the viewer; nobody else can open it' },
+        { value: 'password', label: 'Password protected', hint: 'Anyone on the network with the link + password' },
+        { value: 'public',   label: 'Public',             hint: 'Anyone on the network with the link' },
     ];
 
     // Reset transient state each time the modal opens; changing mode/password
@@ -36,6 +51,7 @@
             scope = 'dashboard';
             mode = 'public';
             password = '';
+            showPassword = false;
             link = '';
             error = '';
             copied = false;
@@ -140,13 +156,25 @@
                 </label>
 
                 {#if m.value === 'password' && mode === 'password'}
-                    <Input
-                        type="password"
-                        class="mt-1 h-9 text-sm"
-                        placeholder="Dashboard password"
-                        bind:value={password}
-                        autocomplete="new-password"
-                    />
+                    <div class="pw-row">
+                        <input
+                            class="pw-input"
+                            type={showPassword ? 'text' : 'password'}
+                            placeholder="Password (type or generate)"
+                            bind:value={password}
+                            autocomplete="new-password"
+                        />
+                        <button type="button" class="pw-btn" onclick={() => (showPassword = !showPassword)}
+                            title={showPassword ? 'Hide' : 'Show'} aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                            {#if showPassword}<EyeOffIcon class="size-4" />{:else}<EyeIcon class="size-4" />{/if}
+                        </button>
+                        <button type="button" class="pw-btn pw-gen" onclick={generatePassword} title="Generate a strong password">
+                            <RefreshIcon class="size-4" /> Generate
+                        </button>
+                    </div>
+                    {#if password && showPassword}
+                        <p class="pw-hint">Copy this password — you'll need to share it with viewers.</p>
+                    {/if}
                 {/if}
             {/each}
         </fieldset>
@@ -279,4 +307,39 @@
         font-size: 0.8125rem;
         color: var(--sqlviz-negative);
     }
+
+    /* Password row: input + show toggle + generate */
+    .pw-row { display: flex; align-items: center; gap: 0.375rem; margin-top: 0.25rem; }
+    .pw-input {
+        flex: 1;
+        min-width: 0;
+        height: 36px;
+        padding: 0 0.625rem;
+        font-size: 0.8125rem;
+        font-family: var(--sqlviz-font-mono);
+        color: var(--sqlviz-text);
+        background: var(--sqlviz-bg);
+        border: 1px solid var(--sqlviz-border);
+        border-radius: var(--sqlviz-radius);
+        outline: none;
+    }
+    .pw-input:focus { border-color: var(--sqlviz-primary); }
+    .pw-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        height: 36px;
+        padding: 0 0.625rem;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--sqlviz-text-muted);
+        background: var(--sqlviz-bg-surface);
+        border: 1px solid var(--sqlviz-border);
+        border-radius: var(--sqlviz-radius);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: border-color 0.12s, color 0.12s;
+    }
+    .pw-btn:hover { border-color: var(--sqlviz-primary); color: var(--sqlviz-text); }
+    .pw-hint { margin: 0.375rem 0 0; font-size: 0.75rem; color: var(--sqlviz-text-muted); }
 </style>

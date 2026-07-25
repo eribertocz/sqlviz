@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import socket
 import sys
 import threading
 import time
@@ -19,6 +20,19 @@ _PORT = 4000
 def _open_browser(url: str, delay: float = 1.2) -> None:
     time.sleep(delay)
     webbrowser.open(url)
+
+
+def _lan_ip() -> str | None:
+    """Best-effort LAN IPv4 of this machine (no packets are actually sent)."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("8.8.8.8", 80))  # picks the outbound interface
+            return str(s.getsockname()[0])
+        finally:
+            s.close()
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _try_start_quack(admin_conn: duckdb.DuckDBPyConnection) -> None:
@@ -73,13 +87,25 @@ def serve(
     # Try to start the Quack HTTP server (DuckDB core extension).
     _try_start_quack(conn)
 
-    url = f"http://{host}:{port}"
-    print(f"  Listening on {url}")
+    # When bound to all interfaces, share links must use the LAN IP (not
+    # localhost/0.0.0.0) so other machines can reach them. Open the browser at
+    # that IP so the origin-based links the UI generates are already shareable.
+    if host == "0.0.0.0":
+        lan = _lan_ip()
+        open_url = f"http://{lan}:{port}" if lan else f"http://127.0.0.1:{port}"
+        print(f"  Local:    http://127.0.0.1:{port}")
+        if lan:
+            print(f"  Network:  http://{lan}:{port}")
+            print("            Open the Network URL — Public / Password share links")
+            print("            generated there work across your LAN.")
+    else:
+        open_url = f"http://{host}:{port}"
+        print(f"  Listening on {open_url}")
 
     if open_browser:
         print("  Opening browser...")
         threading.Thread(
-            target=_open_browser, args=(url,), daemon=True
+            target=_open_browser, args=(open_url,), daemon=True
         ).start()
 
     print("  Press Ctrl+C to stop.\n")

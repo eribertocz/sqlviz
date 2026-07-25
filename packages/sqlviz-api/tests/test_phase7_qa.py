@@ -604,23 +604,23 @@ class TestShareFlows:
         assert r.status_code == 201
         return r.json()["token"]
 
-    def test_private_share_accessible_without_session(
+    def test_private_share_blocks_anonymous(
         self, admin_client: TestClient, admin_dash_id: str
     ) -> None:
-        """§9.1 — /view/<token> returns 200 with no session cookie."""
-        token = self._share(admin_client, admin_dash_id)
+        """Private share = admin-only preview → 404 without a session."""
+        token = self._share(admin_client, admin_dash_id)  # default mode=private
         with TestClient(admin_client.app) as anon:
             resp = anon.get(f"/view/{token}")
-        assert resp.status_code == 200
+        assert resp.status_code == 404
 
-    def test_private_share_response_has_dashboard_key(
+    def test_private_share_visible_to_admin(
         self, admin_client: TestClient, admin_dash_id: str
     ) -> None:
-        """§9.1 — Share response body includes dashboard data."""
+        """Private share opens for the authenticated admin, with dashboard data."""
         token = self._share(admin_client, admin_dash_id)
-        with TestClient(admin_client.app) as anon:
-            body = anon.get(f"/view/{token}").json()
-        assert "dashboard" in body
+        resp = admin_client.get(f"/view/{token}")  # admin_client carries the session
+        assert resp.status_code == 200
+        assert "dashboard" in resp.json()
 
     def test_password_share_wrong_password_rejected(
         self, admin_client: TestClient, admin_dash_id: str

@@ -18,7 +18,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from sqlviz_storage.auth import hash_password, verify_password
 from sqlviz_storage.sharing import (
@@ -35,7 +35,7 @@ from sqlviz_api.models import (
     ShareRevokeRequest,
     UnlockRequest,
 )
-from sqlviz_api.routers.auth import AdminDep
+from sqlviz_api.routers.auth import AdminDep, is_admin
 
 router = APIRouter(tags=["shares"])
 
@@ -214,11 +214,14 @@ def revoke_share(
 # ── Public: view share ────────────────────────────────────────────────────────
 
 @router.get("/view/{token}")
-def view_share(token: str, db: DbDep) -> JSONResponse:
+def view_share(token: str, db: DbDep, request: Request) -> JSONResponse:
     """Access a share by token.
 
     Returns 404 for: unknown token, revoked share, rotated secret.
     Never 403 — anti-enumeration principle (DOC7 §4.2).
+
+    mode="private" is an admin-only *preview* link — it only opens for the
+    authenticated admin; anyone else gets 404 (so it's never exposed).
     """
     share = _fetch_share_by_token(db, token)
     secret = get_session_secret(db)
@@ -230,7 +233,10 @@ def view_share(token: str, db: DbDep) -> JSONResponse:
     if str(share["dashboard_id"]) == _WORKSPACE_ID:
         raise HTTPException(status_code=404, detail="Share not found")
 
-    if str(share["mode"]) == "password":
+    mode = str(share["mode"])
+    if mode == "private" and not is_admin(request):
+        raise HTTPException(status_code=404, detail="Share not found")
+    if mode == "password":
         return JSONResponse(content={"requires_password": True, "mode": "password"})
 
     return JSONResponse(content=_dashboard_view_data(db, str(share["dashboard_id"])))
@@ -320,9 +326,12 @@ def _verify_workspace(db: DbDep, token: str) -> dict[str, Any]:
 
 
 @router.get("/view/workspace/{token}")
-def view_workspace_share(token: str, db: DbDep) -> JSONResponse:
+def view_workspace_share(token: str, db: DbDep, request: Request) -> JSONResponse:
     share = _verify_workspace(db, token)
-    if str(share["mode"]) == "password":
+    mode = str(share["mode"])
+    if mode == "private" and not is_admin(request):
+        raise HTTPException(status_code=404, detail="Share not found")
+    if mode == "password":
         return JSONResponse(content={"requires_password": True, "mode": "password"})
     return JSONResponse(content=_workspace_view_data(db))
 

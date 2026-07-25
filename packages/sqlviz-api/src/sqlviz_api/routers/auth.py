@@ -61,6 +61,22 @@ def require_admin(request: Request) -> None:
 AdminDep = Annotated[None, Depends(require_admin)]
 
 
+def is_admin(request: Request) -> bool:
+    """Non-raising admin check, for endpoints that *branch* on auth (e.g. a
+    private share link that only the admin may open). Mirrors require_admin."""
+    if getattr(request.app.state, "demo_mode", False):
+        return True
+    token = request.cookies.get("sqlviz_session")
+    session = _sessions.get(token) if token else None
+    if session is None:
+        return False
+    if time.time() - session["last_seen_at"] > SESSION_LIFETIME_SECONDS:
+        del _sessions[token]
+        return False
+    session["last_seen_at"] = time.time()  # sliding window
+    return True
+
+
 @router.get("/me")
 def me(request: Request, _admin: AdminDep) -> dict[str, str | bool]:
     """GET /api/v1/auth/me — 200 with valid session, 401 without.
