@@ -1,5 +1,6 @@
 <script lang="ts">
     import { editMode } from '$lib/stores/editMode';
+    import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import type { DashboardPanel } from '$lib/types';
     import EChartsRenderer from './EChartsRenderer.svelte';
     import KPIRenderer from './KPIRenderer.svelte';
@@ -22,6 +23,30 @@
     function selectPanel() {
         if ($editMode) onSelect?.(panel.panel_id);
     }
+
+    // ── Inline axis-title editing (edit mode, cartesian charts) ────────────────
+    const spec = $derived(panel.inference_result.visual_spec);
+    const hasAxes = $derived(
+        !!spec && ['line', 'bar', 'bar_horizontal', 'scatter', 'histogram'].includes(spec.chart_type)
+    );
+    const xTitle = $derived((spec?.x_label || spec?.x_field) ?? '');
+    const yTitle = $derived((spec?.y_label || spec?.y_fields[0]) ?? '');
+
+    let editingAxis = $state<'x_label' | 'y_label' | null>(null);
+    let axisDraft = $state('');
+    function startEditAxis(axis: 'x_label' | 'y_label', current: string) {
+        editingAxis = axis;
+        axisDraft = current;
+    }
+    function commitAxis() {
+        if (editingAxis) dashboardStore.setViewOverride(panel.panel_id, editingAxis, axisDraft);
+        editingAxis = null;
+    }
+    function axisKeydown(e: KeyboardEvent) {
+        if (e.key === 'Enter') { e.preventDefault(); commitAxis(); }
+        else if (e.key === 'Escape') { e.preventDefault(); editingAxis = null; }
+    }
+    function focusInput(node: HTMLInputElement) { node.focus(); node.select(); }
 </script>
 
 <!--
@@ -63,7 +88,28 @@
                 visualSpec={panel.inference_result.visual_spec}
                 data={panel.data}
                 {palette}
+                hideAxisNames={$editMode && hasAxes}
             />
+
+            {#if $editMode && hasAxes}
+                <!-- Inline axis-title editing — click to rename; persists + shows in shares. -->
+                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                <div class="axis-edit axis-x" onclick={(e) => e.stopPropagation()} role="presentation">
+                    {#if editingAxis === 'x_label'}
+                        <input class="axis-input" bind:value={axisDraft} use:focusInput onkeydown={axisKeydown} onblur={commitAxis} />
+                    {:else}
+                        <button class="axis-chip" onclick={() => startEditAxis('x_label', xTitle)} title="Edit X axis title">{xTitle || 'X axis'}</button>
+                    {/if}
+                </div>
+                <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+                <div class="axis-edit axis-y" onclick={(e) => e.stopPropagation()} role="presentation">
+                    {#if editingAxis === 'y_label'}
+                        <input class="axis-input" bind:value={axisDraft} use:focusInput onkeydown={axisKeydown} onblur={commitAxis} />
+                    {:else}
+                        <button class="axis-chip" onclick={() => startEditAxis('y_label', yTitle)} title="Edit Y axis title">{yTitle || 'Y axis'}</button>
+                    {/if}
+                </div>
+            {/if}
         {/if}
     </div>
 
@@ -101,5 +147,38 @@
         min-height: 0;
         display: flex;
         flex-direction: column;
+        position: relative;
+    }
+
+    /* Inline axis-title editing overlays (edit mode) */
+    .axis-edit { position: absolute; z-index: 5; }
+    .axis-x { bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; }
+    .axis-y { top: 2px; left: 6px; }
+    .axis-chip {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--sqlviz-text-muted);
+        background: transparent;
+        border: 1px dashed transparent;
+        border-radius: 4px;
+        padding: 1px 6px;
+        cursor: text;
+        max-width: 60%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        transition: border-color 0.12s, color 0.12s, background 0.12s;
+    }
+    .axis-chip:hover { border-color: var(--sqlviz-border); color: var(--sqlviz-text); background: var(--sqlviz-bg-base); }
+    .axis-input {
+        font-size: 11px;
+        width: 150px;
+        max-width: 70%;
+        padding: 1px 6px;
+        border: 1px solid var(--sqlviz-primary);
+        border-radius: 4px;
+        background: var(--sqlviz-bg);
+        color: var(--sqlviz-text);
+        outline: none;
     }
 </style>

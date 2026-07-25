@@ -120,7 +120,10 @@ SCHEMA_STATEMENTS: list[str] = [
         inferred_height_px     INTEGER,
         selected_height_px     INTEGER,
         height_user_override   INTEGER,
-        inferred_intent_type   VARCHAR
+        inferred_intent_type   VARCHAR,
+        view_title             VARCHAR,
+        view_x_label          VARCHAR,
+        view_y_label          VARCHAR
     )
     """,
     # Migration control — one row per applied migration (id = migration id)

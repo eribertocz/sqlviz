@@ -13,6 +13,10 @@ export interface VisualSpec {
     stack: boolean;
     number_format: 'default' | 'percent' | 'currency';
     tooltip_fields: string[];
+    // Presentation overrides (user-editable axis titles). Null → use the field
+    // name. Overlaid by the API so admin + shared viewers render them alike.
+    x_label?: string | null;
+    y_label?: string | null;
 }
 
 /**

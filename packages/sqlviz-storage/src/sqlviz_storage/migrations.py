@@ -97,6 +97,15 @@ MIGRATIONS: list[tuple[str, str]] = [
     # (freely-edited) draft so the header can offer "Restore last run".
     ("0018_dashboards_add_last_run_sql",
      "ALTER TABLE dashboards ADD COLUMN IF NOT EXISTS last_run_sql VARCHAR"),
+    # 0019–0021: panel presentation overrides (editable panel title + axis
+    # labels). Distinct from the inference override columns above — these are
+    # pure presentation, applied at the API layer, and reflected in shares.
+    ("0019_panels_add_view_title",
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS view_title VARCHAR"),
+    ("0020_panels_add_view_x_label",
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS view_x_label VARCHAR"),
+    ("0021_panels_add_view_y_label",
+     "ALTER TABLE panels ADD COLUMN IF NOT EXISTS view_y_label VARCHAR"),
 ]
 
 

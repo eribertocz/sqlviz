@@ -141,3 +141,8 @@ class PanelResponse(BaseModel):
 class PanelOverrideRequest(BaseModel):
     field_name: str   # "chart_type" | "col_span" | "height_px"
     user_value: str   # always passed as string; OverrideSystem casts as needed
+
+
+class PanelViewOverrideRequest(BaseModel):
+    field: str            # "title" | "x_label" | "y_label"
+    value: str | None = None   # "" / None clears the override

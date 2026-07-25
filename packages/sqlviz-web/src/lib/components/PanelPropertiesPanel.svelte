@@ -21,10 +21,21 @@
     let titleValue = $state('');
     $effect(() => { titleValue = result.title ?? ''; });
     function commitTitle() {
-        if (titleValue !== result.title) {
-            dashboardStore.handleTitleOverride(panel.panel_id, titleValue);
+        if (titleValue !== (result.title ?? '')) {
+            dashboardStore.setViewOverride(panel.panel_id, 'title', titleValue);
         }
     }
+
+    // ── Axis titles ────────────────────────────────────────────────────────────
+    const hasAxes = $derived(
+        !!spec && ['line', 'bar', 'bar_horizontal', 'scatter', 'histogram'].includes(spec.chart_type)
+    );
+    let xLabelValue = $state('');
+    let yLabelValue = $state('');
+    $effect(() => { xLabelValue = spec?.x_label ?? ''; });
+    $effect(() => { yLabelValue = spec?.y_label ?? ''; });
+    function commitXLabel() { dashboardStore.setViewOverride(panel.panel_id, 'x_label', xLabelValue); }
+    function commitYLabel() { dashboardStore.setViewOverride(panel.panel_id, 'y_label', yLabelValue); }
 
     // ── Panel SQL ──────────────────────────────────────────────────────────────
     const panelSql = $derived(
@@ -125,6 +136,19 @@
                         </label>
                     {/each}
                 </div>
+            </section>
+        {/if}
+
+        <!-- Axis titles (persisted; reflected in shared viewers) -->
+        {#if hasAxes}
+            <section class="prop-section">
+                <h3 class="section-title">Axis titles</h3>
+                <label class="field-label" for="axis-x-label">X axis title</label>
+                <Input id="axis-x-label" bind:value={xLabelValue} placeholder={spec?.x_field ?? 'X'}
+                    onblur={commitXLabel} onkeydown={(e) => e.key === 'Enter' && commitXLabel()} />
+                <label class="field-label" for="axis-y-label">Y axis title</label>
+                <Input id="axis-y-label" bind:value={yLabelValue} placeholder={spec?.y_fields[0] ?? 'Y'}
+                    onblur={commitYLabel} onkeydown={(e) => e.key === 'Enter' && commitYLabel()} />
             </section>
         {/if}
 

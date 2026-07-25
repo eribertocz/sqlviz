@@ -10,11 +10,13 @@
     } from '$lib/charts/chartBase';
     import { BRAND_COLORS } from '$lib/charts/palettes';
 
-    let { visualSpec, data, palette }: {
+    let { visualSpec, data, palette, hideAxisNames = false }: {
         visualSpec: VisualSpec | null;
         data: Record<string, unknown>[];
         // Dashboard-level palette; falls back to the brand palette.
         palette?: string[];
+        // Edit mode overlays editable HTML axis titles → hide ECharts' own.
+        hideAxisNames?: boolean;
     } = $props();
 
     const reduce = prefersReducedMotion();
@@ -26,6 +28,10 @@
         const PAL = (palette && palette.length > 0) ? palette : BRAND_COLORS;
         const xField = visualSpec.x_field ?? '';
         const yField = visualSpec.y_fields[0] ?? '';
+        // Axis titles: user override (x_label/y_label) wins, else the field name.
+        // Blanked in edit mode where PanelRenderer overlays editable HTML titles.
+        const xName = hideAxisNames ? '' : ((visualSpec.x_label || xField) ?? '');
+        const yName = hideAxisNames ? '' : ((visualSpec.y_label || yField) ?? '');
         const xData = xField ? data.map(r => String(r[xField])) : [];
         const yData = yField ? data.map(r => Number(r[yField])) : [];
         const delay = stagger(reduce);
@@ -36,8 +42,8 @@
                     ...BASE,
                     grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'line') },
-                    xAxis: { type: 'category', boundaryGap: false, data: xData, ...categoryAxis(t), ...axisName(t, xField, 'middle') },
-                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yField, 'end') },
+                    xAxis: { type: 'category', boundaryGap: false, data: xData, ...categoryAxis(t), ...axisName(t, xName, 'middle') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'end') },
                     series: [{
                         type: 'line',
                         data: yData,
@@ -58,8 +64,8 @@
                     ...BASE,
                     grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
-                    xAxis: { type: 'category', data: xData, ...categoryAxis(t), ...axisName(t, xField, 'middle') },
-                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yField, 'end') },
+                    xAxis: { type: 'category', data: xData, ...categoryAxis(t), ...axisName(t, xName, 'middle') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'end') },
                     series: [{
                         type: 'bar',
                         data: yData,
@@ -76,8 +82,8 @@
                     ...BASE,
                     grid: { top: 26, right: 20, bottom: 40, left: 90, containLabel: true },
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
-                    xAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yField, 'middle') },
-                    yAxis: { type: 'category', data: xData, inverse: true, ...categoryAxis(t), ...axisName(t, xField, 'end') },
+                    xAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'middle') },
+                    yAxis: { type: 'category', data: xData, inverse: true, ...categoryAxis(t), ...axisName(t, xName, 'end') },
                     series: [{
                         type: 'bar',
                         data: yData,
@@ -124,8 +130,8 @@
                     ...BASE,
                     grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'item', axisPointer: axisPointer(t, 'line') },
-                    xAxis: { type: 'value', ...axisStyle(t), ...axisName(t, sx, 'middle') },
-                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, sy, 'end') },
+                    xAxis: { type: 'value', ...axisStyle(t), ...axisName(t, xName, 'middle') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'end') },
                     series: [{
                         type: 'scatter',
                         data: data.map(r => [Number(r[sx]), Number(r[sy])]),
@@ -143,8 +149,8 @@
                     ...BASE,
                     grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
-                    xAxis: { type: 'category', data: xData, ...categoryAxis(t), ...axisName(t, xField, 'middle') },
-                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yField, 'end') },
+                    xAxis: { type: 'category', data: xData, ...categoryAxis(t), ...axisName(t, xName, 'middle') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'end') },
                     series: [{
                         type: 'bar',
                         data: yData,
@@ -180,7 +186,7 @@
 
     // Re-render on data/spec/palette change AND on theme toggle (tokens change).
     $effect(() => {
-        const _dep = [visualSpec, data, palette, uiStore.theme];
+        const _dep = [visualSpec, data, palette, uiStore.theme, hideAxisNames];
         void _dep;
         if (chart) chart.setOption(buildOption(readChartTokens()), { notMerge: true });
     });

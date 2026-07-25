@@ -26,6 +26,11 @@ from sqlviz_inference.filters.domain import build_domain_query
 from sqlviz_inference.filters.neutralize import neutralize_filters
 from sqlviz_storage.brain_db import get_brain_connection
 from sqlviz_storage.override_system import apply_override, store_inference
+from sqlviz_storage.panel_view_overrides import (
+    apply_view_overrides,
+    get_view_overrides,
+    set_view_override,
+)
 
 from sqlviz_api.dependencies import DbDep
 from sqlviz_api.models import (
@@ -33,6 +38,7 @@ from sqlviz_api.models import (
     PanelOverrideRequest,
     PanelResponse,
     PanelUpdate,
+    PanelViewOverrideRequest,
 )
 from sqlviz_api.serialization import json_safe
 
@@ -371,7 +377,10 @@ def execute_panel(
             fallback_applied=True,
             fallback_reason="SQL syntax error — query could not be parsed",
         )
-        return JSONResponse(content={"inference_result": result.to_dict(), "data": []})
+        return JSONResponse(content={
+            "inference_result": apply_view_overrides(result.to_dict(), get_view_overrides(db, panel_id)),
+            "data": [],
+        })
     except duckdb.Error as exc:
         # First Run / all-"All": reveal the filter bar instead of failing hard.
         if is_reveal:
@@ -408,7 +417,10 @@ def execute_panel(
     # Re-classify the parent dashboard from all its executed panels.
     _update_dashboard_classification(db, panel_id, col_names)
 
-    return JSONResponse(content={"inference_result": result.to_dict(), "data": data})
+    return JSONResponse(content={
+        "inference_result": apply_view_overrides(result.to_dict(), get_view_overrides(db, panel_id)),
+        "data": data,
+    })
 
 
 @router.post("/{panel_id}/filter-domain")
@@ -477,3 +489,23 @@ def override_panel(
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return _fetch_one(db, panel_id)
+
+
+@router.patch("/{panel_id}/view-override", status_code=200)
+def set_panel_view_override(
+    panel_id: str,
+    body: PanelViewOverrideRequest,
+    db: DbDep,
+) -> dict[str, str]:
+    """Set a presentation override (panel title / axis label) on a panel.
+
+    Persisted on the panel and overlaid onto the render contract by execute,
+    so it shows in the admin app AND in shared viewers. field:
+    "title" | "x_label" | "y_label"; value "" clears it.
+    """
+    _fetch_one(db, panel_id)  # raises 404 if missing
+    try:
+        set_view_override(db, panel_id, body.field, body.value)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"status": "ok"}

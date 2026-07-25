@@ -777,6 +777,37 @@ function createDashboardStore() {
         patchPanelResult(panelId, { title });
     }
 
+    /** Immutably patch one panel's visual_spec in the local layout. */
+    function patchPanelVisualSpec(panelId: string, patch: Record<string, unknown>) {
+        if (!layout) return;
+        layout = {
+            ...layout,
+            rows: layout.rows.map(row => ({
+                panels: row.panels.map(p =>
+                    p.panel_id === panelId && p.inference_result.visual_spec
+                        ? { ...p, inference_result: { ...p.inference_result, visual_spec: { ...p.inference_result.visual_spec, ...patch } } }
+                        : p
+                ),
+            })),
+        };
+    }
+
+    /**
+     * Presentation override (panel title / axis label). Patches the local layout
+     * optimistically, then persists so it survives reload AND appears in shared
+     * viewers (the API overlays it onto every execute).
+     */
+    async function setViewOverride(panelId: string, field: 'title' | 'x_label' | 'y_label', value: string) {
+        const v = value.trim();
+        if (field === 'title') patchPanelResult(panelId, { title: v || undefined });
+        else patchPanelVisualSpec(panelId, { [field]: v || null });
+        try {
+            await apiPatch(`/api/v1/panels/${panelId}/view-override`, { field, value: v });
+        } catch {
+            // Non-fatal: the next execute reconciles from the persisted value.
+        }
+    }
+
     /** Session-only X/Y axis override — mutates the panel's visual_spec. */
     function handleAxisOverride(
         panelId: string,
@@ -1036,6 +1067,7 @@ function createDashboardStore() {
         get dashboardPaletteId() { return dashboardPaletteId; },
         get dashboardPalette() { return getPaletteById(dashboardPaletteId).colors; },
         setDashboardPalette,
+        setViewOverride,
         get activeDashboard() { return activeDashboard; },
         get utilityPct() { return utilityPct; },
         get allFilterControls() { return allFilterControls; },
