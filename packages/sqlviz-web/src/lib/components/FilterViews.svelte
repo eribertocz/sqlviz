@@ -2,35 +2,39 @@
     import * as Popover from '$lib/components/ui/popover/index.js';
     import { Input } from '$lib/components/ui/input/index.js';
     import { Button } from '$lib/components/ui/button/index.js';
-    import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
-    import { filterValues } from '$lib/stores/filterValues.svelte';
     import { filterViews, type FilterView } from '$lib/stores/filterViews.svelte';
     import BookmarkIcon from '@lucide/svelte/icons/bookmark';
     import XIcon from '@lucide/svelte/icons/x';
 
+    // Prop-driven so it works for both the admin app and the anonymous viewer:
+    // the caller supplies which dashboard id to key views by, the current filter
+    // values to snapshot, and how to apply a view's values.
+    let { dashboardId, currentValues, onApply }: {
+        dashboardId: string | null;
+        currentValues: Record<string, unknown>;
+        onApply: (values: Record<string, unknown>) => void;
+    } = $props();
+
     let open = $state(false);
     let name = $state('');
 
-    const dashId = $derived(dashboardStore.dashboardId);
-    const views = $derived(dashId ? filterViews.list(dashId) : []);
+    const views = $derived(dashboardId ? filterViews.list(dashboardId) : []);
 
     function apply(v: FilterView) {
-        for (const [k, val] of Object.entries(v.values)) {
-            dashboardStore.handleFilterChange(k, val);
-        }
+        onApply(v.values);
         open = false;
     }
 
     function saveCurrent() {
         const n = name.trim();
-        if (!dashId || !n) return;
-        filterViews.save(dashId, n, filterValues.current);
+        if (!dashboardId || !n) return;
+        filterViews.save(dashboardId, n, currentValues);
         name = '';
     }
 
     function remove(e: MouseEvent, v: FilterView) {
         e.stopPropagation();
-        if (dashId) filterViews.remove(dashId, v.id);
+        if (dashboardId) filterViews.remove(dashboardId, v.id);
     }
 </script>
 

@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import DashboardGrid from '$lib/components/DashboardGrid.svelte';
     import FilterControlComponent from '$lib/components/FilterControl.svelte';
+    import FilterViews from '$lib/components/FilterViews.svelte';
     import ThemeToggle from '$lib/components/ThemeToggle.svelte';
     import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
     import { editMode } from '$lib/stores/editMode';
@@ -22,6 +23,7 @@
 
     let viewerState: ViewerState = $state('loading');
     let dashboardName: string = $state('');
+    let sharedDashboardId: string | null = $state(null);
     let loadError: string | null = $state(null);
     let lockError: string | null = $state(null);
 
@@ -214,7 +216,7 @@
 
     // ── Unlock (password-protected share) ─────────────────────────────────────
     type ShareViewData = {
-        dashboard: { name: string };
+        dashboard: { id: string; name: string };
         panels: Array<{ id: string; sql_content: string }>;
     };
 
@@ -238,6 +240,7 @@
             }
             const shareData = await resp.json() as ShareViewData;
             dashboardName = shareData.dashboard.name;
+            sharedDashboardId = shareData.dashboard.id;
             await executeAllPanels(shareData.panels);
             viewerState = 'unlocked';
         } catch {
@@ -277,6 +280,7 @@
 
             const viewData = body as ShareViewData;
             dashboardName = viewData.dashboard.name;
+            sharedDashboardId = viewData.dashboard.id;
             await executeAllPanels(viewData.panels);
             viewerState = 'unlocked';
         } catch (e) {
@@ -403,6 +407,13 @@
                                 onChange={handleFilterChange}
                             />
                         {/each}
+                        <FilterViews
+                            dashboardId={sharedDashboardId}
+                            currentValues={viewerFilterValues}
+                            onApply={(vals) => {
+                                for (const [k, v] of Object.entries(vals)) handleFilterChange(k, v);
+                            }}
+                        />
                     </div>
                 {/if}
             </header>

@@ -100,7 +100,13 @@
                             onChange={dashboardStore.handleFilterChange}
                         />
                     {/each}
-                    <FilterViews />
+                    <FilterViews
+                        dashboardId={dashboardStore.dashboardId}
+                        currentValues={filterValues.current}
+                        onApply={(vals) => {
+                            for (const [k, v] of Object.entries(vals)) dashboardStore.handleFilterChange(k, v);
+                        }}
+                    />
                 </div>
             {/if}
         {/if}
