@@ -2,10 +2,17 @@
     import { onMount } from 'svelte';
     import DashboardGrid from '$lib/components/DashboardGrid.svelte';
     import FilterControlComponent from '$lib/components/FilterControl.svelte';
-    import BrandMark from '$lib/components/BrandMark.svelte';
     import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+    import * as Popover from '$lib/components/ui/popover/index.js';
+    import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
     import { editMode } from '$lib/stores/editMode';
     import { uiStore } from '$lib/stores/uiStore.svelte';
+    import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
+    import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
+
+    // Viewer-local UI state (independent of the admin app).
+    let sidebarCollapsed = $state(false);
+    let filtersOpen = $state(false);
     import type {
         DashboardLayout,
         FilterControl,
@@ -53,6 +60,14 @@
     });
 
     const hasFilters = $derived(allFilterControls.length > 0);
+
+    const activeFilterCount = $derived(
+        allFilterControls.filter((c) => {
+            const v = viewerFilterValues[c.variable.split(',')[0].trim()];
+            return v !== undefined && v !== '' && v !== null
+                && !(Array.isArray(v) && v.length === 0);
+        }).length
+    );
 
     // ── API helpers ────────────────────────────────────────────────────────────
     async function apiPost<T>(path: string, body?: unknown): Promise<T> {
@@ -284,47 +299,49 @@
 <!-- ── Unlocked (viewer) ─────────────────────────────────────── -->
 {:else if viewerState === 'unlocked'}
     <div class="viewer-shell">
-        <!-- Sidebar — navigation only, no management (Section 5) -->
-        <nav class="viewer-sidebar" aria-label="Dashboard navigation">
-            <div class="viewer-sidebar-header">
-                <BrandMark size={18} />
-                <span class="viewer-brand-name">SQLviz</span>
+        <!-- Sidebar — navigation only, collapsible, no management/edit/share -->
+        <nav class="viewer-sidebar" class:collapsed={sidebarCollapsed} aria-label="Dashboard navigation">
+            <div class="viewer-sidebar-header" class:collapsed={sidebarCollapsed}>
+                {#if !sidebarCollapsed}
+                    <div class="brand">
+                        <img class="brand-icon" src={sqlvizIcon} alt="" width="26" height="26" />
+                        <span class="brand-name"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
+                    </div>
+                    <button class="hbtn" onclick={() => (sidebarCollapsed = true)} title="Collapse sidebar" aria-label="Collapse sidebar">
+                        <PanelLeftCloseIcon size={16} />
+                    </button>
+                {:else}
+                    <button class="brand-btn" onclick={() => (sidebarCollapsed = false)} title="Expand sidebar" aria-label="Expand sidebar">
+                        <img class="brand-icon" src={sqlvizIcon} alt="SQLviz" width="26" height="26" />
+                    </button>
+                {/if}
             </div>
 
-            <div class="viewer-sidebar-body">
-                <button class="viewer-nav-item active" aria-current="page">
-                    <span class="nav-dot" aria-hidden="true"></span>
-                    <span class="nav-name">{dashboardName || 'Dashboard'}</span>
-                </button>
-            </div>
+            {#if !sidebarCollapsed}
+                <div class="viewer-sidebar-body">
+                    <button class="viewer-nav-item active" aria-current="page">
+                        <span class="nav-dot" aria-hidden="true"></span>
+                        <span class="nav-name">{dashboardName || 'Dashboard'}</span>
+                    </button>
+                </div>
+            {:else}
+                <div class="viewer-sidebar-body"></div>
+            {/if}
 
             <!-- Footer — only the theme toggle for viewers -->
-            <div class="viewer-sidebar-footer">
-                <span class="foot-theme-label">Theme</span>
-                <ThemeToggle />
+            <div class="viewer-sidebar-footer" class:collapsed={sidebarCollapsed}>
+                {#if !sidebarCollapsed}
+                    <span class="foot-theme-label">Theme</span>
+                    <ThemeToggle />
+                {:else}
+                    <ThemeToggle compact />
+                {/if}
             </div>
         </nav>
 
-        <!-- Main column -->
+        <!-- Main column — the dashboard owns the whole area; filters float -->
         <div class="viewer-main">
-            <header class="viewer-bar">
-                <span class="viewer-title">{dashboardName || 'Dashboard'}</span>
-                {#if hasFilters}
-                    <span class="viewer-sep" aria-hidden="true"></span>
-                    <div class="viewer-filters" role="group" aria-label="Dashboard filters">
-                        {#each allFilterControls as control (control.variable)}
-                            <FilterControlComponent
-                                {control}
-                                pill
-                                filterVals={viewerFilterValues}
-                                onChange={handleFilterChange}
-                            />
-                        {/each}
-                    </div>
-                {/if}
-            </header>
-
-            <div class="viewer-content">
+            <div class="viewer-content" class:has-filters={hasFilters}>
                 {#if layout}
                     <DashboardGrid {layout} />
                 {:else}
@@ -334,6 +351,31 @@
                     </div>
                 {/if}
             </div>
+
+            <!-- Collapsible filters (Vercel/Linear-style), floating over the top -->
+            {#if hasFilters}
+                <div class="filters-launch">
+                    <Popover.Root bind:open={filtersOpen}>
+                        <Popover.Trigger class="filters-btn {activeFilterCount > 0 ? 'active' : ''}">
+                            <SlidersHorizontalIcon class="size-4" />
+                            Filters
+                            {#if activeFilterCount > 0}<span class="filters-badge">{activeFilterCount}</span>{/if}
+                        </Popover.Trigger>
+                        <Popover.Content class="w-auto max-w-[92vw] p-3" align="start">
+                            <div class="filter-panel" role="group" aria-label="Dashboard filters">
+                                {#each allFilterControls as control (control.variable)}
+                                    <FilterControlComponent
+                                        {control}
+                                        pill
+                                        filterVals={viewerFilterValues}
+                                        onChange={handleFilterChange}
+                                    />
+                                {/each}
+                            </div>
+                        </Popover.Content>
+                    </Popover.Root>
+                </div>
+            {/if}
         </div>
     </div>
 {/if}
@@ -458,7 +500,7 @@
         overflow: hidden;
     }
 
-    /* Sidebar */
+    /* Sidebar — collapsible rail */
     .viewer-sidebar {
         width: 240px;
         flex-shrink: 0;
@@ -467,24 +509,42 @@
         background: var(--sqlviz-bg-surface);
         border-right: 1px solid var(--sqlviz-hairline);
         overflow: hidden;
+        transition: width 0.2s ease;
     }
+    .viewer-sidebar.collapsed { width: 44px; }
 
     .viewer-sidebar-header {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 0.5rem;
         height: 44px;
-        padding: 0 0.875rem;
+        padding: 0 0.5rem 0 0.875rem;
         flex-shrink: 0;
         border-bottom: 1px solid var(--sqlviz-hairline);
     }
+    .viewer-sidebar-header.collapsed { justify-content: center; padding: 0; }
 
-    .viewer-brand-name {
-        font-size: 0.9375rem;
-        font-weight: 700;
-        color: var(--sqlviz-text);
-        letter-spacing: -0.01em;
+    .brand { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+    .brand-icon { display: block; flex-shrink: 0; }
+    .brand-name { font-size: 0.9375rem; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; }
+    .brand-sql { color: var(--sqlviz-text-primary); font-weight: 600; }
+    .brand-viz { color: #06b6d4; font-weight: 600; }
+
+    .hbtn, .brand-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: none;
+        color: var(--sqlviz-text-muted);
+        border-radius: var(--sqlviz-radius);
+        cursor: pointer;
+        transition: background 0.12s, color 0.12s;
     }
+    .hbtn { width: 24px; height: 24px; }
+    .brand-btn { width: 34px; height: 34px; }
+    .hbtn:hover, .brand-btn:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
 
     .viewer-sidebar-body { flex: 1; overflow-y: auto; padding: 0.5rem 0.375rem; }
 
@@ -524,10 +584,12 @@
         border-top: 1px solid var(--sqlviz-hairline);
         flex-shrink: 0;
     }
+    .viewer-sidebar-footer.collapsed { justify-content: center; padding: 0; }
     .foot-theme-label { font-size: 0.8125rem; color: var(--sqlviz-text-muted); }
 
-    /* Main column */
+    /* Main column — the dashboard owns the whole area */
     .viewer-main {
+        position: relative;
         flex: 1;
         display: flex;
         flex-direction: column;
@@ -535,48 +597,56 @@
         overflow: hidden;
     }
 
-    .viewer-bar {
-        height: 44px;
-        display: flex;
-        align-items: center;
-        gap: 0.625rem;
-        padding: 0 0.875rem;
-        background: var(--sqlviz-bg-surface);
-        border-bottom: 1px solid var(--sqlviz-hairline);
-        flex-shrink: 0;
-    }
-
-    .viewer-sep {
-        width: 1px;
-        height: 20px;
-        background: var(--sqlviz-border);
-        flex-shrink: 0;
-    }
-
-    .viewer-title {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: var(--sqlviz-text);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
-    .viewer-filters {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        min-width: 0;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scrollbar-width: none;
-    }
-    .viewer-filters::-webkit-scrollbar { display: none; }
-
     .viewer-content {
         flex: 1;
         overflow-y: auto;
+    }
+    /* Reserve room so the floating Filters button never overlaps panels */
+    .viewer-content.has-filters { padding-top: 52px; }
+
+    /* ── Collapsible filters (Vercel/Linear-style), floating over the top ── */
+    .filters-launch {
+        position: absolute;
+        top: 12px;
+        left: 14px;
+        z-index: 20;
+    }
+    :global(.filters-btn) {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: 32px;
+        padding: 0 0.75rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--sqlviz-text-muted);
+        background: var(--sqlviz-bg-surface);
+        border: 1px solid var(--sqlviz-border);
+        border-radius: 100px;
+        cursor: pointer;
+        box-shadow: var(--sqlviz-shadow-card);
+        transition: border-color 0.12s, color 0.12s;
+    }
+    :global(.filters-btn:hover) { border-color: var(--sqlviz-primary); color: var(--sqlviz-text); }
+    :global(.filters-btn.active) { color: var(--sqlviz-primary); border-color: var(--sqlviz-primary); }
+    .filters-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        font-size: 10px;
+        border-radius: 100px;
+        background: var(--sqlviz-primary);
+        color: var(--sqlviz-on-primary);
+    }
+    .filter-panel {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.625rem;
+        max-width: 520px;
     }
 
     .viewer-center-inner {
