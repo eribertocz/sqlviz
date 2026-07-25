@@ -3,16 +3,13 @@
     import DashboardGrid from '$lib/components/DashboardGrid.svelte';
     import FilterControlComponent from '$lib/components/FilterControl.svelte';
     import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-    import * as Popover from '$lib/components/ui/popover/index.js';
     import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
     import { editMode } from '$lib/stores/editMode';
     import { uiStore } from '$lib/stores/uiStore.svelte';
     import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
-    import SlidersHorizontalIcon from '@lucide/svelte/icons/sliders-horizontal';
 
     // Viewer-local UI state (independent of the admin app).
     let sidebarCollapsed = $state(false);
-    let filtersOpen = $state(false);
     import type {
         DashboardLayout,
         FilterControl,
@@ -60,14 +57,6 @@
     });
 
     const hasFilters = $derived(allFilterControls.length > 0);
-
-    const activeFilterCount = $derived(
-        allFilterControls.filter((c) => {
-            const v = viewerFilterValues[c.variable.split(',')[0].trim()];
-            return v !== undefined && v !== '' && v !== null
-                && !(Array.isArray(v) && v.length === 0);
-        }).length
-    );
 
     // ── API helpers ────────────────────────────────────────────────────────────
     async function apiPost<T>(path: string, body?: unknown): Promise<T> {
@@ -347,9 +336,27 @@
             </div>
         </nav>
 
-        <!-- Main column — the dashboard owns the whole area; filters float -->
+        <!-- Main column -->
         <div class="viewer-main">
-            <div class="viewer-content" class:has-filters={hasFilters}>
+            <!-- Filter topbar — same as admin edit mode: name + filter pills -->
+            <header class="viewer-bar">
+                <span class="viewer-title">{dashboardName || 'Dashboard'}</span>
+                {#if hasFilters}
+                    <span class="viewer-sep" aria-hidden="true"></span>
+                    <div class="viewer-filters" role="group" aria-label="Dashboard filters">
+                        {#each allFilterControls as control (control.variable)}
+                            <FilterControlComponent
+                                {control}
+                                pill
+                                filterVals={viewerFilterValues}
+                                onChange={handleFilterChange}
+                            />
+                        {/each}
+                    </div>
+                {/if}
+            </header>
+
+            <div class="viewer-content">
                 {#if layout}
                     <DashboardGrid {layout} />
                 {:else}
@@ -359,31 +366,6 @@
                     </div>
                 {/if}
             </div>
-
-            <!-- Collapsible filters (Vercel/Linear-style), floating over the top -->
-            {#if hasFilters}
-                <div class="filters-launch">
-                    <Popover.Root bind:open={filtersOpen}>
-                        <Popover.Trigger class="filters-btn {activeFilterCount > 0 ? 'active' : ''}">
-                            <SlidersHorizontalIcon class="size-4" />
-                            Filters
-                            {#if activeFilterCount > 0}<span class="filters-badge">{activeFilterCount}</span>{/if}
-                        </Popover.Trigger>
-                        <Popover.Content class="w-auto max-w-[92vw] p-3" align="start">
-                            <div class="filter-panel" role="group" aria-label="Dashboard filters">
-                                {#each allFilterControls as control (control.variable)}
-                                    <FilterControlComponent
-                                        {control}
-                                        pill
-                                        filterVals={viewerFilterValues}
-                                        onChange={handleFilterChange}
-                                    />
-                                {/each}
-                            </div>
-                        </Popover.Content>
-                    </Popover.Root>
-                </div>
-            {/if}
         </div>
     </div>
 {/if}
@@ -605,56 +587,46 @@
         overflow: hidden;
     }
 
+    /* Filter topbar — mirrors the admin edit-mode header */
+    .viewer-bar {
+        height: 44px;
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        padding: 0 0.875rem;
+        background: var(--sqlviz-bg-surface);
+        border-bottom: 1px solid var(--sqlviz-hairline);
+        flex-shrink: 0;
+    }
+    .viewer-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--sqlviz-text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .viewer-sep {
+        width: 1px;
+        height: 20px;
+        background: var(--sqlviz-border);
+        flex-shrink: 0;
+    }
+    .viewer-filters {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+    }
+    .viewer-filters::-webkit-scrollbar { display: none; }
+
     .viewer-content {
         flex: 1;
         overflow-y: auto;
-    }
-    /* Reserve room so the floating Filters button never overlaps panels */
-    .viewer-content.has-filters { padding-top: 52px; }
-
-    /* ── Collapsible filters (Vercel/Linear-style), floating over the top ── */
-    .filters-launch {
-        position: absolute;
-        top: 12px;
-        left: 14px;
-        z-index: 20;
-    }
-    :global(.filters-btn) {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        height: 32px;
-        padding: 0 0.75rem;
-        font-size: 0.8125rem;
-        font-weight: 600;
-        color: var(--sqlviz-text-muted);
-        background: var(--sqlviz-bg-surface);
-        border: 1px solid var(--sqlviz-border);
-        border-radius: 100px;
-        cursor: pointer;
-        box-shadow: var(--sqlviz-shadow-card);
-        transition: border-color 0.12s, color 0.12s;
-    }
-    :global(.filters-btn:hover) { border-color: var(--sqlviz-primary); color: var(--sqlviz-text); }
-    :global(.filters-btn.active) { color: var(--sqlviz-primary); border-color: var(--sqlviz-primary); }
-    .filters-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 16px;
-        height: 16px;
-        padding: 0 4px;
-        font-size: 10px;
-        border-radius: 100px;
-        background: var(--sqlviz-primary);
-        color: var(--sqlviz-on-primary);
-    }
-    .filter-panel {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.625rem;
-        max-width: 520px;
     }
 
     .viewer-center-inner {
