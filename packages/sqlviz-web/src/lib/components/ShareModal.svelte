@@ -94,12 +94,43 @@
 
     async function copy() {
         if (!link) return;
+        let ok = false;
+        // Clipboard API only works in a secure context (https / localhost). Over
+        // http://<LAN-IP> it's unavailable, so fall back to execCommand.
         try {
-            await navigator.clipboard.writeText(link);
-            copied = true;
-            setTimeout(() => (copied = false), 1800);
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(link);
+                ok = true;
+            }
         } catch {
-            error = 'Could not copy to the clipboard.';
+            ok = false;
+        }
+        if (!ok) ok = legacyCopy(link);
+        if (ok) {
+            copied = true;
+            error = '';
+            setTimeout(() => (copied = false), 1800);
+        } else {
+            error = 'Could not copy automatically — select the link and press Ctrl+C.';
+        }
+    }
+
+    function legacyCopy(text: string): boolean {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.top = '-1000px';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            const done = document.execCommand('copy');
+            document.body.removeChild(ta);
+            return done;
+        } catch {
+            return false;
         }
     }
 </script>
