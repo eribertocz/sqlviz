@@ -2,102 +2,87 @@
     import { onMount } from 'svelte';
     import * as echarts from 'echarts';
     import type { VisualSpec } from '$lib/types';
+    import { uiStore } from '$lib/stores/uiStore.svelte';
+    import { readChartTokens, prefersReducedMotion, type ChartTokens } from '$lib/charts/chartTokens';
+    import {
+        baseOption, axisStyle, categoryAxis, axisPointer, focusEmphasis, areaGradient, stagger,
+    } from '$lib/charts/chartBase';
+    import { BRAND_COLORS } from '$lib/charts/palettes';
 
     let { visualSpec, data, palette }: {
         visualSpec: VisualSpec | null;
         data: Record<string, unknown>[];
-        // Session-only palette override from the Panel Properties panel (v0.2.9).
+        // Dashboard-level palette; falls back to the brand palette.
         palette?: string[];
     } = $props();
 
-    // DOC6 §2 colors reproduced as JS constants (CSS vars not readable by ECharts).
-    // `palette` is the categorical series set — a CVD-safe, fixed-order set
-    // validated with the dataviz skill's checker (adjacent CVD ΔE ≥ 8, chroma
-    // floor, contrast ≥ 3:1 on the dark surface). Single-series charts use the
-    // brand indigo (`primary`) so the common case reads as SQLviz.
-    const C = {
-        primary:  '#5b5bd6',
-        positive: '#22c55e',
-        negative: '#ef4444',
-        neutral:  '#94a3b8',
-        text:     '#f1f5f9',
-        muted:    '#94a3b8',
-        border:   '#334155',
-        palette:  ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
-    };
+    const reduce = prefersReducedMotion();
 
-    const BASE: echarts.EChartsOption = {
-        backgroundColor: 'transparent',
-        animation: false,
-        grid: { top: 12, right: 16, bottom: 36, left: 48, containLabel: true },
-        textStyle: { color: C.text, fontFamily: 'Inter, system-ui, sans-serif', fontSize: 11 },
-        tooltip: {
-            backgroundColor: '#1e293b',
-            borderColor: C.border,
-            textStyle: { color: C.text },
-        },
-    };
-
-    const axisStyle = {
-        axisLine:  { lineStyle: { color: C.border } },
-        axisLabel: { color: C.muted },
-        splitLine: { lineStyle: { color: C.border, opacity: 0.5 } },
-    };
-
-    function buildOption(): echarts.EChartsOption {
+    function buildOption(t: ChartTokens): echarts.EChartsOption {
+        const BASE = baseOption(t, reduce);
         if (!visualSpec || data.length === 0) return BASE;
 
-        const PAL = (palette && palette.length > 0) ? palette : C.palette;
+        const PAL = (palette && palette.length > 0) ? palette : BRAND_COLORS;
         const xField = visualSpec.x_field ?? '';
         const yField = visualSpec.y_fields[0] ?? '';
-
         const xData = xField ? data.map(r => String(r[xField])) : [];
         const yData = yField ? data.map(r => Number(r[yField])) : [];
+        const delay = stagger(reduce);
 
         switch (visualSpec.chart_type) {
             case 'line':
                 return {
                     ...BASE,
-                    xAxis: { type: 'category', data: xData, ...axisStyle },
-                    yAxis: { type: 'value', ...axisStyle },
+                    tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'line') },
+                    xAxis: { type: 'category', boundaryGap: false, data: xData, ...categoryAxis(t) },
+                    yAxis: { type: 'value', ...axisStyle(t) },
                     series: [{
                         type: 'line',
                         data: yData,
-                        smooth: 0.4,
+                        smooth: 0.35,
                         color: PAL[0],
                         lineStyle: { width: 2 },
-                        areaStyle: { opacity: 0.08 },
+                        areaStyle: areaGradient(PAL[0]),
                         symbol: 'circle',
-                        symbolSize: 5,
+                        symbolSize: 7,
+                        showSymbol: false,
+                        emphasis: { ...focusEmphasis, scale: 1.4 },
+                        animationDelay: delay,
                     }],
                 };
 
             case 'bar':
                 return {
                     ...BASE,
-                    xAxis: { type: 'category', data: xData, ...axisStyle },
-                    yAxis: { type: 'value', ...axisStyle },
+                    tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
+                    xAxis: { type: 'category', data: xData, ...categoryAxis(t) },
+                    yAxis: { type: 'value', ...axisStyle(t) },
                     series: [{
                         type: 'bar',
                         data: yData,
                         color: PAL[0],
-                        barMaxWidth: 48,
-                        itemStyle: { borderRadius: [3, 3, 0, 0] },
+                        barMaxWidth: 46,
+                        itemStyle: { borderRadius: [4, 4, 0, 0] },
+                        emphasis: { focus: 'series', itemStyle: { shadowBlur: 12, shadowColor: 'rgba(0,0,0,0.22)' } },
+                        animationDelay: delay,
                     }],
                 };
 
             case 'bar_horizontal':
                 return {
                     ...BASE,
-                    grid: { top: 12, right: 16, bottom: 16, left: 80, containLabel: true },
-                    xAxis: { type: 'value', ...axisStyle },
-                    yAxis: { type: 'category', data: xData, inverse: true, ...axisStyle },
+                    grid: { top: 12, right: 20, bottom: 16, left: 80, containLabel: true },
+                    tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
+                    xAxis: { type: 'value', ...axisStyle(t) },
+                    yAxis: { type: 'category', data: xData, inverse: true, ...categoryAxis(t) },
                     series: [{
                         type: 'bar',
                         data: yData,
                         color: PAL[0],
-                        barMaxWidth: 32,
-                        itemStyle: { borderRadius: [0, 3, 3, 0] },
+                        barMaxWidth: 30,
+                        itemStyle: { borderRadius: [0, 4, 4, 0] },
+                        emphasis: { focus: 'series', itemStyle: { shadowBlur: 12, shadowColor: 'rgba(0,0,0,0.22)' } },
+                        animationDelay: delay,
                     }],
                 };
 
@@ -105,16 +90,27 @@
                 return {
                     ...BASE,
                     grid: undefined,
+                    tooltip: { ...BASE.tooltip, trigger: 'item' },
                     series: [{
                         type: 'pie',
-                        radius: ['30%', '65%'],
+                        radius: ['42%', '70%'],
+                        avoidLabelOverlap: true,
+                        padAngle: 2,
+                        itemStyle: { borderColor: t.surface, borderWidth: 2, borderRadius: 4 },
                         data: data.map((r, i) => ({
                             name: String(r[xField]),
                             value: Number(r[yField]),
                             itemStyle: { color: PAL[i % PAL.length] },
                         })),
-                        label: { color: C.muted, fontSize: 11 },
-                        emphasis: { label: { color: C.text, fontWeight: 'bold' } },
+                        label: { color: t.muted, fontSize: 11 },
+                        labelLine: { lineStyle: { color: t.border } },
+                        emphasis: {
+                            scale: true, scaleSize: 6,
+                            label: { color: t.text, fontWeight: 'bold' },
+                            itemStyle: { shadowBlur: 16, shadowColor: 'rgba(0,0,0,0.28)' },
+                        },
+                        animationType: reduce ? undefined : 'scale',
+                        animationDelay: delay,
                     }],
                 };
 
@@ -123,13 +119,17 @@
                 const sy = visualSpec.y_fields[0] ?? '';
                 return {
                     ...BASE,
-                    xAxis: { type: 'value', name: sx, ...axisStyle },
-                    yAxis: { type: 'value', name: sy, ...axisStyle },
+                    tooltip: { ...BASE.tooltip, trigger: 'item', axisPointer: axisPointer(t, 'line') },
+                    xAxis: { type: 'value', name: sx, ...axisStyle(t) },
+                    yAxis: { type: 'value', name: sy, ...axisStyle(t) },
                     series: [{
                         type: 'scatter',
                         data: data.map(r => [Number(r[sx]), Number(r[sy])]),
-                        symbolSize: 8,
+                        symbolSize: 9,
                         color: PAL[0],
+                        itemStyle: { opacity: 0.78, borderColor: t.surface, borderWidth: 1 },
+                        emphasis: { focus: 'series', scale: 1.5, itemStyle: { opacity: 1 } },
+                        animationDelay: delay,
                     }],
                 };
             }
@@ -137,14 +137,17 @@
             case 'histogram':
                 return {
                     ...BASE,
-                    xAxis: { type: 'category', data: xData, ...axisStyle },
-                    yAxis: { type: 'value', ...axisStyle },
+                    tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
+                    xAxis: { type: 'category', data: xData, ...categoryAxis(t) },
+                    yAxis: { type: 'value', ...axisStyle(t) },
                     series: [{
                         type: 'bar',
                         data: yData,
                         color: PAL[0],
                         barCategoryGap: '2%',
-                        itemStyle: { borderRadius: 0 },
+                        itemStyle: { borderRadius: [2, 2, 0, 0] },
+                        emphasis: { focus: 'series', itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' } },
+                        animationDelay: delay,
                     }],
                 };
 
@@ -158,7 +161,7 @@
 
     onMount(() => {
         chart = echarts.init(container);
-        chart.setOption(buildOption());
+        chart.setOption(buildOption(readChartTokens()));
 
         const ro = new ResizeObserver(() => chart?.resize());
         ro.observe(container);
@@ -170,9 +173,11 @@
         };
     });
 
+    // Re-render on data/spec/palette change AND on theme toggle (tokens change).
     $effect(() => {
-        const _dep = [visualSpec, data, palette];
-        if (chart) chart.setOption(buildOption(), { notMerge: true });
+        const _dep = [visualSpec, data, palette, uiStore.theme];
+        void _dep;
+        if (chart) chart.setOption(buildOption(readChartTokens()), { notMerge: true });
     });
 </script>
 

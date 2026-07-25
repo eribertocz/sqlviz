@@ -2,6 +2,7 @@
     import { Code2, Eye, Loader2, RotateCcw, Share2 } from 'lucide-svelte';
     import FilterControl from '$lib/components/FilterControl.svelte';
     import FilterViews from '$lib/components/FilterViews.svelte';
+    import PalettePicker from '$lib/components/PalettePicker.svelte';
     import ShareModal from '$lib/components/ShareModal.svelte';
     import * as Tooltip from '$lib/components/ui/tooltip/index.js';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
@@ -114,6 +115,9 @@
 
     <div class="bar-right">
         {#if dashboardStore.activeDashboard}
+            <!-- Dashboard chart palette -->
+            <PalettePicker />
+
             <Tooltip.Provider delayDuration={200}>
                 <!-- Share — icon-only, 28x28, tooltip -->
                 <Tooltip.Root>

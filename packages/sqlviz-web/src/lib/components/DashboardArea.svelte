@@ -64,7 +64,7 @@
             onDelete={dashboardStore.handleDelete}
             onSelectPanel={dashboardStore.openPanelProperties}
             selectedPanelId={dashboardStore.propertiesPanelId}
-            colorOverrides={dashboardStore.colorOverrides}
+            palette={dashboardStore.dashboardPalette}
         />
     {/if}
 </div>

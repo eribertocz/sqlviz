@@ -37,23 +37,6 @@
         if (sqlDirty) dashboardStore.handlePanelSqlChange(panel.panel_id, sqlValue);
     }
 
-    // ── Colors ──────────────────────────────────────────────────────────────
-    const PALETTES: { name: string; colors: string[] }[] = [
-        { name: 'Theme',   colors: ['#6366f1', '#22c55e', '#f59e0b', '#06b6d4', '#ef4444', '#a78bfa'] },
-        { name: 'Emerald', colors: ['#10b981', '#34d399', '#059669', '#6ee7b7', '#047857', '#a7f3d0'] },
-        { name: 'Sunset',  colors: ['#f59e0b', '#ef4444', '#f97316', '#fbbf24', '#dc2626', '#fb923c'] },
-        { name: 'Ocean',   colors: ['#0ea5e9', '#06b6d4', '#3b82f6', '#22d3ee', '#2563eb', '#67e8f9'] },
-        { name: 'Mono',    colors: ['#64748b', '#94a3b8', '#475569', '#cbd5e1', '#334155', '#e2e8f0'] },
-    ];
-    const activePalette = $derived(dashboardStore.colorOverrides[panel.panel_id] ?? null);
-    function pickPalette(p: { name: string; colors: string[] }) {
-        // "Theme" clears the override; others set it.
-        dashboardStore.handleColorOverride(panel.panel_id, p.name === 'Theme' ? null : p.colors);
-    }
-    function isActivePalette(p: { name: string; colors: string[] }): boolean {
-        if (p.name === 'Theme') return activePalette === null;
-        return activePalette !== null && activePalette[0] === p.colors[0];
-    }
 
     // ── Dimensions ────────────────────────────────────────────────────────────
     let colsValue = $state(1);
@@ -145,22 +128,8 @@
             </section>
         {/if}
 
-        <!-- Colors -->
-        <section class="prop-section">
-            <h3 class="section-title">Colors</h3>
-            <div class="palettes">
-                {#each PALETTES as p (p.name)}
-                    <button class="palette" class:active={isActivePalette(p)} onclick={() => pickPalette(p)} title={p.name}>
-                        <span class="swatches">
-                            {#each p.colors.slice(0, 5) as c}
-                                <span class="swatch" style="background:{c}"></span>
-                            {/each}
-                        </span>
-                        <span class="palette-name">{p.name}</span>
-                    </button>
-                {/each}
-            </div>
-        </section>
+        <!-- Colors are set at the dashboard level (header palette picker) so the
+             whole dashboard stays consistent — no per-panel override here. -->
 
         <!-- Dimensions -->
         <section class="prop-section">
@@ -300,24 +269,6 @@
         color: var(--sqlviz-text);
         padding: 0.1875rem 0;
     }
-
-    .palettes { display: flex; flex-direction: column; gap: 0.375rem; }
-    .palette {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.375rem 0.5rem;
-        background: none;
-        border: 1px solid var(--sqlviz-border);
-        border-radius: var(--sqlviz-radius);
-        cursor: pointer;
-        transition: border-color 0.12s;
-    }
-    .palette:hover { border-color: var(--sqlviz-text-muted); }
-    .palette.active { border-color: var(--sqlviz-primary); }
-    .swatches { display: flex; gap: 2px; }
-    .swatch { width: 14px; height: 14px; border-radius: 3px; }
-    .palette-name { font-size: 0.75rem; color: var(--sqlviz-text); }
 
     .dim-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
     .dim-row .field-label { margin: 0; flex-shrink: 0; width: 96px; }

@@ -8,6 +8,7 @@ import { explainTarget } from './explainStore';
 import { executionStore } from './executionStore.svelte';
 import { filterValues } from './filterValues.svelte';
 import { uiStore } from './uiStore.svelte';
+import { getPaletteById } from '$lib/charts/palettes';
 
 export type { ExecResult };
 
@@ -41,6 +42,22 @@ function createDashboardStore() {
     // session-only palette overrides per panel (keyed by panel_id).
     let propertiesPanelId = $state<string | null>(null);
     let colorOverrides    = $state<Record<string, string[]>>({});
+
+    // Dashboard-level chart palette (one palette for every panel, so the whole
+    // dashboard reads as one system). Stored by id, persisted per dashboard.
+    let dashboardPaletteId = $state<string>('brand');
+    function paletteKey(id: string) { return `sqlviz-dashboard-palette:${id}`; }
+    function loadPaletteFor(id: string | null) {
+        if (!id || !browser) { dashboardPaletteId = 'brand'; return; }
+        try { dashboardPaletteId = localStorage.getItem(paletteKey(id)) || 'brand'; }
+        catch { dashboardPaletteId = 'brand'; }
+    }
+    function setDashboardPalette(paletteId: string) {
+        dashboardPaletteId = paletteId;
+        if (dashboardId && browser) {
+            try { localStorage.setItem(paletteKey(dashboardId), paletteId); } catch { /* ignore */ }
+        }
+    }
 
     // Domain (distinct values / numeric bounds) per filter variable, keyed by
     // control.variable. Populated lazily after execution so dropdown / multiselect
@@ -242,6 +259,7 @@ function createDashboardStore() {
             try { saved = localStorage.getItem(ACTIVE_KEY); } catch { /* no storage */ }
             const active = dashboards.find(d => d.id === saved) ?? dashboards[0];
             dashboardId = active.id;
+            loadPaletteFor(active.id);
             persistActive(active.id);
             lastRunAt = active.last_run_at;
             lastRunSql = active.last_run_sql ?? '';
@@ -488,6 +506,7 @@ function createDashboardStore() {
             panels.sort((a, b) => a.sort_order - b.sort_order);
 
             dashboardId = id;
+            loadPaletteFor(id);
             persistActive(id);
             lastRunAt   = dash.last_run_at;
             lastRunSql  = dash.last_run_sql ?? '';
@@ -1014,6 +1033,9 @@ function createDashboardStore() {
         get propertiesPanelId() { return propertiesPanelId; },
         get selectedPanel() { return selectedPanel; },
         get colorOverrides() { return colorOverrides; },
+        get dashboardPaletteId() { return dashboardPaletteId; },
+        get dashboardPalette() { return getPaletteById(dashboardPaletteId).colors; },
+        setDashboardPalette,
         get activeDashboard() { return activeDashboard; },
         get utilityPct() { return utilityPct; },
         get allFilterControls() { return allFilterControls; },

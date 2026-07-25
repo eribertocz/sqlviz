@@ -7,14 +7,15 @@
      * Rendered in the exact order received — NO client-side layout logic.
      * (DOC6 §1.1: "The frontend NEVER infers. The frontend ONLY renders.")
      */
-    let { layout, onEditSQL, onExplain, onDelete, onSelectPanel, selectedPanelId = null, colorOverrides = {} }: {
+    let { layout, onEditSQL, onExplain, onDelete, onSelectPanel, selectedPanelId = null, palette }: {
         layout: DashboardLayout;
         onEditSQL?: (id: string) => void;
         onExplain?: (id: string) => void;
         onDelete?: (id: string) => void;
         onSelectPanel?: (id: string) => void;
         selectedPanelId?: string | null;
-        colorOverrides?: Record<string, string[]>;
+        // One palette for the whole dashboard — every panel shares it.
+        palette?: string[];
     } = $props();
 </script>
 
@@ -44,7 +45,7 @@
                 <PanelRenderer
                     {panel}
                     selected={panel.panel_id === selectedPanelId}
-                    palette={colorOverrides[panel.panel_id]}
+                    {palette}
                     {onEditSQL}
                     {onExplain}
                     {onDelete}
