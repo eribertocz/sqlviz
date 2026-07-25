@@ -24,8 +24,6 @@
     import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
     import PanelLeftOpenIcon from '@lucide/svelte/icons/panel-left-open';
     import SettingsIcon from '@lucide/svelte/icons/settings';
-    import SunIcon from '@lucide/svelte/icons/sun';
-    import MoonIcon from '@lucide/svelte/icons/moon';
 
     let folderCollapsed = $state<Record<string, boolean>>({});
     let openMenuId = $state<string | null>(null);
@@ -499,14 +497,8 @@
                     </Tooltip.Trigger>
                     <Tooltip.Content side="right">Settings</Tooltip.Content>
                 </Tooltip.Root>
-                <Tooltip.Root>
-                    <Tooltip.Trigger class="foot-btn" onclick={uiStore.toggleTheme}
-                        aria-label={uiStore.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-                        {#if uiStore.theme === 'dark'}<SunIcon size={16} />{:else}<MoonIcon size={16} />{/if}
-                    </Tooltip.Trigger>
-                    <Tooltip.Content side="right">{uiStore.theme === 'dark' ? 'Light mode' : 'Dark mode'}</Tooltip.Content>
-                </Tooltip.Root>
             </Tooltip.Provider>
+            <ThemeToggle compact />
         {:else}
             <button class="foot-btn wide" onclick={() => uiStore.showToast('Settings coming soon')} aria-label="Settings">
                 <SettingsIcon size={16} /> <span>Settings</span>
@@ -875,7 +867,7 @@
         border-top: 1px solid var(--sqlviz-hairline);
         flex-shrink: 0;
     }
-    .sidebar-footer.collapsed { align-items: center; }
+    .sidebar-footer.collapsed { align-items: center; gap: 0.25rem; padding-left: 0; padding-right: 0; }
 
     :global(.foot-btn) {
         display: flex;

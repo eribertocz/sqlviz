@@ -3,11 +3,16 @@
     import SunIcon from '@lucide/svelte/icons/sun';
     import MoonIcon from '@lucide/svelte/icons/moon';
 
+    // `compact` renders a smaller switch that fits the 44px collapsed rail.
+    let { compact = false }: { compact?: boolean } = $props();
+
     const dark = $derived(uiStore.theme === 'dark');
+    const ic = $derived(compact ? 9 : 11);
 </script>
 
 <button
     class="theme-switch"
+    class:compact
     role="switch"
     aria-checked={dark}
     aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -15,10 +20,10 @@
     onclick={uiStore.toggleTheme}
 >
     <span class="track">
-        <SunIcon class="tt-ic tt-sun" size={11} />
-        <MoonIcon class="tt-ic tt-moon" size={11} />
+        <SunIcon class="tt-ic tt-sun" size={ic} />
+        <MoonIcon class="tt-ic tt-moon" size={ic} />
         <span class="knob" class:dark>
-            {#if dark}<MoonIcon size={11} />{:else}<SunIcon size={11} />{/if}
+            {#if dark}<MoonIcon size={ic} />{:else}<SunIcon size={ic} />{/if}
         </span>
     </span>
 </button>
@@ -71,4 +76,11 @@
         transition: transform 0.2s ease;
     }
     .knob.dark { transform: translateX(20px); }
+
+    /* ── Compact (collapsed rail) ─────────────────────────────── */
+    .theme-switch.compact .track { width: 34px; height: 20px; }
+    .theme-switch.compact .knob { width: 14px; height: 14px; }
+    .theme-switch.compact .knob.dark { transform: translateX(14px); }
+    .theme-switch.compact .track :global(.tt-sun) { left: 4px; }
+    .theme-switch.compact .track :global(.tt-moon) { right: 4px; }
 </style>
