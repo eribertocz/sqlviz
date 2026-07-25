@@ -1,8 +1,8 @@
 <script lang="ts">
     import * as Dialog from '$lib/components/ui/dialog/index.js';
-    import { Input } from '$lib/components/ui/input/index.js';
     import { Button } from '$lib/components/ui/button/index.js';
     import { apiPost } from '$lib/api';
+    import { copyText } from '$lib/clipboard';
     import CheckIcon from '@lucide/svelte/icons/check';
     import CopyIcon from '@lucide/svelte/icons/copy';
     import EyeIcon from '@lucide/svelte/icons/eye';
@@ -37,6 +37,7 @@
     let creating = $state(false);
     let error = $state('');
     let copied = $state(false);
+    let copiedPw = $state(false);
 
     const modes: { value: ShareMode; label: string; hint: string }[] = [
         { value: 'private',  label: 'Private (preview)',   hint: 'Only you — preview the viewer; nobody else can open it' },
@@ -55,6 +56,7 @@
             link = '';
             error = '';
             copied = false;
+            copiedPw = false;
         }
     });
 
@@ -92,51 +94,36 @@
         }
     }
 
+    // The clipboard fallback has to select an element inside the dialog, so it
+    // needs both the dialog content node and the visible link field.
+    let contentEl = $state<HTMLElement | null>(null);
+    let linkInputEl = $state<HTMLInputElement | null>(null);
+
     async function copy() {
-        if (!link) return;
-        let ok = false;
-        // Clipboard API only works in a secure context (https / localhost). Over
-        // http://<LAN-IP> it's unavailable, so fall back to execCommand.
-        try {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(link);
-                ok = true;
-            }
-        } catch {
-            ok = false;
-        }
-        if (!ok) ok = legacyCopy(link);
+        const ok = await copyText(link, { source: linkInputEl, container: contentEl });
         if (ok) {
             copied = true;
             error = '';
             setTimeout(() => (copied = false), 1800);
         } else {
-            error = 'Could not copy automatically — select the link and press Ctrl+C.';
+            error = 'Could not copy — select the link and press Ctrl+C.';
         }
     }
 
-    function legacyCopy(text: string): boolean {
-        try {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            ta.setAttribute('readonly', '');
-            ta.style.position = 'fixed';
-            ta.style.top = '-1000px';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.focus();
-            ta.select();
-            const done = document.execCommand('copy');
-            document.body.removeChild(ta);
-            return done;
-        } catch {
-            return false;
+    async function copyPassword() {
+        const ok = await copyText(password, { container: contentEl });
+        if (ok) {
+            copiedPw = true;
+            error = '';
+            setTimeout(() => (copiedPw = false), 1800);
+        } else {
+            error = 'Could not copy the password — show it and press Ctrl+C.';
         }
     }
 </script>
 
 <Dialog.Root bind:open>
-    <Dialog.Content class="sm:max-w-md">
+    <Dialog.Content bind:ref={contentEl} class="sm:max-w-md">
         <Dialog.Header>
             <Dialog.Title>Share</Dialog.Title>
             <Dialog.Description>
@@ -199,11 +186,15 @@
                             title={showPassword ? 'Hide' : 'Show'} aria-label={showPassword ? 'Hide password' : 'Show password'}>
                             {#if showPassword}<EyeOffIcon class="size-4" />{:else}<EyeIcon class="size-4" />{/if}
                         </button>
+                        <button type="button" class="pw-btn" onclick={copyPassword} disabled={!password}
+                            title="Copy password" aria-label="Copy password">
+                            {#if copiedPw}<CheckIcon class="size-4" />{:else}<CopyIcon class="size-4" />{/if}
+                        </button>
                         <button type="button" class="pw-btn pw-gen" onclick={generatePassword} title="Generate a strong password">
                             <RefreshIcon class="size-4" /> Generate
                         </button>
                     </div>
-                    {#if password && showPassword}
+                    {#if password}
                         <p class="pw-hint">Copy this password — you'll need to share it with viewers.</p>
                     {/if}
                 {/if}
@@ -212,7 +203,8 @@
 
         {#if link}
             <div class="link-row">
-                <input class="link-input" readonly value={link} aria-label="Share link" />
+                <input class="link-input" readonly value={link} aria-label="Share link"
+                    bind:this={linkInputEl} />
                 <button class="copy-btn" onclick={copy} aria-label="Copy link">
                     {#if copied}<CheckIcon class="size-4" />{:else}<CopyIcon class="size-4" />{/if}
                     {copied ? 'Copied' : 'Copy'}
