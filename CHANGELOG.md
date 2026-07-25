@@ -5,6 +5,152 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v0.2.11] — 2026-07-25
+
+Objetivo: compartir dashboards en la red local de forma confiable, motor de
+charts profesional y controles de filtro consistentes.
+
+### Added
+- **Motor de charts profesional** con paletas a nivel dashboard, y nuevas
+  paletas seleccionables desde el Panel Properties.
+- **Títulos de panel y de ejes editables**, persistidos y visibles también en
+  los dashboards compartidos.
+- **Selector de paleta en los viewers**: cada visitante elige su paleta, que se
+  guarda por dashboard en su navegador.
+- **Compartir con alcance**: `dashboard` (uno solo) o `workspace` (todos, con
+  navegación), cada uno con su viewer.
+- **Modo privado** = preview solo para el admin, links listos para LAN y
+  generador de contraseñas fuertes (16 caracteres, sin caracteres ambiguos),
+  con botón para copiarla.
+- **El CLI escucha en `0.0.0.0`** por defecto, para que `sqlviz` a secas alcance
+  para compartir en la red local.
+- **Command palette**, sidebar tipo rail, focus mode y editor drawer.
+- **Vistas de filtro guardadas** (combinaciones con nombre, en localStorage por
+  dashboard), disponibles también en el viewer.
+- **El dropdown de filtros ahora es un combobox con búsqueda**, igual que el
+  multiselect: dominios de docenas de valores se buscan en vez de scrollearse.
+- **Identidad visual**: logo oficial de SQLviz, Geist Sans para el wordmark y
+  color de marca indigo `#5B5BD6`.
+- `$lib/clipboard.ts`: helper de copiado con fallback para contexto inseguro.
+- Polyfills de jsdom para Pointer Capture y `PointerEvent` en `vitest-setup.ts`,
+  sin los cuales ningún test podía abrir un menú de bits-ui.
+
+### Changed
+- **Viewer rediseñado**: sidebar colapsable, filtros flotantes y la misma barra
+  de filtros que el modo edición.
+- Share pasa a botón icon-only, Preview/Edit a control segmentado y los filtros
+  a pills.
+- Scrollbars finas y sensibles al tema.
+
+### Fixed
+- **Copiar el link de share copiaba otra cosa**: sin contexto seguro se caía a
+  `execCommand`, que seleccionaba un `<textarea>` colgado de `<body>` — fuera
+  del focus trap del diálogo de bits-ui, que le robaba el foco antes de copiar.
+  La selección ahora ocurre siempre dentro del diálogo.
+- **Las vistas de filtro no se podían guardar desde la red local**:
+  `crypto.randomUUID()` solo existe en contexto seguro, así que tiraba
+  `TypeError` en `http://<LAN-IP>`. Ahora el id sale de `crypto.getRandomValues`.
+- **El dropdown con muchas opciones se salía de la pantalla sin scroll**: tenía
+  `overflow-y-auto` pero nada que acotara su altura, y una caja libre de crecer
+  nunca produce scrollbar.
+- El viewer no cargaba: se separó la navegación del fetch de datos, se sirve la
+  SPA para `/view/<token>` y se dejó de devolver HTML cacheado a su fetch JSON.
+- Los dominios de filtro no se cargaban en el viewer, así que los dropdowns se
+  renderizaban como cajas de texto.
+- Las posiciones de los paneles se mantienen estables al cambiar un filtro.
+- Windows: se usa el event loop Selector para evitar el ruido de resets del
+  Proactor.
+- El título del eje Y se renderiza vertical (rotado 90°), también en edición.
+- Propiedades de panel obsoletas al cambiar de panel.
+
+---
+
+## [v0.2.10] — 2026-07-21
+
+> Entrada reconstruida el 2026-07-25 a partir del historial: esta release se
+> tagueó sin registrarse en el changelog.
+
+### Added
+- **Creación inline estilo VSCode** en el sidebar: nombrar carpetas y
+  dashboards directamente en el árbol, sin modal (Enter confirma, Escape
+  cancela, nombre vacío muestra un aviso inline).
+- **Selección explícita de carpeta/raíz** como destino de creación, visualmente
+  distinta del dashboard activo (línea fina a la izquierda vs. resaltado).
+- **Caché de resultados en memoria** por dashboard (charts, layout, dominios y
+  selección de filtros): navegar entre dashboards restaura la vista al instante
+  en vez de mostrar el editor vacío. Se invalida en cuanto el SQL borrador
+  diverge de la query que produjo esos resultados.
+
+### Changed
+- El estado de los filtros paramétricos migró a runes de Svelte 5: el cambio de
+  un filtro pasó a ser una escritura de estado pura, con un `$effect` que
+  debouncea (350 ms) y re-ejecuta solo los paneles afectados.
+- El botón "Run Again" se eliminó y "Last run X ago" quedó como línea
+  informativa.
+- El botón de limpiar del dropdown reemplaza a la opción "All".
+
+### Fixed
+- Limpiar un filtro no re-ejecutaba la query: la ejecución abortaba si alguna
+  variable estaba vacía, así que el chart seguía mostrando los datos filtrados.
+  Un valor vacío significa "All" y el API neutraliza ese predicado.
+- La paleta elegida no se aplicaba a line/bar/scatter/histogram: solo el pie
+  usaba la paleta, el resto tenía el color de serie hardcodeado.
+- Cursor DuckDB por request, para que los resultados no se pisen entre threads.
+- Migraciones idempotentes: se acabó el traceback al reabrir un proyecto.
+
+---
+
+## [v0.2.9] — 2026-07-18
+
+> Entrada reconstruida el 2026-07-25 a partir del historial: esta release se
+> tagueó sin registrarse en el changelog.
+
+### Added
+- **Panel de Propiedades del panel** (`PanelPropertiesPanel.svelte`): panel
+  lateral derecho que se abre al hacer clic en cualquier panel en modo edición y
+  centraliza toda su configuración — tipo de chart (el Chart Selector ahora
+  embebido), título editable, ejes X/Y, colores, dimensiones (ancho en columnas
+  y alto en px, con reset a automático), SQL editable con Apply que re-ejecuta
+  solo ese panel, e inferencia (intent/chart/calidad + explicación del motor).
+  Reemplaza el modal flotante del Chart Selector y el popover de layout.
+- **Roadmap completo** (`sqlviz-roadmap.md`): V0.2.x → V1.0 con convención de
+  versiones, y **DOC11**, el plan de construcción del Filter Engine de V0.4.0
+  (20 motores). Solo documentación.
+
+---
+
+## [v0.2.8] — 2026-07-18
+
+> Entrada reconstruida el 2026-07-25 a partir del historial: esta release se
+> tagueó sin registrarse en el changelog.
+
+### Added
+- **Auto-guardado del borrador**: el texto exacto del editor se persiste solo,
+  2 s después de dejar de tipear, al cambiar de dashboard, al perder foco la
+  ventana y al cerrar la pestaña (PATCH con `keepalive`). El usuario nunca
+  piensa en guardar.
+- **Indicadores de estado en el header**, discretos y nunca modales:
+  ● Draft · Saving… · Saved (se desvanece) · Running · Error.
+- **Restore al refrescar**: reabre el último dashboard activo, restaura el
+  borrador exacto y, en vez de re-ejecutar, muestra "Last run X min ago".
+- **Botón "Restore last run"**: revierte el borrador al SQL de la última
+  ejecución exitosa, que ahora se persiste aparte en `dashboards.last_run_sql`
+  (migración 0018). Solo aparece mientras borrador y última ejecución difieren.
+- **Sidebar de dashboards colapsable y dual-mode**, con drag-and-drop, borrado
+  de grupos y edición inline.
+
+---
+
+## [v0.2.7] — 2026-07-18
+
+> Entrada reconstruida el 2026-07-25 a partir del historial: esta release se
+> tagueó sin registrarse en el changelog.
+
+### Added
+- **Dashboard Explorer**: sidebar de navegación entre dashboards.
+
+---
+
 ## [v0.2.6] — 2026-07-18
 
 Objetivo: filtros paramétricos completos y controles de UI profesionales
