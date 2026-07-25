@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import sys
 import threading
 import time
 import webbrowser
@@ -81,6 +83,15 @@ def serve(
         ).start()
 
     print("  Press Ctrl+C to stop.\n")
+
+    # Windows: use the Selector event loop instead of the default Proactor one.
+    # Proactor's _call_connection_lost calls socket.shutdown() on a socket the
+    # client already reset (browser refresh/close), logging a benign but noisy
+    # ConnectionResetError (WinError 10054). Selector doesn't use that codepath,
+    # so the error can't arise — a mechanism change, not a suppression. Safe
+    # here: we serve plain HTTP on localhost and spawn no asyncio subprocesses.
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     config = uvicorn.Config(
         app=app,
