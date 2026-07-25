@@ -153,14 +153,10 @@
             );
             if (!panelVars.includes(changedVar)) continue;
 
-            const allProvided = panelVars.every((v: string) => {
-                const val = currentFV[v];
-                return val !== undefined && val !== '' && val !== null;
-            });
-            if (!allProvided) continue;
-
+            // Send every variable, including empty ones ("All" → backend
+            // neutralizes the predicate), so clearing a filter re-runs too.
             const variables = Object.fromEntries(
-                panelVars.map((v: string) => [v, currentFV[v]])
+                panelVars.map((v: string) => [v, currentFV[v] ?? ''])
             );
 
             try {
@@ -177,11 +173,32 @@
 
         if (!anyChanged) return;
         executedResults = updatedResults;
-        try {
-            layout = await recompose(updatedResults);
-        } catch {
-            // Layout stays as-is
+        // Patch the charts in place — never re-compose on a filter change or the
+        // panels reorder every time. Full compose only if there's no layout yet.
+        if (layout) {
+            layout = applyResultsToLayout(layout, updatedResults);
+        } else {
+            try {
+                layout = await recompose(updatedResults);
+            } catch {
+                // Layout stays as-is
+            }
         }
+    }
+
+    function applyResultsToLayout(current: DashboardLayout, results: ExecResult[]): DashboardLayout {
+        const byId = new Map(results.map(r => [r.panel_id, r]));
+        return {
+            ...current,
+            rows: current.rows.map(row => ({
+                panels: row.panels.map(p => {
+                    const r = byId.get(p.panel_id);
+                    return r
+                        ? { ...p, inference_result: r.inference_result, data: r.data }
+                        : p;
+                }),
+            })),
+        };
     }
 
     function handleFilterChange(varName: string, value: unknown) {
