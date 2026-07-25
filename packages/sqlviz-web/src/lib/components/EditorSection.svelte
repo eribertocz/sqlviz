@@ -98,7 +98,7 @@
         height: 24px;
         padding: 0 0.75rem;
         background: var(--sqlviz-primary);
-        color: #fff;
+        color: var(--sqlviz-on-primary);
         border: none;
         border-radius: var(--sqlviz-radius);
         font-size: 0.75rem;

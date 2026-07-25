@@ -3,10 +3,9 @@
     import DashboardGrid from '$lib/components/DashboardGrid.svelte';
     import FilterControlComponent from '$lib/components/FilterControl.svelte';
     import BrandMark from '$lib/components/BrandMark.svelte';
+    import ThemeToggle from '$lib/components/ThemeToggle.svelte';
     import { editMode } from '$lib/stores/editMode';
     import { uiStore } from '$lib/stores/uiStore.svelte';
-    import SunIcon from '@lucide/svelte/icons/sun';
-    import MoonIcon from '@lucide/svelte/icons/moon';
     import type {
         DashboardLayout,
         FilterControl,
@@ -301,17 +300,8 @@
 
             <!-- Footer — only the theme toggle for viewers -->
             <div class="viewer-sidebar-footer">
-                <button
-                    class="foot-btn wide"
-                    onclick={uiStore.toggleTheme}
-                    aria-label={uiStore.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-                >
-                    {#if uiStore.theme === 'dark'}
-                        <SunIcon size={16} /> <span>Light mode</span>
-                    {:else}
-                        <MoonIcon size={16} /> <span>Dark mode</span>
-                    {/if}
-                </button>
+                <span class="foot-theme-label">Theme</span>
+                <ThemeToggle />
             </div>
         </nav>
 
@@ -446,7 +436,7 @@
         height: 40px;
         padding: 0 1rem;
         background: var(--sqlviz-primary);
-        color: #fff;
+        color: var(--sqlviz-on-primary);
         border: none;
         border-radius: var(--sqlviz-radius);
         font-size: 0.9375rem;
@@ -526,26 +516,15 @@
     .nav-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .viewer-sidebar-footer {
-        padding: 0.375rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 44px;
+        padding: 0 0.75rem;
         border-top: 1px solid var(--sqlviz-hairline);
         flex-shrink: 0;
     }
-    .foot-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.625rem;
-        width: 100%;
-        height: 32px;
-        padding: 0 0.5rem;
-        border: none;
-        background: none;
-        color: var(--sqlviz-text-muted);
-        border-radius: var(--sqlviz-radius);
-        cursor: pointer;
-        font-size: 0.8125rem;
-        transition: background 0.12s, color 0.12s;
-    }
-    .foot-btn:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
+    .foot-theme-label { font-size: 0.8125rem; color: var(--sqlviz-text-muted); }
 
     /* Main column */
     .viewer-main {

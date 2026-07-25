@@ -1,5 +1,6 @@
 <script lang="ts">
     import { resolveDashboardIcon } from '$lib/dashboardIcons';
+    import ThemeToggle from '$lib/components/ThemeToggle.svelte';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { uiStore } from '$lib/stores/uiStore.svelte';
     import { editMode } from '$lib/stores/editMode';
@@ -510,14 +511,10 @@
             <button class="foot-btn wide" onclick={() => uiStore.showToast('Settings coming soon')} aria-label="Settings">
                 <SettingsIcon size={16} /> <span>Settings</span>
             </button>
-            <button class="foot-btn wide" onclick={uiStore.toggleTheme}
-                aria-label={uiStore.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-                {#if uiStore.theme === 'dark'}
-                    <SunIcon size={16} /> <span>Light mode</span>
-                {:else}
-                    <MoonIcon size={16} /> <span>Dark mode</span>
-                {/if}
-            </button>
+            <div class="foot-theme">
+                <span class="foot-theme-label">Theme</span>
+                <ThemeToggle />
+            </div>
         {/if}
     </div>
 </nav>
@@ -897,6 +894,16 @@
     }
     :global(.foot-btn.wide) { width: 100%; justify-content: flex-start; padding: 0 0.5rem; }
     :global(.foot-btn:hover) { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
+
+    /* Theme row — settings-style label + switch */
+    .foot-theme {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 32px;
+        padding: 0 0.5rem;
+    }
+    .foot-theme-label { font-size: 0.8125rem; color: var(--sqlviz-text-muted); }
 
     .dialog-fields { display: flex; flex-direction: column; gap: 0.375rem; }
     .field-label {

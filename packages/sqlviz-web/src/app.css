@@ -10,9 +10,14 @@
  */
 
 :root {
-  /* Color */
-  --sqlviz-primary:       #6366f1;  /* indigo — brand, CTAs, links */
-  --sqlviz-primary-hover: #818cf8;
+  /* Brand — cyan/teal: "SQL + visualization". Bright enough to sit on dark
+     surfaces and as chart marks; solid fills pair it with --sqlviz-on-primary
+     (dark ink) rather than white, which a bright cyan can't carry legibly. */
+  --sqlviz-primary:       #06b6d4;  /* cyan/teal — brand, CTAs, active state */
+  --sqlviz-primary-hover: #22d3ee;  /* brighter cyan for hover */
+  --sqlviz-on-primary:    #04252b;  /* dark ink for text/icons on primary fills */
+  --sqlviz-primary-soft:  color-mix(in srgb, var(--sqlviz-primary) 14%, transparent); /* tint bg */
+
   --sqlviz-bg:            #0f172a;  /* dark background (default theme) */
   --sqlviz-bg-surface:    #1e293b;  /* card / panel background */
   --sqlviz-bg-base:       var(--sqlviz-bg); /* hover/active tint on surfaces — tracks --sqlviz-bg per theme */
@@ -20,9 +25,10 @@
   --sqlviz-text:          #f1f5f9;  /* primary text */
   --sqlviz-text-muted:    #94a3b8;  /* secondary text, metadata */
 
-  /* Semantic colors — KPI trend indicators only (DOC5 §16.2, dim 38) */
-  --sqlviz-positive:      #22c55e;  /* green — growing KPI */
-  --sqlviz-negative:      #ef4444;  /* red — declining KPI */
+  /* Semantic colors — KPI trends + status */
+  --sqlviz-positive:      #22c55e;  /* green — growing KPI / success */
+  --sqlviz-negative:      #ef4444;  /* red — declining KPI / error */
+  --sqlviz-warning:       #f59e0b;  /* amber — warning / caution */
   --sqlviz-neutral:       #94a3b8;  /* gray — flat KPI */
 
   /* Geometry */
@@ -129,7 +135,7 @@ body {
   --popover:               var(--sqlviz-bg-surface);
   --popover-foreground:    var(--sqlviz-text);
   --primary:               var(--sqlviz-primary);
-  --primary-foreground:    #ffffff;
+  --primary-foreground:    var(--sqlviz-on-primary);
   --secondary:             var(--sqlviz-bg-surface);
   --secondary-foreground:  var(--sqlviz-text);
   --muted:                 var(--sqlviz-bg-surface);

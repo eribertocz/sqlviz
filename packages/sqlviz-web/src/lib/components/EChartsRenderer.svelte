@@ -10,16 +10,20 @@
         palette?: string[];
     } = $props();
 
-    // DOC6 §2 colors reproduced as JS constants (CSS vars not readable by ECharts)
+    // DOC6 §2 colors reproduced as JS constants (CSS vars not readable by ECharts).
+    // `palette` is the categorical series set — a CVD-safe, fixed-order set
+    // validated with the dataviz skill's checker (adjacent CVD ΔE ≥ 8, chroma
+    // floor, contrast ≥ 3:1 on the dark surface). Single-series charts use the
+    // brand cyan (`primary`) so the common case reads as SQLviz.
     const C = {
-        primary:  '#6366f1',
+        primary:  '#06b6d4',
         positive: '#22c55e',
         negative: '#ef4444',
         neutral:  '#94a3b8',
         text:     '#f1f5f9',
         muted:    '#94a3b8',
         border:   '#334155',
-        palette:  ['#6366f1', '#22c55e', '#f59e0b', '#06b6d4', '#ef4444', '#a78bfa', '#fbbf24', '#34d399'],
+        palette:  ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
     };
 
     const BASE: echarts.EChartsOption = {
