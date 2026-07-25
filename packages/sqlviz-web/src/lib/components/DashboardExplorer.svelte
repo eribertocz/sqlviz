@@ -1,6 +1,7 @@
 <script lang="ts">
     import { resolveDashboardIcon } from '$lib/dashboardIcons';
     import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+    import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { uiStore } from '$lib/stores/uiStore.svelte';
     import { editMode } from '$lib/stores/editMode';
@@ -22,7 +23,6 @@
     import Trash2Icon from '@lucide/svelte/icons/trash-2';
     import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
     import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
-    import PanelLeftOpenIcon from '@lucide/svelte/icons/panel-left-open';
     import SettingsIcon from '@lucide/svelte/icons/settings';
 
     let folderCollapsed = $state<Record<string, boolean>>({});
@@ -327,18 +327,19 @@
 {/snippet}
 
 <nav class="explorer" class:collapsed aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}>
-    <!-- ── Sidebar header (44px) — wordmark + collapse toggle ──────────────── -->
+    <!-- ── Sidebar header (44px) — logo + wordmark + collapse toggle ───────── -->
     <div class="sidebar-header" class:collapsed={!expanded}>
         {#if expanded}
-            <span class="brand-name">SQLviz</span>
-            <button class="hbtn" onclick={uiStore.toggleSidebar}
-                title={collapsed ? 'Pin sidebar open' : 'Collapse sidebar'}
-                aria-label={collapsed ? 'Pin sidebar open' : 'Collapse sidebar'}>
+            <div class="brand">
+                <img class="brand-icon" src={sqlvizIcon} alt="" width="28" height="28" />
+                <span class="brand-name"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
+            </div>
+            <button class="hbtn" onclick={uiStore.toggleSidebar} title="Collapse sidebar" aria-label="Collapse sidebar">
                 <PanelLeftCloseIcon size={16} />
             </button>
         {:else}
-            <button class="hbtn" onclick={uiStore.toggleSidebar} title="Expand sidebar" aria-label="Expand sidebar">
-                <PanelLeftOpenIcon size={16} />
+            <button class="brand-btn" onclick={uiStore.toggleSidebar} title="Expand sidebar" aria-label="Expand sidebar">
+                <img class="brand-icon" src={sqlvizIcon} alt="SQLviz" width="28" height="28" />
             </button>
         {/if}
     </div>
@@ -588,14 +589,32 @@
     }
     .sidebar-header.collapsed { justify-content: center; padding: 0; }
 
+    .brand { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+    .brand-icon { display: block; flex-shrink: 0; }
+
     .brand-name {
         font-size: 0.9375rem;
-        font-weight: 700;
-        color: var(--sqlviz-text);
         letter-spacing: -0.01em;
         white-space: nowrap;
         overflow: hidden;
     }
+    .brand-sql { color: var(--sqlviz-text-primary); font-weight: 600; }
+    .brand-viz { color: #06B6D4; font-weight: 600; }
+
+    /* Collapsed: the logo doubles as the expand control */
+    .brand-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border: none;
+        background: none;
+        border-radius: var(--sqlviz-radius);
+        cursor: pointer;
+        transition: background 0.12s;
+    }
+    .brand-btn:hover { background: var(--sqlviz-bg-base); }
 
     /* ── EXPLORER toolbar (32px) ──────────────────────────────── */
     .explorer-toolbar {

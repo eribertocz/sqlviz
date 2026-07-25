@@ -23,6 +23,7 @@
   --sqlviz-bg-base:       var(--sqlviz-bg); /* hover/active tint on surfaces — tracks --sqlviz-bg per theme */
   --sqlviz-border:        #334155;
   --sqlviz-text:          #f1f5f9;  /* primary text */
+  --sqlviz-text-primary:  var(--sqlviz-text); /* alias — follows the theme */
   --sqlviz-text-muted:    #94a3b8;  /* secondary text, metadata */
 
   /* Semantic colors — KPI trends + status */
