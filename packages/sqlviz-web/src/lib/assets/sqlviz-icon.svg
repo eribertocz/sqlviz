@@ -1,13 +1,13 @@
 <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
   <g transform="translate(5, 10)">
-    <rect width="110" height="100" rx="14" fill="none" stroke="#06B6D4" stroke-width="5"/>
-    <line x1="0" y1="26" x2="110" y2="26" stroke="#06B6D4" stroke-width="4"/>
-    <circle cx="16" cy="13" r="3.5" fill="#06B6D4"/>
-    <circle cx="28" cy="13" r="3.5" fill="#06B6D4"/>
-    <circle cx="40" cy="13" r="3.5" fill="#06B6D4"/>
-    <rect x="18" y="56" width="14" height="28" rx="3" fill="#06B6D4" opacity="0.3"/>
-    <rect x="38" y="44" width="14" height="40" rx="3" fill="#06B6D4" opacity="0.6"/>
-    <rect x="58" y="36" width="14" height="48" rx="3" fill="#06B6D4"/>
-    <rect x="78" y="50" width="14" height="34" rx="3" fill="#06B6D4" opacity="0.5"/>
+    <rect width="110" height="100" rx="14" fill="none" stroke="#D97757" stroke-width="5"/>
+    <line x1="0" y1="26" x2="110" y2="26" stroke="#D97757" stroke-width="4"/>
+    <circle cx="16" cy="13" r="3.5" fill="#D97757"/>
+    <circle cx="28" cy="13" r="3.5" fill="#D97757"/>
+    <circle cx="40" cy="13" r="3.5" fill="#D97757"/>
+    <rect x="18" y="56" width="14" height="28" rx="3" fill="#D97757" opacity="0.3"/>
+    <rect x="38" y="44" width="14" height="40" rx="3" fill="#D97757" opacity="0.6"/>
+    <rect x="58" y="36" width="14" height="48" rx="3" fill="#D97757"/>
+    <rect x="78" y="50" width="14" height="34" rx="3" fill="#D97757" opacity="0.5"/>
   </g>
 </svg>

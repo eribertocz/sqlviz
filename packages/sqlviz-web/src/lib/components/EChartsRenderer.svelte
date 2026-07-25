@@ -14,9 +14,9 @@
     // `palette` is the categorical series set — a CVD-safe, fixed-order set
     // validated with the dataviz skill's checker (adjacent CVD ΔE ≥ 8, chroma
     // floor, contrast ≥ 3:1 on the dark surface). Single-series charts use the
-    // brand cyan (`primary`) so the common case reads as SQLviz.
+    // brand coral (`primary`) so the common case reads as SQLviz.
     const C = {
-        primary:  '#06b6d4',
+        primary:  '#d97757',
         positive: '#22c55e',
         negative: '#ef4444',
         neutral:  '#94a3b8',

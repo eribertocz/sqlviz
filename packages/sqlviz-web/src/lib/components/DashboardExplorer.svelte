@@ -599,7 +599,7 @@
         overflow: hidden;
     }
     .brand-sql { color: var(--sqlviz-text-primary); font-weight: 600; }
-    .brand-viz { color: #06B6D4; font-weight: 600; }
+    .brand-viz { color: var(--sqlviz-primary); font-weight: 600; }
 
     /* Collapsed: the logo doubles as the expand control */
     .brand-btn {

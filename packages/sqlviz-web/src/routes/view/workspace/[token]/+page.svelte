@@ -379,7 +379,7 @@
     .brand-icon { display: block; flex-shrink: 0; }
     .brand-name { font-size: 0.9375rem; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; }
     .brand-sql { color: var(--sqlviz-text-primary); font-weight: 600; }
-    .brand-viz { color: #06b6d4; font-weight: 600; }
+    .brand-viz { color: var(--sqlviz-primary); font-weight: 600; }
 
     .hbtn, .brand-btn {
         display: flex; align-items: center; justify-content: center; border: none; background: none;

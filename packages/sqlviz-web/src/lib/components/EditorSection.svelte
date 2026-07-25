@@ -97,8 +97,8 @@
         gap: 0.375rem;
         height: 24px;
         padding: 0 0.75rem;
-        background: #06b6d4;
-        color: #fff;
+        background: var(--sqlviz-primary);
+        color: var(--sqlviz-on-primary);
         border: none;
         border-radius: var(--sqlviz-radius);
         font-size: 0.75rem;
@@ -108,7 +108,7 @@
         transition: background 0.15s;
     }
 
-    .run-btn:hover:not(:disabled) { background: #0891b2; }
+    .run-btn:hover:not(:disabled) { background: var(--sqlviz-primary-hover); }
     .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .run-icon {

@@ -4,6 +4,7 @@
     import FilterControlComponent from '$lib/components/FilterControl.svelte';
     import FilterViews from '$lib/components/FilterViews.svelte';
     import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+    import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
     import { editMode } from '$lib/stores/editMode';
     import { uiStore } from '$lib/stores/uiStore.svelte';
     import type {
@@ -345,8 +346,13 @@
 <!-- ── Unlocked (viewer) — single dashboard, no sidebar ──────── -->
 {:else if viewerState === 'unlocked'}
     <div class="viewer-shell">
-        <!-- Header: name + inline filters + theme toggle -->
+        <!-- Header: logo + name + inline filters + theme toggle -->
         <header class="viewer-bar">
+            <div class="viewer-brand">
+                <img class="brand-icon" src={sqlvizIcon} alt="" width="24" height="24" />
+                <span class="brand-name"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
+            </div>
+            <span class="viewer-sep" aria-hidden="true"></span>
             <span class="viewer-title">{dashboardName || 'Dashboard'}</span>
             {#if hasFilters}
                 <span class="viewer-sep" aria-hidden="true"></span>
@@ -505,7 +511,13 @@
         overflow: hidden;
     }
 
-    /* Header: name + inline filters + theme toggle */
+    .viewer-brand { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+    .viewer-brand .brand-icon { display: block; flex-shrink: 0; }
+    .viewer-brand .brand-name { font-size: 0.9375rem; letter-spacing: -0.01em; white-space: nowrap; }
+    .brand-sql { color: var(--sqlviz-text-primary); font-weight: 600; }
+    .brand-viz { color: var(--sqlviz-primary); font-weight: 600; }
+
+    /* Header: logo + name + inline filters + theme toggle */
     .viewer-bar {
         height: 44px;
         display: flex;

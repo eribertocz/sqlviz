@@ -10,12 +10,12 @@
  */
 
 :root {
-  /* Brand — cyan/teal: "SQL + visualization". Bright enough to sit on dark
-     surfaces and as chart marks; solid fills pair it with --sqlviz-on-primary
-     (dark ink) rather than white, which a bright cyan can't carry legibly. */
-  --sqlviz-primary:       #06b6d4;  /* cyan/teal — brand, CTAs, active state */
-  --sqlviz-primary-hover: #22d3ee;  /* brighter cyan for hover */
-  --sqlviz-on-primary:    #04252b;  /* dark ink for text/icons on primary fills */
+  /* Brand — Claude coral (terracotta). A warm mid-tone; solid fills pair it
+     with --sqlviz-on-primary (dark espresso ink) rather than white, which the
+     coral can't carry legibly. */
+  --sqlviz-primary:       #d97757;  /* Claude coral — brand, CTAs, active state */
+  --sqlviz-primary-hover: #c15f3c;  /* deeper coral for hover */
+  --sqlviz-on-primary:    #3d1e0e;  /* dark ink for text/icons on primary fills */
   --sqlviz-primary-soft:  color-mix(in srgb, var(--sqlviz-primary) 14%, transparent); /* tint bg */
 
   --sqlviz-bg:            #0f172a;  /* dark background (default theme) */
