@@ -268,7 +268,7 @@
             <div class="ws-body">
                 {#if !sidebarCollapsed}
                     {#each nonEmptyFolders as f (f.id)}
-                        <div class="ws-group">{f.name}</div>
+                        <div class="ws-group"><span>{f.name}</span><span class="ws-group-line"></span></div>
                         {#each inFolder(f.id) as d (d.id)}
                             {@const Icon = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
                             <button class="ws-item" class:active={d.id === activeId} onclick={() => selectDashboard(d.id)} title={d.name}>
@@ -276,6 +276,7 @@
                             </button>
                         {/each}
                     {/each}
+                    {#if ungrouped.length > 0 && nonEmptyFolders.length > 0}<div class="ws-group-gap"></div>{/if}
                     {#each ungrouped as d (d.id)}
                         {@const Icon = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
                         <button class="ws-item" class:active={d.id === activeId} onclick={() => selectDashboard(d.id)} title={d.name}>
@@ -393,10 +394,13 @@
     .ws-body { flex: 1; overflow-y: auto; padding: 0.5rem 0.375rem; }
     .ws-sidebar.collapsed .ws-body { display: flex; flex-direction: column; align-items: center; gap: 0.125rem; padding: 0.375rem 0; }
 
-    .ws-group {
+    .ws-group { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0.5rem 0.375rem; }
+    .ws-group span:first-child {
         font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-        color: var(--sqlviz-text-muted); padding: 0.75rem 0.5rem 0.375rem;
+        color: var(--sqlviz-text-muted); white-space: nowrap;
     }
+    .ws-group-line { flex: 1; height: 1px; background: var(--sqlviz-hairline); }
+    .ws-group-gap { height: 0.75rem; }
     .ws-item {
         display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.4375rem 0.5rem;
         background: none; border: none; border-radius: var(--sqlviz-radius); color: var(--sqlviz-text-muted);
