@@ -47,23 +47,29 @@ export function baseOption(t: ChartTokens, reduce: boolean): EChartsOption {
 }
 
 /** Grid with room for axis titles (x name below, y name at the top). */
-export const cartesianGrid = { top: 26, right: 20, bottom: 44, left: 52, containLabel: true };
+export const cartesianGrid = { top: 26, right: 20, bottom: 44, left: 58, containLabel: true };
 
-/** Axis title fragment. 'middle' centres it along the axis; 'end' floats it at
- *  the top/right so a vertical y-title never overflows a small panel. */
-export function axisName(t: ChartTokens, name: string, location: 'middle' | 'end') {
+/** Axis title fragment.
+ *  'middle' — centred along the axis (x titles).
+ *  'left'   — centred and rotated 90° (vertical y-axis title, the convention).
+ *  'end'    — floated at the axis end (compact, horizontal). */
+export function axisName(t: ChartTokens, name: string, location: 'middle' | 'end' | 'left') {
     if (!name) return {};
+    const style = {
+        color: t.muted,
+        fontFamily: FONT,
+        fontSize: 11,
+        fontWeight: 600 as const,
+    };
+    if (location === 'left') {
+        return { name, nameLocation: 'middle' as const, nameRotate: 90, nameGap: 40,
+            nameTextStyle: { ...style, align: 'center' as const } };
+    }
     return {
         name,
         nameLocation: location,
         nameGap: location === 'middle' ? 26 : 8,
-        nameTextStyle: {
-            color: t.muted,
-            fontFamily: FONT,
-            fontSize: 11,
-            fontWeight: 600 as const,
-            align: location === 'end' ? ('left' as const) : ('center' as const),
-        },
+        nameTextStyle: { ...style, align: location === 'end' ? ('left' as const) : ('center' as const) },
     };
 }
 

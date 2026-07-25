@@ -43,7 +43,7 @@
                     grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'line') },
                     xAxis: { type: 'category', boundaryGap: false, data: xData, ...categoryAxis(t), ...axisName(t, xName, 'middle') },
-                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'end') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'left') },
                     series: [{
                         type: 'line',
                         data: yData,
@@ -65,7 +65,7 @@
                     grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
                     xAxis: { type: 'category', data: xData, ...categoryAxis(t), ...axisName(t, xName, 'middle') },
-                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'end') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'left') },
                     series: [{
                         type: 'bar',
                         data: yData,
@@ -131,7 +131,7 @@
                     grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'item', axisPointer: axisPointer(t, 'line') },
                     xAxis: { type: 'value', ...axisStyle(t), ...axisName(t, xName, 'middle') },
-                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'end') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'left') },
                     series: [{
                         type: 'scatter',
                         data: data.map(r => [Number(r[sx]), Number(r[sy])]),
@@ -150,7 +150,7 @@
                     grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
                     xAxis: { type: 'category', data: xData, ...categoryAxis(t), ...axisName(t, xName, 'middle') },
-                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'end') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yName, 'left') },
                     series: [{
                         type: 'bar',
                         data: yData,
