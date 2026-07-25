@@ -4,13 +4,8 @@
     import FilterControlComponent from '$lib/components/FilterControl.svelte';
     import FilterViews from '$lib/components/FilterViews.svelte';
     import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-    import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
     import { editMode } from '$lib/stores/editMode';
     import { uiStore } from '$lib/stores/uiStore.svelte';
-    import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
-
-    // Viewer-local UI state (independent of the admin app).
-    let sidebarCollapsed = $state(false);
     import type {
         DashboardLayout,
         FilterControl,
@@ -347,87 +342,45 @@
         </div>
     </div>
 
-<!-- ── Unlocked (viewer) ─────────────────────────────────────── -->
+<!-- ── Unlocked (viewer) — single dashboard, no sidebar ──────── -->
 {:else if viewerState === 'unlocked'}
     <div class="viewer-shell">
-        <!-- Sidebar — navigation only, collapsible, no management/edit/share -->
-        <nav class="viewer-sidebar" class:collapsed={sidebarCollapsed} aria-label="Dashboard navigation">
-            <div class="viewer-sidebar-header" class:collapsed={sidebarCollapsed}>
-                {#if !sidebarCollapsed}
-                    <div class="brand">
-                        <img class="brand-icon" src={sqlvizIcon} alt="" width="26" height="26" />
-                        <span class="brand-name"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
-                    </div>
-                    <button class="hbtn" onclick={() => (sidebarCollapsed = true)} title="Collapse sidebar" aria-label="Collapse sidebar">
-                        <PanelLeftCloseIcon size={16} />
-                    </button>
-                {:else}
-                    <button class="brand-btn" onclick={() => (sidebarCollapsed = false)} title="Expand sidebar" aria-label="Expand sidebar">
-                        <img class="brand-icon" src={sqlvizIcon} alt="SQLviz" width="26" height="26" />
-                    </button>
-                {/if}
-            </div>
-
-            {#if !sidebarCollapsed}
-                <div class="viewer-sidebar-body">
-                    <button class="viewer-nav-item active" aria-current="page">
-                        <span class="nav-dot" aria-hidden="true"></span>
-                        <span class="nav-name">{dashboardName || 'Dashboard'}</span>
-                    </button>
-                </div>
-            {:else}
-                <div class="viewer-sidebar-body"></div>
-            {/if}
-
-            <!-- Footer — only the theme toggle for viewers -->
-            <div class="viewer-sidebar-footer" class:collapsed={sidebarCollapsed}>
-                {#if !sidebarCollapsed}
-                    <span class="foot-theme-label">Theme</span>
-                    <ThemeToggle />
-                {:else}
-                    <ThemeToggle compact />
-                {/if}
-            </div>
-        </nav>
-
-        <!-- Main column -->
-        <div class="viewer-main">
-            <!-- Filter topbar — same as admin edit mode: name + filter pills -->
-            <header class="viewer-bar">
-                <span class="viewer-title">{dashboardName || 'Dashboard'}</span>
-                {#if hasFilters}
-                    <span class="viewer-sep" aria-hidden="true"></span>
-                    <div class="viewer-filters" role="group" aria-label="Dashboard filters">
-                        {#each allFilterControls as control (control.variable)}
-                            <FilterControlComponent
-                                {control}
-                                pill
-                                filterVals={viewerFilterValues}
-                                domain={viewerDomains[control.variable]}
-                                onChange={handleFilterChange}
-                            />
-                        {/each}
-                        <FilterViews
-                            dashboardId={sharedDashboardId}
-                            currentValues={viewerFilterValues}
-                            onApply={(vals) => {
-                                for (const [k, v] of Object.entries(vals)) handleFilterChange(k, v);
-                            }}
+        <!-- Header: name + inline filters + theme toggle -->
+        <header class="viewer-bar">
+            <span class="viewer-title">{dashboardName || 'Dashboard'}</span>
+            {#if hasFilters}
+                <span class="viewer-sep" aria-hidden="true"></span>
+                <div class="viewer-filters" role="group" aria-label="Dashboard filters">
+                    {#each allFilterControls as control (control.variable)}
+                        <FilterControlComponent
+                            {control}
+                            pill
+                            filterVals={viewerFilterValues}
+                            domain={viewerDomains[control.variable]}
+                            onChange={handleFilterChange}
                         />
-                    </div>
-                {/if}
-            </header>
+                    {/each}
+                    <FilterViews
+                        dashboardId={sharedDashboardId}
+                        currentValues={viewerFilterValues}
+                        onApply={(vals) => {
+                            for (const [k, v] of Object.entries(vals)) handleFilterChange(k, v);
+                        }}
+                    />
+                </div>
+            {/if}
+            <div class="viewer-bar-right"><ThemeToggle /></div>
+        </header>
 
-            <div class="viewer-content">
-                {#if layout}
-                    <DashboardGrid {layout} />
-                {:else}
-                    <div class="viewer-center-inner">
-                        <span class="viewer-spinner">⟳</span>
-                        <span class="viewer-msg">Building dashboard…</span>
-                    </div>
-                {/if}
-            </div>
+        <div class="viewer-content">
+            {#if layout}
+                <DashboardGrid {layout} />
+            {:else}
+                <div class="viewer-center-inner">
+                    <span class="viewer-spinner">⟳</span>
+                    <span class="viewer-msg">Building dashboard…</span>
+                </div>
+            {/if}
         </div>
     </div>
 {/if}
@@ -543,113 +496,16 @@
     .auth-btn:hover:not(:disabled) { opacity: 0.85; }
     .auth-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-    /* ── Viewer shell (unlocked) — sidebar + main ────────────── */
+    /* ── Viewer shell (unlocked) — header + content, no sidebar ── */
     .viewer-shell {
         height: 100vh;
         display: flex;
-        flex-direction: row;
+        flex-direction: column;
         background: var(--sqlviz-bg);
         overflow: hidden;
     }
 
-    /* Sidebar — collapsible rail */
-    .viewer-sidebar {
-        width: 240px;
-        flex-shrink: 0;
-        display: flex;
-        flex-direction: column;
-        background: var(--sqlviz-bg-surface);
-        border-right: 1px solid var(--sqlviz-hairline);
-        overflow: hidden;
-        transition: width 0.2s ease;
-    }
-    .viewer-sidebar.collapsed { width: 44px; }
-
-    .viewer-sidebar-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.5rem;
-        height: 44px;
-        padding: 0 0.5rem 0 0.875rem;
-        flex-shrink: 0;
-        border-bottom: 1px solid var(--sqlviz-hairline);
-    }
-    .viewer-sidebar-header.collapsed { justify-content: center; padding: 0; }
-
-    .brand { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-    .brand-icon { display: block; flex-shrink: 0; }
-    .brand-name { font-size: 0.9375rem; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; }
-    .brand-sql { color: var(--sqlviz-text-primary); font-weight: 600; }
-    .brand-viz { color: #06b6d4; font-weight: 600; }
-
-    .hbtn, .brand-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: none;
-        background: none;
-        color: var(--sqlviz-text-muted);
-        border-radius: var(--sqlviz-radius);
-        cursor: pointer;
-        transition: background 0.12s, color 0.12s;
-    }
-    .hbtn { width: 24px; height: 24px; }
-    .brand-btn { width: 34px; height: 34px; }
-    .hbtn:hover, .brand-btn:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
-
-    .viewer-sidebar-body { flex: 1; overflow-y: auto; padding: 0.5rem 0.375rem; }
-
-    .viewer-nav-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        width: 100%;
-        padding: 0.4375rem 0.5rem;
-        background: none;
-        border: none;
-        border-radius: var(--sqlviz-radius);
-        color: var(--sqlviz-text-muted);
-        cursor: default;
-        text-align: left;
-        font-size: 0.8125rem;
-    }
-    .viewer-nav-item.active {
-        background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent);
-        color: var(--sqlviz-primary);
-    }
-    .nav-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: currentColor;
-        flex-shrink: 0;
-    }
-    .nav-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    .viewer-sidebar-footer {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        height: 44px;
-        padding: 0 0.75rem;
-        border-top: 1px solid var(--sqlviz-hairline);
-        flex-shrink: 0;
-    }
-    .viewer-sidebar-footer.collapsed { justify-content: center; padding: 0; }
-    .foot-theme-label { font-size: 0.8125rem; color: var(--sqlviz-text-muted); }
-
-    /* Main column — the dashboard owns the whole area */
-    .viewer-main {
-        position: relative;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-        overflow: hidden;
-    }
-
-    /* Filter topbar — mirrors the admin edit-mode header */
+    /* Header: name + inline filters + theme toggle */
     .viewer-bar {
         height: 44px;
         display: flex;
@@ -680,11 +536,19 @@
         align-items: center;
         gap: 1rem;
         min-width: 0;
+        flex: 1;
         overflow-x: auto;
         overflow-y: hidden;
         scrollbar-width: none;
     }
     .viewer-filters::-webkit-scrollbar { display: none; }
+
+    .viewer-bar-right {
+        margin-left: auto;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+    }
 
     .viewer-content {
         flex: 1;

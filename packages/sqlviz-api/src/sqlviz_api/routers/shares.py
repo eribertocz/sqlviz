@@ -41,6 +41,12 @@ router = APIRouter(tags=["shares"])
 
 _VALID_MODES: frozenset[str] = frozenset({"private", "password", "public"})
 
+# Reserved sentinel used as the shares.dashboard_id for a *workspace* share
+# (access to every dashboard, with navigation). Real dashboards use UUIDs, so
+# this never collides. It keeps workspace shares in the same table/flow — the
+# token still derives from (dashboard_id, nonce, secret) and stays revocable.
+_WORKSPACE_ID = "__workspace__"
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -104,6 +110,40 @@ def _dashboard_view_data(db: DbDep, dashboard_id: str) -> dict[str, Any]:
                 "updated_at": r[6],
             }
             for r in panels_rows
+        ],
+    }
+
+
+def _workspace_view_data(db: DbDep) -> dict[str, Any]:
+    """Return every folder + dashboard for a workspace share's navigable sidebar.
+
+    Panels are fetched lazily by the viewer per dashboard (public panels API),
+    so this stays a lightweight metadata listing.
+    """
+    folder_rows = db.execute(
+        "SELECT id, name, parent_id, sort_order FROM folders "
+        "ORDER BY sort_order, created_at"
+    ).fetchall()
+    dash_rows = db.execute(
+        "SELECT id, name, folder_id, sort_order, dashboard_hint, dashboard_domain, "
+        "description FROM dashboards ORDER BY sort_order, created_at"
+    ).fetchall()
+    return {
+        "folders": [
+            {"id": r[0], "name": r[1], "parent_id": r[2], "sort_order": r[3]}
+            for r in folder_rows
+        ],
+        "dashboards": [
+            {
+                "id": r[0],
+                "name": r[1],
+                "folder_id": r[2],
+                "sort_order": r[3],
+                "dashboard_hint": r[4],
+                "dashboard_domain": r[5],
+                "description": r[6],
+            }
+            for r in dash_rows
         ],
     }
 
@@ -186,6 +226,10 @@ def view_share(token: str, db: DbDep) -> JSONResponse:
     if not verify_share_token(token, share, secret):
         raise HTTPException(status_code=404, detail="Share not found")
 
+    # A workspace token is not valid on the single-dashboard endpoint.
+    if str(share["dashboard_id"]) == _WORKSPACE_ID:
+        raise HTTPException(status_code=404, detail="Share not found")
+
     if str(share["mode"]) == "password":
         return JSONResponse(content={"requires_password": True, "mode": "password"})
 
@@ -202,6 +246,9 @@ def unlock_share(token: str, body: UnlockRequest, db: DbDep) -> JSONResponse:
     if not verify_share_token(token, share, secret):
         raise HTTPException(status_code=404, detail="Share not found")
 
+    if str(share["dashboard_id"]) == _WORKSPACE_ID:
+        raise HTTPException(status_code=404, detail="Share not found")
+
     if str(share["mode"]) != "password":
         raise HTTPException(status_code=404, detail="Share not found")
 
@@ -210,3 +257,82 @@ def unlock_share(token: str, body: UnlockRequest, db: DbDep) -> JSONResponse:
         raise HTTPException(status_code=401, detail="Invalid password")
 
     return JSONResponse(content=_dashboard_view_data(db, str(share["dashboard_id"])))
+
+
+# ── Admin: create workspace share ─────────────────────────────────────────────
+
+@router.post(
+    "/api/v1/workspace/share",
+    response_model=ShareCreateResponse,
+    status_code=201,
+)
+def create_workspace_share(
+    body: ShareCreate,
+    db: DbDep,
+    _admin: AdminDep,
+) -> ShareCreateResponse:
+    """Create a workspace share — one token granting access to every dashboard
+    with navigation. Stored like a normal share but keyed by the reserved
+    _WORKSPACE_ID sentinel.
+    """
+    if body.mode not in _VALID_MODES:
+        raise HTTPException(status_code=422, detail=f"Invalid mode {body.mode!r}")
+    if body.mode == "password" and not body.password:
+        raise HTTPException(
+            status_code=422, detail="password required when mode='password'"
+        )
+
+    session_secret = get_session_secret(db)
+    nonce = generate_share_nonce()
+    token = generate_share_token(_WORKSPACE_ID, nonce, session_secret)
+
+    pw_hash: str | None = None
+    if body.mode == "password" and body.password:
+        pw_hash = hash_password(body.password)
+
+    share_id = str(uuid.uuid4())
+    now = _now()
+    db.execute(
+        "INSERT INTO shares "
+        "(id, dashboard_id, nonce, token, mode, password_hash, created_at, revoked) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, false)",
+        [share_id, _WORKSPACE_ID, nonce, token, body.mode, pw_hash, now],
+    )
+    return ShareCreateResponse(
+        id=share_id,
+        dashboard_id=_WORKSPACE_ID,
+        token=token,
+        mode=body.mode,
+        created_at=now,
+    )
+
+
+# ── Public: view / unlock workspace share ─────────────────────────────────────
+
+def _verify_workspace(db: DbDep, token: str) -> dict[str, Any]:
+    share = _fetch_share_by_token(db, token)
+    secret = get_session_secret(db)
+    if not verify_share_token(token, share, secret):
+        raise HTTPException(status_code=404, detail="Share not found")
+    if str(share["dashboard_id"]) != _WORKSPACE_ID:
+        raise HTTPException(status_code=404, detail="Share not found")
+    return share
+
+
+@router.get("/view/workspace/{token}")
+def view_workspace_share(token: str, db: DbDep) -> JSONResponse:
+    share = _verify_workspace(db, token)
+    if str(share["mode"]) == "password":
+        return JSONResponse(content={"requires_password": True, "mode": "password"})
+    return JSONResponse(content=_workspace_view_data(db))
+
+
+@router.post("/view/workspace/{token}/unlock")
+def unlock_workspace_share(token: str, body: UnlockRequest, db: DbDep) -> JSONResponse:
+    share = _verify_workspace(db, token)
+    if str(share["mode"]) != "password":
+        raise HTTPException(status_code=404, detail="Share not found")
+    stored = share.get("password_hash")
+    if not verify_password(body.password, str(stored) if stored is not None else ""):
+        raise HTTPException(status_code=401, detail="Invalid password")
+    return JSONResponse(content=_workspace_view_data(db))

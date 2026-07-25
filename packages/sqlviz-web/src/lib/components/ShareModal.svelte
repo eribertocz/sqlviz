@@ -13,7 +13,9 @@
     } = $props();
 
     type ShareMode = 'private' | 'password' | 'public';
+    type Scope = 'dashboard' | 'workspace';
 
+    let scope = $state<Scope>('dashboard');
     let mode = $state<ShareMode>('public');
     let password = $state('');
     let link = $state('');
@@ -31,6 +33,7 @@
     // invalidates any previously generated link.
     $effect(() => {
         if (open) {
+            scope = 'dashboard';
             mode = 'public';
             password = '';
             link = '';
@@ -39,17 +42,19 @@
         }
     });
 
-    function onModeChange(next: ShareMode) {
-        mode = next;
+    function invalidateLink() {
         link = '';
         error = '';
         copied = false;
     }
+    function onScopeChange(next: Scope) { scope = next; invalidateLink(); }
+    function onModeChange(next: ShareMode) { mode = next; invalidateLink(); }
 
     type ShareResponse = { token: string; mode: string };
 
     async function generate() {
-        if (!dashboardId || creating) return;
+        if (creating) return;
+        if (scope === 'dashboard' && !dashboardId) return;
         if (mode === 'password' && !password.trim()) {
             error = 'Enter a password first.';
             return;
@@ -57,14 +62,13 @@
         creating = true;
         error = '';
         try {
-            const body = mode === 'password'
-                ? { mode, password }
-                : { mode };
-            const resp = await apiPost<ShareResponse>(
-                `/api/v1/dashboards/${dashboardId}/share`,
-                body,
-            );
-            link = `${window.location.origin}/view/${resp.token}`;
+            const body = mode === 'password' ? { mode, password } : { mode };
+            const resp = scope === 'workspace'
+                ? await apiPost<ShareResponse>('/api/v1/workspace/share', body)
+                : await apiPost<ShareResponse>(`/api/v1/dashboards/${dashboardId}/share`, body);
+            link = scope === 'workspace'
+                ? `${window.location.origin}/view/workspace/${resp.token}`
+                : `${window.location.origin}/view/${resp.token}`;
         } catch (e) {
             error = e instanceof Error ? e.message : 'Could not create the share link.';
         } finally {
@@ -87,11 +91,36 @@
 <Dialog.Root bind:open>
     <Dialog.Content class="sm:max-w-md">
         <Dialog.Header>
-            <Dialog.Title>Share dashboard</Dialog.Title>
+            <Dialog.Title>Share</Dialog.Title>
             <Dialog.Description>
-                Choose who can access "{dashboardName}" and share a link.
+                Choose what to share and who can access it.
             </Dialog.Description>
         </Dialog.Header>
+
+        <!-- Scope -->
+        <fieldset class="share-modes">
+            <label class="share-mode" class:selected={scope === 'dashboard'}>
+                <input type="radio" name="share-scope" value="dashboard"
+                    checked={scope === 'dashboard'} onchange={() => onScopeChange('dashboard')} />
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span class="mode-text">
+                    <span class="mode-label">This dashboard only</span>
+                    <span class="mode-hint">Share only "{dashboardName}"</span>
+                </span>
+            </label>
+            <label class="share-mode" class:selected={scope === 'workspace'}>
+                <input type="radio" name="share-scope" value="workspace"
+                    checked={scope === 'workspace'} onchange={() => onScopeChange('workspace')} />
+                <span class="radio-dot" aria-hidden="true"></span>
+                <span class="mode-text">
+                    <span class="mode-label">All dashboards</span>
+                    <span class="mode-hint">Share all dashboards with navigation</span>
+                </span>
+            </label>
+        </fieldset>
+
+        <div class="share-divider"></div>
+        <p class="share-section">Visibility</p>
 
         <fieldset class="share-modes">
             {#each modes as m (m.value)}
@@ -138,7 +167,7 @@
 
         <Dialog.Footer>
             <Button variant="ghost" size="sm" onclick={() => (open = false)}>Close</Button>
-            <Button size="sm" onclick={generate} disabled={creating || !dashboardId}>
+            <Button size="sm" onclick={generate} disabled={creating || (scope === 'dashboard' && !dashboardId)}>
                 {creating ? 'Creating…' : link ? 'Regenerate link' : 'Create link'}
             </Button>
         </Dialog.Footer>
@@ -153,6 +182,20 @@
         border: none;
         margin: 0;
         padding: 0;
+    }
+
+    .share-divider {
+        height: 1px;
+        margin: 0.25rem 0;
+        background: var(--sqlviz-hairline);
+    }
+    .share-section {
+        margin: 0;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--sqlviz-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 
     .share-mode {
