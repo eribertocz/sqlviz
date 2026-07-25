@@ -3,10 +3,27 @@
     import DashboardGrid from '$lib/components/DashboardGrid.svelte';
     import FilterControlComponent from '$lib/components/FilterControl.svelte';
     import FilterViews from '$lib/components/FilterViews.svelte';
+    import PalettePicker from '$lib/components/PalettePicker.svelte';
     import ThemeToggle from '$lib/components/ThemeToggle.svelte';
     import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
+    import { getPaletteById } from '$lib/charts/palettes';
     import { editMode } from '$lib/stores/editMode';
     import { uiStore } from '$lib/stores/uiStore.svelte';
+
+    // Viewer-local chart palette (per-visitor, persisted by dashboard id).
+    let paletteId = $state('brand');
+    const paletteColors = $derived(getPaletteById(paletteId).colors);
+    const paletteKey = (id: string) => `sqlviz-viewer-palette:${id}`;
+    function loadPalette(id: string) {
+        try { paletteId = localStorage.getItem(paletteKey(id)) || 'brand'; }
+        catch { paletteId = 'brand'; }
+    }
+    function setPalette(id: string) {
+        paletteId = id;
+        if (sharedDashboardId) {
+            try { localStorage.setItem(paletteKey(sharedDashboardId), id); } catch { /* ignore */ }
+        }
+    }
     import type {
         DashboardLayout,
         FilterControl,
@@ -237,6 +254,7 @@
             const shareData = await resp.json() as ShareViewData;
             dashboardName = shareData.dashboard.name;
             sharedDashboardId = shareData.dashboard.id;
+            loadPalette(sharedDashboardId);
             await executeAllPanels(shareData.panels);
             viewerState = 'unlocked';
         } catch {
@@ -277,6 +295,7 @@
             const viewData = body as ShareViewData;
             dashboardName = viewData.dashboard.name;
             sharedDashboardId = viewData.dashboard.id;
+            loadPalette(sharedDashboardId);
             await executeAllPanels(viewData.panels);
             viewerState = 'unlocked';
         } catch (e) {
@@ -381,12 +400,12 @@
                     />
                 </div>
             {/if}
-            <div class="viewer-bar-right"><ThemeToggle /></div>
+            <div class="viewer-bar-right"><PalettePicker value={paletteId} onSelect={setPalette} /><ThemeToggle /></div>
         </header>
 
         <div class="viewer-content">
             {#if layout}
-                <DashboardGrid {layout} />
+                <DashboardGrid {layout} palette={paletteColors} />
             {:else}
                 <div class="viewer-center-inner">
                     <span class="viewer-spinner">⟳</span>

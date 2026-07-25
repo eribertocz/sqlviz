@@ -116,7 +116,10 @@
     <div class="bar-right">
         {#if dashboardStore.activeDashboard}
             <!-- Dashboard chart palette -->
-            <PalettePicker />
+            <PalettePicker
+                value={dashboardStore.dashboardPaletteId}
+                onSelect={dashboardStore.setDashboardPalette}
+            />
 
             <Tooltip.Provider delayDuration={200}>
                 <!-- Share — icon-only, 28x28, tooltip -->

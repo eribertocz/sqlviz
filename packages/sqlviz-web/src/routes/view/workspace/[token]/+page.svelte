@@ -4,8 +4,10 @@
     import FilterControlComponent from '$lib/components/FilterControl.svelte';
     import FilterViews from '$lib/components/FilterViews.svelte';
     import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+    import PalettePicker from '$lib/components/PalettePicker.svelte';
     import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
     import { resolveDashboardIcon } from '$lib/dashboardIcons';
+    import { getPaletteById } from '$lib/charts/palettes';
     import { editMode } from '$lib/stores/editMode';
     import { uiStore } from '$lib/stores/uiStore.svelte';
     import { apiPost, recompose, type ExecResult } from '$lib/api';
@@ -31,6 +33,19 @@
     let dashboards: WsDashboard[] = $state([]);
     let activeId: string | null = $state(null);
     let sidebarCollapsed = $state(false);
+
+    // Viewer-local chart palette (per-visitor, persisted per dashboard).
+    let paletteId = $state('brand');
+    const paletteColors = $derived(getPaletteById(paletteId).colors);
+    const paletteKey = (id: string) => `sqlviz-viewer-palette:${id}`;
+    function loadPalette(id: string) {
+        try { paletteId = localStorage.getItem(paletteKey(id)) || 'brand'; }
+        catch { paletteId = 'brand'; }
+    }
+    function setPalette(id: string) {
+        paletteId = id;
+        if (activeId) { try { localStorage.setItem(paletteKey(activeId), id); } catch { /* ignore */ } }
+    }
 
     // Active-dashboard render state
     let layout: DashboardLayout | null = $state(null);
@@ -69,6 +84,7 @@
     async function selectDashboard(id: string) {
         if (id === activeId) return;
         activeId = id;
+        loadPalette(id);
         layout = null;
         viewerFilterValues = {};
         viewerDomains = {};
@@ -329,11 +345,12 @@
                             onApply={(vals) => { for (const [k, v] of Object.entries(vals)) handleFilterChange(k, v); }} />
                     </div>
                 {/if}
+                <div class="ws-bar-right"><PalettePicker value={paletteId} onSelect={setPalette} /></div>
             </header>
 
             <div class="ws-content">
                 {#if layout}
-                    <DashboardGrid {layout} />
+                    <DashboardGrid {layout} palette={paletteColors} />
                 {:else}
                     <div class="viewer-center-inner"><span class="viewer-spinner">⟳</span><span class="viewer-msg">Building dashboard…</span></div>
                 {/if}
@@ -465,6 +482,7 @@
         overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
     }
     .viewer-filters::-webkit-scrollbar { display: none; }
+    .ws-bar-right { margin-left: auto; flex-shrink: 0; display: flex; align-items: center; }
 
     .ws-content { flex: 1; overflow-y: auto; }
     .viewer-center-inner {

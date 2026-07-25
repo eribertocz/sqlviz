@@ -153,10 +153,11 @@
     /* Inline axis-title editing overlays (edit mode) */
     .axis-edit { position: absolute; z-index: 5; }
     .axis-x { bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; }
-    /* Y sits at the left, centred; its chip is rotated to match the rendered
-       (vertical) axis title. The edit input stays horizontal for easy typing. */
+    /* Y sits at the left, centred; both its chip and its edit input are rotated
+       to match the rendered (vertical) axis title. */
     .axis-y { top: 0; bottom: 0; left: 2px; display: flex; align-items: center; }
-    .axis-y .axis-chip { transform: rotate(-90deg); }
+    .axis-y .axis-chip,
+    .axis-y .axis-input { transform: rotate(-90deg); }
     .axis-chip {
         font-size: 11px;
         font-weight: 600;

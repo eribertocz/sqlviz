@@ -1,15 +1,17 @@
 <script lang="ts">
     import * as Popover from '$lib/components/ui/popover/index.js';
-    import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { PALETTES } from '$lib/charts/palettes';
     import PaletteIcon from '@lucide/svelte/icons/palette';
     import CheckIcon from '@lucide/svelte/icons/check';
 
+    // Prop-driven so admin (dashboard store) and viewer (local state) reuse it.
+    let { value, onSelect }: { value: string; onSelect: (id: string) => void } = $props();
+
     let open = $state(false);
-    const activeId = $derived(dashboardStore.dashboardPaletteId);
+    const activeId = $derived(value);
 
     function pick(id: string) {
-        dashboardStore.setDashboardPalette(id);
+        onSelect(id);
         open = false;
     }
 </script>
