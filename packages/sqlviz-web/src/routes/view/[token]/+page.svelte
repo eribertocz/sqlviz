@@ -13,6 +13,7 @@
     import type {
         DashboardLayout,
         FilterControl,
+        FilterDomain,
         InferenceResult,
     } from '$lib/types';
 
@@ -40,6 +41,9 @@
 
     // Filter state — local to viewer, separate from admin page's store
     let viewerFilterValues: Record<string, unknown> = $state({});
+    // Distinct values / numeric ranges per filter variable — without these,
+    // dropdowns/multiselects fall back to a plain text input.
+    let viewerDomains: Record<string, FilterDomain> = $state({});
     let filterDebounceTimer = 0;
 
     const allFilterControls = $derived.by(() => {
@@ -104,6 +108,35 @@
         }
         executedResults = results;
         layout = await recompose(results);
+        await loadDomains();
+    }
+
+    // Load distinct values / ranges so dropdowns render as real dropdowns
+    // (same source the admin app uses). Public per-panel endpoint.
+    async function loadDomains(): Promise<void> {
+        const domains: Record<string, FilterDomain> = {};
+        await Promise.all(
+            executedResults.flatMap((r, i) =>
+                r.inference_result.filter_controls.map(async (fc) => {
+                    const kind =
+                        fc.control_type === 'dropdown' || fc.control_type === 'multiselect'
+                            ? 'distinct'
+                            : fc.control_type === 'range_slider'
+                                ? 'range'
+                                : null;
+                    if (kind === null || domains[fc.variable]) return;
+                    try {
+                        domains[fc.variable] = await apiPost<FilterDomain>(
+                            `/api/v1/panels/${panelIds[i]}/filter-domain`,
+                            { column: fc.column_name, kind },
+                        );
+                    } catch {
+                        // leave absent → control falls back to text/number input
+                    }
+                })
+            )
+        );
+        viewerDomains = domains;
     }
 
     async function executeFilteredPanels(
@@ -349,6 +382,7 @@
                                 {control}
                                 pill
                                 filterVals={viewerFilterValues}
+                                domain={viewerDomains[control.variable]}
                                 onChange={handleFilterChange}
                             />
                         {/each}
