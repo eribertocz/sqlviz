@@ -215,7 +215,9 @@
         const token = window.location.pathname.split('/').at(-1) ?? '';
 
         try {
-            const resp = await fetch(`/view/${token}`);
+            // Explicit JSON so the SPA-shell middleware never serves this the
+            // HTML page (that would make resp.json() throw).
+            const resp = await fetch(`/view/${token}`, { headers: { Accept: 'application/json' } });
             if (!resp.ok) {
                 loadError = 'Dashboard not found or link has expired.';
                 viewerState = 'error';
@@ -234,8 +236,10 @@
             dashboardName = viewData.dashboard.name;
             await executeAllPanels(viewData.panels);
             viewerState = 'unlocked';
-        } catch {
-            loadError = 'Failed to load the dashboard.';
+        } catch (e) {
+            loadError = e instanceof Error
+                ? `Failed to load the dashboard: ${e.message}`
+                : 'Failed to load the dashboard.';
             viewerState = 'error';
         }
     });

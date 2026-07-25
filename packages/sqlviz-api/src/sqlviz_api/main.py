@@ -91,20 +91,24 @@ def create_app(
     if frontend_dist.exists():
         _index_html = str(frontend_dist / "index.html")
 
-        # Public SPA shell for share links. A browser navigating to
-        # /view/<token> asks for HTML, so serve the SvelteKit app (which then
-        # fetches the JSON from the same path). A fetch()/XHR sends
-        # `Accept: */*` and falls through to the public JSON share endpoint.
+        # Public SPA shell for share links. A browser *navigating* to
+        # /view/<token> is served the SvelteKit app (which then fetches the JSON
+        # from the same path). A fetch()/XHR must fall through to the JSON share
+        # endpoint — so we gate on the navigation signal, not just Accept:
+        # `Sec-Fetch-Dest: document` is a real page load; `empty` is a fetch.
+        # (Older browsers without Sec-Fetch fall back to the Accept sniff.)
         # This deliberately bypasses admin auth — the token is the credential —
-        # and must run before routing so require_admin never sees the request.
+        # and runs before routing so require_admin never sees the request.
         @app.middleware("http")
         async def _spa_shell_for_share_links(request: Request, call_next):  # type: ignore[no-untyped-def]
-            if (
-                request.method == "GET"
-                and request.url.path.startswith("/view/")
-                and "text/html" in request.headers.get("accept", "")
-            ):
-                return FileResponse(_index_html)
+            if request.method == "GET" and request.url.path.startswith("/view/"):
+                dest = request.headers.get("sec-fetch-dest", "")
+                accept = request.headers.get("accept", "")
+                is_navigation = dest == "document" or (
+                    dest == "" and "text/html" in accept
+                )
+                if is_navigation:
+                    return FileResponse(_index_html)
             return await call_next(request)
 
         protected = APIRouter(dependencies=[Depends(require_admin)])
