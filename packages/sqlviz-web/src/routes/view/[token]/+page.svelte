@@ -303,7 +303,10 @@
 {:else if viewerState === 'error'}
     <div class="viewer-center">
         <div class="auth-card">
-            <div class="auth-logo">SQLviz</div>
+            <div class="auth-logo">
+                <img class="auth-logo-icon" src={sqlvizIcon} alt="" width="34" height="34" />
+                <span class="auth-wordmark"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
+            </div>
             <p class="lock-hint">{loadError ?? 'An error occurred.'}</p>
         </div>
     </div>
@@ -312,7 +315,10 @@
 {:else if viewerState === 'locked'}
     <div class="viewer-center">
         <div class="auth-card">
-            <div class="auth-logo">SQLviz</div>
+            <div class="auth-logo">
+                <img class="auth-logo-icon" src={sqlvizIcon} alt="" width="34" height="34" />
+                <span class="auth-wordmark"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
+            </div>
             <p class="lock-hint">
                 This dashboard is password protected.<br />
                 Enter the password to continue.
@@ -432,11 +438,17 @@
     }
 
     .auth-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.625rem;
+    }
+    .auth-logo-icon { display: block; flex-shrink: 0; }
+    .auth-wordmark {
+        font-family: 'Geist Sans', var(--sqlviz-font-sans);
         font-size: 1.375rem;
-        font-weight: 800;
-        color: var(--sqlviz-primary);
-        letter-spacing: -0.03em;
-        text-align: center;
+        font-weight: 600;
+        letter-spacing: -0.025em;
     }
 
     .lock-hint {

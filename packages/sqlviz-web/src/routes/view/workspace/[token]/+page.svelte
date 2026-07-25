@@ -223,7 +223,10 @@
 {:else if viewerState === 'error'}
     <div class="viewer-center">
         <div class="auth-card">
-            <div class="auth-logo">SQLviz</div>
+            <div class="auth-logo">
+                <img class="auth-logo-icon" src={sqlvizIcon} alt="" width="34" height="34" />
+                <span class="auth-wordmark"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
+            </div>
             <p class="lock-hint">{loadError ?? 'An error occurred.'}</p>
         </div>
     </div>
@@ -231,7 +234,10 @@
 {:else if viewerState === 'locked'}
     <div class="viewer-center">
         <div class="auth-card">
-            <div class="auth-logo">SQLviz</div>
+            <div class="auth-logo">
+                <img class="auth-logo-icon" src={sqlvizIcon} alt="" width="34" height="34" />
+                <span class="auth-wordmark"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
+            </div>
             <p class="lock-hint">This workspace is password protected.<br />Enter the password to continue.</p>
             <form class="auth-form" onsubmit={handleUnlock}>
                 <label class="auth-label" for="unlock-pw">Password</label>
@@ -285,7 +291,16 @@
                     {/each}
                     {#if dashboards.length === 0}<p class="ws-empty">No dashboards.</p>{/if}
                 {:else}
-                    {#each dashboards as d (d.id)}
+                    {#each nonEmptyFolders as f (f.id)}
+                        {#each inFolder(f.id) as d (d.id)}
+                            {@const Icon = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
+                            <button class="ws-rail {d.id === activeId ? 'active' : ''}" onclick={() => selectDashboard(d.id)} title={d.name} aria-label={d.name}>
+                                <Icon size={16} />
+                            </button>
+                        {/each}
+                        <div class="ws-rail-sep"></div>
+                    {/each}
+                    {#each ungrouped as d (d.id)}
                         {@const Icon = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
                         <button class="ws-rail {d.id === activeId ? 'active' : ''}" onclick={() => selectDashboard(d.id)} title={d.name} aria-label={d.name}>
                             <Icon size={16} />
@@ -341,7 +356,12 @@
         border: 1px solid var(--sqlviz-border); border-radius: var(--sqlviz-radius-lg);
         padding: 2rem 2rem 1.75rem; display: flex; flex-direction: column; gap: 1.25rem;
     }
-    .auth-logo { font-size: 1.375rem; font-weight: 800; color: var(--sqlviz-primary); letter-spacing: -0.03em; text-align: center; }
+    .auth-logo { display: flex; align-items: center; justify-content: center; gap: 0.625rem; }
+    .auth-logo-icon { display: block; flex-shrink: 0; }
+    .auth-wordmark {
+        font-family: 'Geist Sans', var(--sqlviz-font-sans);
+        font-size: 1.375rem; font-weight: 600; letter-spacing: -0.025em;
+    }
     .lock-hint { margin: 0; font-size: 0.875rem; color: var(--sqlviz-text-muted); text-align: center; line-height: 1.5; }
     .auth-form { display: flex; flex-direction: column; gap: 0.75rem; }
     .auth-label { font-size: 0.8125rem; font-weight: 600; color: var(--sqlviz-text-muted); }
@@ -417,6 +437,7 @@
     }
     .ws-rail:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
     .ws-rail.active { background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent); color: var(--sqlviz-primary); }
+    .ws-rail-sep { width: 24px; height: 1px; margin: 0.25rem 0; background: var(--sqlviz-hairline); }
 
     .ws-empty { padding: 0.75rem 0.5rem; font-size: 0.75rem; color: var(--sqlviz-text-muted); }
 
