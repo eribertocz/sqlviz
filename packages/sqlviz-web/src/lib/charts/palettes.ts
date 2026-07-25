@@ -34,15 +34,33 @@ export const PALETTES: Palette[] = [
         colors: ['#0d99ff', '#9747ff', '#14ae5c', '#ffcd29', '#f24822', '#ff7ab2', '#1bc47d', '#ffa629'],
     },
     {
-        id: 'candy',
-        name: 'Candy',
-        colors: ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#84cc16'],
+        id: 'midnight',
+        name: 'Midnight',
+        // Deep, cool blues + violets with teal/pink accents.
+        colors: ['#6366f1', '#22d3ee', '#a855f7', '#3b82f6', '#ec4899', '#14b8a6', '#818cf8', '#c084fc'],
     },
     {
-        id: 'mono',
-        name: 'Mono',
-        // Ordinal-ish grayscale for minimal, single-metric dashboards.
-        colors: ['#64748b', '#94a3b8', '#475569', '#cbd5e1', '#334155', '#e2e8f0', '#1e293b', '#f1f5f9'],
+        id: 'aurora',
+        name: 'Aurora',
+        // Vivid greens → teals → blues → violets (northern-lights).
+        colors: ['#34d399', '#22d3ee', '#818cf8', '#a78bfa', '#4ade80', '#2dd4bf', '#60a5fa', '#c084fc'],
+    },
+    {
+        id: 'emerald',
+        name: 'Emerald',
+        colors: ['#10b981', '#14b8a6', '#059669', '#34d399', '#0d9488', '#6ee7b7', '#047857', '#5eead4'],
+    },
+    {
+        id: 'graphite',
+        name: 'Graphite',
+        // Cool slate ramp — minimal dashboards; lightness carries the identity.
+        colors: ['#475569', '#64748b', '#334155', '#94a3b8', '#1e293b', '#cbd5e1', '#0f172a', '#e2e8f0'],
+    },
+    {
+        id: 'monochrome',
+        name: 'Monochrome',
+        // Neutral grayscale ramp — single-metric / print-friendly.
+        colors: ['#525252', '#737373', '#404040', '#a3a3a3', '#262626', '#d4d4d4', '#171717', '#e5e5e5'],
     },
 ];
 

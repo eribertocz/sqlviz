@@ -123,7 +123,11 @@
 
         <!-- Panel Properties panel — right sidebar, opens on panel click (v0.2.9) -->
         {#if $editMode && dashboardStore.selectedPanel}
-            <PanelPropertiesPanel panel={dashboardStore.selectedPanel} />
+            <!-- Key by panel id so the whole properties panel (and its
+                 sub-components) re-initialise when the selection changes. -->
+            {#key dashboardStore.selectedPanel.panel_id}
+                <PanelPropertiesPanel panel={dashboardStore.selectedPanel} />
+            {/key}
         {/if}
 
         <!-- Dashboard Score Panel slide-in (DOC6 §12.3, edit mode only) -->

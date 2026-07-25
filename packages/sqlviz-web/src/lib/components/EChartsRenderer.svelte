@@ -6,6 +6,7 @@
     import { readChartTokens, prefersReducedMotion, type ChartTokens } from '$lib/charts/chartTokens';
     import {
         baseOption, axisStyle, categoryAxis, axisPointer, focusEmphasis, areaGradient, stagger,
+        axisName, cartesianGrid,
     } from '$lib/charts/chartBase';
     import { BRAND_COLORS } from '$lib/charts/palettes';
 
@@ -33,9 +34,10 @@
             case 'line':
                 return {
                     ...BASE,
+                    grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'line') },
-                    xAxis: { type: 'category', boundaryGap: false, data: xData, ...categoryAxis(t) },
-                    yAxis: { type: 'value', ...axisStyle(t) },
+                    xAxis: { type: 'category', boundaryGap: false, data: xData, ...categoryAxis(t), ...axisName(t, xField, 'middle') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yField, 'end') },
                     series: [{
                         type: 'line',
                         data: yData,
@@ -54,9 +56,10 @@
             case 'bar':
                 return {
                     ...BASE,
+                    grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
-                    xAxis: { type: 'category', data: xData, ...categoryAxis(t) },
-                    yAxis: { type: 'value', ...axisStyle(t) },
+                    xAxis: { type: 'category', data: xData, ...categoryAxis(t), ...axisName(t, xField, 'middle') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yField, 'end') },
                     series: [{
                         type: 'bar',
                         data: yData,
@@ -71,10 +74,10 @@
             case 'bar_horizontal':
                 return {
                     ...BASE,
-                    grid: { top: 12, right: 20, bottom: 16, left: 80, containLabel: true },
+                    grid: { top: 26, right: 20, bottom: 40, left: 90, containLabel: true },
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
-                    xAxis: { type: 'value', ...axisStyle(t) },
-                    yAxis: { type: 'category', data: xData, inverse: true, ...categoryAxis(t) },
+                    xAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yField, 'middle') },
+                    yAxis: { type: 'category', data: xData, inverse: true, ...categoryAxis(t), ...axisName(t, xField, 'end') },
                     series: [{
                         type: 'bar',
                         data: yData,
@@ -119,9 +122,10 @@
                 const sy = visualSpec.y_fields[0] ?? '';
                 return {
                     ...BASE,
+                    grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'item', axisPointer: axisPointer(t, 'line') },
-                    xAxis: { type: 'value', name: sx, ...axisStyle(t) },
-                    yAxis: { type: 'value', name: sy, ...axisStyle(t) },
+                    xAxis: { type: 'value', ...axisStyle(t), ...axisName(t, sx, 'middle') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, sy, 'end') },
                     series: [{
                         type: 'scatter',
                         data: data.map(r => [Number(r[sx]), Number(r[sy])]),
@@ -137,9 +141,10 @@
             case 'histogram':
                 return {
                     ...BASE,
+                    grid: cartesianGrid,
                     tooltip: { ...BASE.tooltip, trigger: 'axis', axisPointer: axisPointer(t, 'shadow') },
-                    xAxis: { type: 'category', data: xData, ...categoryAxis(t) },
-                    yAxis: { type: 'value', ...axisStyle(t) },
+                    xAxis: { type: 'category', data: xData, ...categoryAxis(t), ...axisName(t, xField, 'middle') },
+                    yAxis: { type: 'value', ...axisStyle(t), ...axisName(t, yField, 'end') },
                     series: [{
                         type: 'bar',
                         data: yData,

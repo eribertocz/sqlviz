@@ -46,6 +46,27 @@ export function baseOption(t: ChartTokens, reduce: boolean): EChartsOption {
     };
 }
 
+/** Grid with room for axis titles (x name below, y name at the top). */
+export const cartesianGrid = { top: 26, right: 20, bottom: 44, left: 52, containLabel: true };
+
+/** Axis title fragment. 'middle' centres it along the axis; 'end' floats it at
+ *  the top/right so a vertical y-title never overflows a small panel. */
+export function axisName(t: ChartTokens, name: string, location: 'middle' | 'end') {
+    if (!name) return {};
+    return {
+        name,
+        nameLocation: location,
+        nameGap: location === 'middle' ? 26 : 8,
+        nameTextStyle: {
+            color: t.muted,
+            fontFamily: FONT,
+            fontSize: 11,
+            fontWeight: 600 as const,
+            align: location === 'end' ? ('left' as const) : ('center' as const),
+        },
+    };
+}
+
 /** Recessive axes + grid: faint lines, muted labels, tabular figures. */
 export function axisStyle(t: ChartTokens) {
     return {
