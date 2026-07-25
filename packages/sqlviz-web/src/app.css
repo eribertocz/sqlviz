@@ -10,12 +10,11 @@
  */
 
 :root {
-  /* Brand — Claude coral (terracotta). A warm mid-tone; solid fills pair it
-     with --sqlviz-on-primary (dark espresso ink) rather than white, which the
-     coral can't carry legibly. */
-  --sqlviz-primary:       #d97757;  /* Claude coral — brand, CTAs, active state */
-  --sqlviz-primary-hover: #c15f3c;  /* deeper coral for hover */
-  --sqlviz-on-primary:    #3d1e0e;  /* dark ink for text/icons on primary fills */
+  /* Brand — SQLviz indigo. Deep enough that white text clears AA on it
+     (~5.37:1), so solid fills carry white --sqlviz-on-primary. */
+  --sqlviz-primary:       #5b5bd6;  /* indigo — brand, CTAs, active state */
+  --sqlviz-primary-hover: #4e4ec9;  /* deeper indigo for hover */
+  --sqlviz-on-primary:    #ffffff;  /* white text/icons on primary fills */
   --sqlviz-primary-soft:  color-mix(in srgb, var(--sqlviz-primary) 14%, transparent); /* tint bg */
 
   --sqlviz-bg:            #0f172a;  /* dark background (default theme) */
