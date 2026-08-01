@@ -196,3 +196,54 @@ class TestKPIShelf:
         for row in rows:
             assert all(p.final_col_span == 3 for p in row.panels)
             assert row.total_span == 12
+
+
+# ── A pinned width beats the shelf default ────────────────────────────────────
+
+class TestPinnedSpans:
+    """A width the user set by hand must survive the shelf.
+
+    The shelf assigns every KPI in a row the same span so the row stays centred,
+    which silently discarded a width chosen in Panel Properties: the admin saw
+    its own optimistic update until the next Run recomposed, and a shared viewer
+    — which only ever renders what compose returns — never saw it at all.
+    """
+
+    def _rows(self, n: int, pinned: dict[str, int]) -> list[DashboardRow]:
+        layout = engine.compose(_kpi(n), pinned_spans=pinned)
+        return [r for r in layout.rows if r.panels[0].inference_result.chart_winner == "kpi"]
+
+    def test_pinned_span_replaces_the_shelf_default(self) -> None:
+        rows = self._rows(1, {"k0": 6})
+        assert rows[0].panels[0].final_col_span == 6
+
+    def test_row_recentres_around_the_pinned_span(self) -> None:
+        # 6 wide in a 12 grid leaves 6 spare, so 3 lead in.
+        rows = self._rows(1, {"k0": 6})
+        assert rows[0].panels[0].col_offset == 3
+
+    def test_only_the_pinned_panel_changes(self) -> None:
+        rows = self._rows(3, {"k1": 2})
+        assert [p.final_col_span for p in rows[0].panels] == [4, 2, 4]
+
+    def test_row_with_mixed_widths_is_still_centred(self) -> None:
+        # 4 + 2 + 4 = 10, leaving 2 spare -> 1 lead in.
+        rows = self._rows(3, {"k1": 2})
+        assert rows[0].panels[0].col_offset == 1
+
+    def test_pinning_every_panel_to_full_rows_removes_the_offset(self) -> None:
+        rows = self._rows(2, {"k0": 6, "k1": 6})
+        assert [p.final_col_span for p in rows[0].panels] == [6, 6]
+        assert rows[0].panels[0].col_offset == 0
+
+    def test_unknown_panel_ids_are_ignored(self) -> None:
+        rows = self._rows(1, {"not-this-panel": 9})
+        assert rows[0].panels[0].final_col_span == 4
+        assert rows[0].panels[0].col_offset == 4
+
+    def test_no_pinned_spans_matches_the_shelf_table(self) -> None:
+        # The offset is derived now rather than tabulated; the defaults must not move.
+        assert [(r.panels[0].final_col_span, r.panels[0].col_offset)
+                for r in [self._rows(n, {})[0] for n in (1, 2, 3, 4)]] == [
+            (4, 4), (4, 2), (4, 0), (3, 0),
+        ]

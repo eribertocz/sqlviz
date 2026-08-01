@@ -373,3 +373,72 @@ class TestClearOverride:
             json={"field_name": "col_span", "user_value": None},
         )
         assert r.status_code == 404
+
+
+# ── KPI PANELS: THE SHELF MUST NOT DISCARD A PINNED WIDTH ─────────────────────
+
+_KPI_SQL = "SELECT SUM(revenue) AS total FROM (VALUES (1, 100), (2, 200)) t(month, revenue)"
+
+
+class TestKpiWidthReachesCompose:
+    """compose() is what the shared viewer renders, so the width has to survive it.
+
+    execute already returns the pinned width, but the KPI shelf reassigned it
+    while centring the row. The admin app hid this behind its own optimistic
+    update until the next Run; a viewer had nothing to hide it with.
+    """
+
+    def _compose(self, client: TestClient, panel_id: str, ir: dict) -> dict:
+        return client.post(
+            "/api/v1/compose",
+            json=[{"panel_id": panel_id, "inference_result": ir}],
+        ).json()
+
+    def test_pinned_kpi_width_survives_compose(self, client: TestClient) -> None:
+        panel_id = _make_panel(client, _KPI_SQL)
+        first = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        assert first["inference_result"]["chart_winner"] == "kpi"
+
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "col_span", "user_value": "6"},
+        )
+        ir = client.post(f"/api/v1/panels/{panel_id}/execute").json()["inference_result"]
+        layout = self._compose(client, panel_id, ir)
+
+        assert layout["rows"][0]["panels"][0]["final_col_span"] == 6
+
+    def test_unpinned_kpi_keeps_the_shelf_width(self, client: TestClient) -> None:
+        panel_id = _make_panel(client, _KPI_SQL)
+        ir = client.post(f"/api/v1/panels/{panel_id}/execute").json()["inference_result"]
+        layout = self._compose(client, panel_id, ir)
+
+        assert layout["rows"][0]["panels"][0]["final_col_span"] == 4
+
+    def test_clearing_the_override_returns_the_kpi_to_the_shelf(self, client: TestClient) -> None:
+        panel_id = _make_panel(client, _KPI_SQL)
+        client.post(f"/api/v1/panels/{panel_id}/execute")
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "col_span", "user_value": "6"},
+        )
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "col_span", "user_value": None},
+        )
+        ir = client.post(f"/api/v1/panels/{panel_id}/execute").json()["inference_result"]
+        layout = self._compose(client, panel_id, ir)
+
+        assert layout["rows"][0]["panels"][0]["final_col_span"] == 4
+
+    def test_pinned_width_survives_compose_for_a_normal_panel_too(self, client: TestClient) -> None:
+        panel_id = _make_panel(client, _TREND_SQL)
+        client.post(f"/api/v1/panels/{panel_id}/execute")
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "col_span", "user_value": "4"},
+        )
+        ir = client.post(f"/api/v1/panels/{panel_id}/execute").json()["inference_result"]
+        layout = self._compose(client, panel_id, ir)
+
+        assert layout["rows"][0]["panels"][0]["final_col_span"] == 4

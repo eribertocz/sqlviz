@@ -4,13 +4,23 @@ from dataclasses import dataclass, field
 
 from ..result import InferenceResult
 
-# KPI Shelf v0.1 — (span, col_offset) by row size (DOC5 §16.34)
-_KPI_SHELF: dict[int, tuple[int, int]] = {
-    1: (4, 4),  # centered: 4 empty + KPI + 4 empty
-    2: (4, 2),  # centered: 2+KPI+KPI+2
-    3: (4, 0),  # fills exactly: 4+4+4
-    4: (3, 0),  # fills exactly: 3+3+3+3
+_GRID_COLUMNS = 12
+
+# KPI Shelf v0.1 — default span per row size (DOC5 §16.34). The offset that used
+# to be tabulated alongside each span is now derived by _centered_offset(), which
+# reproduces the original table exactly (1x4 -> 4, 2x4 -> 2, 3x4 -> 0, 4x3 -> 0)
+# while also centering rows whose spans the user has pinned.
+_KPI_SHELF: dict[int, int] = {
+    1: 4,  # centered: 4 empty + KPI + 4 empty
+    2: 4,  # centered: 2+KPI+KPI+2
+    3: 4,  # fills exactly: 4+4+4
+    4: 3,  # fills exactly: 3+3+3+3
 }
+
+
+def _centered_offset(total_span: int) -> int:
+    """Leading empty columns that centre a row occupying `total_span`."""
+    return max((_GRID_COLUMNS - total_span) // 2, 0)
 
 # Narrative priority — mirrors analyst storytelling order
 INTENT_PRIORITY: dict[str, int] = {
@@ -71,10 +81,20 @@ class DashboardEngine:
     def compose(
         self,
         panels: list[tuple[str, InferenceResult]],
+        pinned_spans: dict[str, int] | None = None,
     ) -> DashboardLayout:
+        """Compose a layout.
+
+        `pinned_spans` maps panel_id -> a width the user set explicitly. Ordinary
+        panels already take their width from `InferenceResult.col_span`, but the
+        KPI shelf imposes its own so a row of KPIs stays centred — which silently
+        discarded a width the user had chosen. A pinned span wins over the shelf
+        default; the row is still centred, just around the widths in it.
+        """
         if not panels:
             return DashboardLayout(rows=[])
 
+        pinned = pinned_spans or {}
         kpi_panels = [(pid, r) for pid, r in panels if r.chart_winner == "kpi"]
         other_panels = [(pid, r) for pid, r in panels if r.chart_winner != "kpi"]
 
@@ -82,7 +102,7 @@ class DashboardEngine:
 
         # Rule 1 — Group KPIs together in leading rows
         if kpi_panels:
-            rows.extend(self._build_kpi_rows(kpi_panels))
+            rows.extend(self._build_kpi_rows(kpi_panels, pinned))
 
         # Rule 2 — Narrative ordering for the rest
         ordered_others = self._order_by_narrative(other_panels)
@@ -95,6 +115,7 @@ class DashboardEngine:
     def _build_kpi_rows(
         self,
         kpi_panels: list[tuple[str, InferenceResult]],
+        pinned: dict[str, int],
     ) -> list[DashboardRow]:
         """Group KPIs into centered rows — KPI Shelf v0.1 (DOC5 §16.34)."""
         rows: list[DashboardRow] = []
@@ -103,12 +124,14 @@ class DashboardEngine:
 
         for i in range(0, len(kpi_panels), chunk_size):
             chunk = kpi_panels[i : i + chunk_size]
-            span, offset = _KPI_SHELF[len(chunk)]
+            default_span = _KPI_SHELF[len(chunk)]
+            spans = [pinned.get(pid, default_span) for pid, _ in chunk]
+            offset = _centered_offset(sum(spans))
             dashboard_panels = [
                 DashboardPanel(
                     inference_result=result,
                     panel_id=pid,
-                    final_col_span=span,
+                    final_col_span=spans[j],
                     row_index=row_idx,
                     col_offset=offset if j == 0 else 0,
                 )
