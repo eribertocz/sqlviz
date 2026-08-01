@@ -261,3 +261,115 @@ class TestSessionRegression:
         }).json()["id"]
         result_b = client.post(f"/api/v1/panels/{panel_b}/execute").json()
         assert result_b["inference_result"]["chart_winner"] == "pie"
+
+
+# ── SIZE OVERRIDES SURVIVE A RE-RUN ───────────────────────────────────────────
+
+class TestSizeOverrideRoundTrip:
+    """The size a user picks has to come back on every execute.
+
+    The override columns were written correctly all along, but nothing read them
+    back into the inference_result — and that dict is the only thing the layout
+    is composed from, for the admin app and for a shared link alike. So a panel
+    resized in Panel Properties reverted to its inferred size on the next Run,
+    and a shared link never showed the chosen width at all.
+    """
+
+    def test_col_span_override_comes_back_on_re_execution(self, client: TestClient) -> None:
+        panel_id = _make_panel(client, _TREND_SQL)
+        first = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        inferred_span = first["inference_result"]["col_span"]
+        chosen = 6 if inferred_span != 6 else 4
+
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "col_span", "user_value": str(chosen)},
+        )
+
+        second = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        assert second["inference_result"]["col_span"] == chosen
+
+    def test_height_override_comes_back_on_re_execution(self, client: TestClient) -> None:
+        panel_id = _make_panel(client, _TREND_SQL)
+        client.post(f"/api/v1/panels/{panel_id}/execute")
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "height_px", "user_value": "480"},
+        )
+
+        again = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        assert again["inference_result"]["panel_height_px"] == 480
+
+    def test_size_override_does_not_disturb_the_inferred_value(self, client: TestClient) -> None:
+        panel_id = _make_panel(client, _TREND_SQL)
+        first = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        inferred_span = first["inference_result"]["col_span"]
+
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "col_span", "user_value": "3"},
+        )
+        client.post(f"/api/v1/panels/{panel_id}/execute")
+
+        panel = client.get(f"/api/v1/panels/{panel_id}").json()
+        assert panel["inferred_col_span"] == inferred_span
+        assert panel["selected_col_span"] == 3
+
+
+# ── RESET TO AUTO ─────────────────────────────────────────────────────────────
+
+class TestClearOverride:
+    """`user_value: null` withdraws the correction and follows inference again."""
+
+    def test_clearing_col_span_restores_the_inferred_size(self, client: TestClient) -> None:
+        panel_id = _make_panel(client, _TREND_SQL)
+        first = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        inferred_span = first["inference_result"]["col_span"]
+
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "col_span", "user_value": "3"},
+        )
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "col_span", "user_value": None},
+        )
+
+        panel = client.get(f"/api/v1/panels/{panel_id}").json()
+        assert panel["col_span_user_override"] is None
+        assert panel["selected_col_span"] == inferred_span
+
+        after = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        assert after["inference_result"]["col_span"] == inferred_span
+
+    def test_clearing_height_restores_the_inferred_size(self, client: TestClient) -> None:
+        panel_id = _make_panel(client, _TREND_SQL)
+        first = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        inferred_height = first["inference_result"]["panel_height_px"]
+
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "height_px", "user_value": "480"},
+        )
+        client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "height_px", "user_value": None},
+        )
+
+        after = client.post(f"/api/v1/panels/{panel_id}/execute").json()
+        assert after["inference_result"]["panel_height_px"] == inferred_height
+
+    def test_clearing_an_unknown_field_is_rejected(self, client: TestClient) -> None:
+        panel_id = _make_panel(client, _TREND_SQL)
+        r = client.patch(
+            f"/api/v1/panels/{panel_id}/override",
+            json={"field_name": "nonsense", "user_value": None},
+        )
+        assert r.status_code == 422
+
+    def test_clearing_on_a_missing_panel_is_404(self, client: TestClient) -> None:
+        r = client.patch(
+            "/api/v1/panels/does-not-exist/override",
+            json={"field_name": "col_span", "user_value": None},
+        )
+        assert r.status_code == 404

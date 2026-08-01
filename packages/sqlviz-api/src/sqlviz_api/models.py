@@ -140,7 +140,10 @@ class PanelResponse(BaseModel):
 
 class PanelOverrideRequest(BaseModel):
     field_name: str   # "chart_type" | "col_span" | "height_px"
-    user_value: str   # always passed as string; OverrideSystem casts as needed
+    # Always passed as a string; OverrideSystem casts as needed.
+    # None clears the override ("reset to auto") — the field goes back to
+    # following inference instead of being frozen at today's inferred value.
+    user_value: str | None = None
 
 
 class PanelViewOverrideRequest(BaseModel):

@@ -702,55 +702,87 @@ function createDashboardStore() {
                 field_name: 'chart_type',
                 user_value: chartType,
             });
-            const exec = await apiPost<{ inference_result: InferenceResult; data: Record<string, unknown>[] }>(
-                `/api/v1/panels/${panelId}/execute`
-            );
-            executedResults = executedResults.map(r =>
-                r.panel_id === panelId
-                    ? { panel_id: panelId, inference_result: exec.inference_result, data: exec.data }
-                    : r
-            );
-            layout = await recompose(executedResults);
+            await refreshPanel(panelId);
         } catch (e: unknown) {
             uiStore.showToast(e instanceof Error ? e.message : 'Chart override failed.');
         }
     }
 
-    /** Local col_span override — updates layout reactively (session-only). */
-    function handleWidthOverride(panelId: string, cols: number | null) {
-        if (!layout) return;
-        layout = {
-            ...layout,
-            rows: layout.rows.map(row => ({
-                panels: row.panels.map(p => {
-                    if (p.panel_id !== panelId) return p;
-                    return {
-                        ...p,
-                        final_col_span: cols ?? p.inference_result.col_span,
-                    };
-                }),
-            })),
-        };
+    /** Immutably patch one panel's inference_result inside executedResults. */
+    function patchExecutedResult(panelId: string, patch: Partial<InferenceResult>) {
+        executedResults = executedResults.map(r =>
+            r.panel_id === panelId
+                ? { ...r, inference_result: { ...r.inference_result, ...patch } }
+                : r
+        );
     }
 
-    /** Local panel_height_px override — updates layout reactively (session-only). */
-    function handleHeightOverride(panelId: string, px: number | null) {
+    /** Re-execute one panel and recompose, so the view matches persisted state. */
+    async function refreshPanel(panelId: string) {
+        const exec = await apiPost<{ inference_result: InferenceResult; data: Record<string, unknown>[] }>(
+            `/api/v1/panels/${panelId}/execute`
+        );
+        executedResults = executedResults.map(r =>
+            r.panel_id === panelId
+                ? { panel_id: panelId, inference_result: exec.inference_result, data: exec.data }
+                : r
+        );
+        layout = await recompose(executedResults);
+    }
+
+    /**
+     * Persist a panel size override. Not session-only: the size has to survive a
+     * re-run and reach shared links, and the only way it gets there is by riding
+     * on the inference_result the API returns for every execute.
+     *
+     * Setting a value needs no round trip to display — we know the exact result.
+     * Clearing one does, because only the engine knows the size it would infer.
+     */
+    async function persistSizeOverride(
+        panelId: string,
+        field: 'col_span' | 'height_px',
+        value: number | null,
+    ) {
+        try {
+            await apiPatch(`/api/v1/panels/${panelId}/override`, {
+                field_name: field,
+                user_value: value === null ? null : String(value),
+            });
+            if (value === null) await refreshPanel(panelId);
+        } catch (e: unknown) {
+            uiStore.showToast(e instanceof Error ? e.message : 'Could not save the panel size.');
+        }
+    }
+
+    /** col_span override — applied locally, then persisted. */
+    async function handleWidthOverride(panelId: string, cols: number | null) {
         if (!layout) return;
-        layout = {
-            ...layout,
-            rows: layout.rows.map(row => ({
-                panels: row.panels.map(p => {
-                    if (p.panel_id !== panelId) return p;
-                    return {
-                        ...p,
-                        inference_result: {
-                            ...p.inference_result,
-                            panel_height_px: px ?? p.inference_result.panel_height_px,
-                        },
-                    };
-                }),
-            })),
-        };
+        if (cols !== null) {
+            layout = {
+                ...layout,
+                rows: layout.rows.map(row => ({
+                    panels: row.panels.map(p =>
+                        p.panel_id === panelId ? { ...p, final_col_span: cols } : p
+                    ),
+                })),
+            };
+            // Keep the executed results in step: a later recompose (filter
+            // change, chart override) builds the layout from them, and would
+            // otherwise snap the panel back to its inferred width.
+            patchPanelResult(panelId, { col_span: cols });
+            patchExecutedResult(panelId, { col_span: cols });
+        }
+        await persistSizeOverride(panelId, 'col_span', cols);
+    }
+
+    /** panel_height_px override — applied locally, then persisted. */
+    async function handleHeightOverride(panelId: string, px: number | null) {
+        if (!layout) return;
+        if (px !== null) {
+            patchPanelResult(panelId, { panel_height_px: px });
+            patchExecutedResult(panelId, { panel_height_px: px });
+        }
+        await persistSizeOverride(panelId, 'height_px', px);
     }
 
     // ── Panel Properties panel (v0.2.9) ──────────────────────────────────────

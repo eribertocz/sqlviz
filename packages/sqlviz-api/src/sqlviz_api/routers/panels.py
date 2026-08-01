@@ -25,7 +25,12 @@ from sqlviz_inference.dashboard.dashboard_classifier import classify_dashboard
 from sqlviz_inference.filters.domain import build_domain_query
 from sqlviz_inference.filters.neutralize import neutralize_filters
 from sqlviz_storage.brain_db import get_brain_connection
-from sqlviz_storage.override_system import apply_override, store_inference
+from sqlviz_storage.override_system import (
+    apply_layout_overrides,
+    apply_override,
+    clear_override,
+    store_inference,
+)
 from sqlviz_storage.panel_view_overrides import (
     apply_view_overrides,
     get_view_overrides,
@@ -267,11 +272,30 @@ def _update_dashboard_classification(
         pass  # classification is non-critical; never block the execute response
 
 
+def _render_contract(
+    db: DbDep,
+    panel: PanelResponse,
+    result: Any,
+) -> dict[str, Any]:
+    """Overlay every persisted user override onto an inference_result dict.
+
+    One place, because the layout is composed from this dict alone — the admin
+    app and a shared link both render whatever it says. Any return path that
+    skips it silently reverts the panel to inferred values.
+    """
+    return apply_layout_overrides(
+        apply_view_overrides(result.to_dict(), get_view_overrides(db, panel.id)),
+        panel.col_span_user_override,
+        panel.height_user_override,
+    )
+
+
 def _inference_only_response(
     sql: str,
     db: DbDep,
     brain: Any,
     debug: bool,
+    panel: PanelResponse,
 ) -> JSONResponse:
     """Render the filter bar without data when the query can't be executed.
 
@@ -297,7 +321,10 @@ def _inference_only_response(
         fallback_applied=True,
         fallback_reason="Set filter values to see data",
     )
-    return JSONResponse(content={"inference_result": result.to_dict(), "data": []})
+    return JSONResponse(content={
+        "inference_result": _render_contract(db, panel, result),
+        "data": [],
+    })
 
 
 @router.post("/{panel_id}/execute")
@@ -356,7 +383,7 @@ def execute_panel(
             # variable used outside a boolean predicate). Fall back to
             # inference-only so the filter bar still renders; data stays empty
             # until every variable is given a concrete value.
-            return _inference_only_response(sql, db, brain, debug)
+            return _inference_only_response(sql, db, brain, debug, panel)
         run_sql = neutralized
 
     # Bind only variables that survive neutralization: a range like
@@ -378,13 +405,13 @@ def execute_panel(
             fallback_reason="SQL syntax error — query could not be parsed",
         )
         return JSONResponse(content={
-            "inference_result": apply_view_overrides(result.to_dict(), get_view_overrides(db, panel_id)),
+            "inference_result": _render_contract(db, panel, result),
             "data": [],
         })
     except duckdb.Error as exc:
         # First Run / all-"All": reveal the filter bar instead of failing hard.
         if is_reveal:
-            return _inference_only_response(sql, db, brain, debug)
+            return _inference_only_response(sql, db, brain, debug, panel)
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     desc = db.description or []
@@ -418,7 +445,7 @@ def execute_panel(
     _update_dashboard_classification(db, panel_id, col_names)
 
     return JSONResponse(content={
-        "inference_result": apply_view_overrides(result.to_dict(), get_view_overrides(db, panel_id)),
+        "inference_result": _render_contract(db, panel, result),
         "data": data,
     })
 
@@ -476,14 +503,18 @@ def override_panel(
     same SQL fingerprint return the user-preferred value.
 
     field_name: "chart_type" | "col_span" | "height_px"
-    user_value: the corrected value (always a string; cast in OverrideSystem)
+    user_value: the corrected value (always a string; cast in OverrideSystem),
+                or null to clear the override and follow inference again.
 
     Returns the updated PanelResponse.
     """
     _fetch_one(db, panel_id)  # raises 404 if missing
     brain = get_brain_connection()
     try:
-        apply_override(db, brain, panel_id, body.field_name, body.user_value)
+        if body.user_value is None:
+            clear_override(db, panel_id, body.field_name)
+        else:
+            apply_override(db, brain, panel_id, body.field_name, body.user_value)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except LookupError as exc:

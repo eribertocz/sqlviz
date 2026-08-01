@@ -88,6 +88,70 @@ def store_inference(
         )
 
 
+# field_name -> (inferred_* column, selected_* column, *_user_override column)
+_OVERRIDE_COLUMNS: dict[str, tuple[str, str, str]] = {
+    "chart_type": ("inferred_chart_type", "selected_chart_type", "chart_user_override"),
+    "col_span": ("inferred_col_span", "selected_col_span", "col_span_user_override"),
+    "height_px": ("inferred_height_px", "selected_height_px", "height_user_override"),
+}
+
+
+def clear_override(
+    conn: duckdb.DuckDBPyConnection,
+    panel_id: str,
+    field_name: str,
+) -> None:
+    """Drop a user override, returning the field to whatever inference says.
+
+    This is what "reset to auto" means: the override column goes back to NULL so
+    the panel follows the engine again, including when new data makes the engine
+    choose differently. Writing the currently-inferred value instead would
+    freeze the panel at today's number while still looking automatic.
+
+    inferred_* is untouched, and nothing is written to the brain — the user is
+    withdrawing a correction, not making one.
+
+    Raises:
+        ValueError: Unknown field_name.
+        LookupError: Panel not found.
+    """
+    if field_name not in _OVERRIDE_COLUMNS:
+        raise ValueError(f"Unknown override field: {field_name!r}")
+    if conn.execute("SELECT 1 FROM panels WHERE id = ?", [panel_id]).fetchone() is None:
+        raise LookupError(f"Panel not found: {panel_id!r}")
+
+    inferred_col, selected_col, override_col = _OVERRIDE_COLUMNS[field_name]
+    conn.execute(
+        f"""
+        UPDATE panels SET
+            {selected_col} = {inferred_col},
+            {override_col} = NULL,
+            updated_at     = ?
+        WHERE id = ?
+        """,
+        [_now(), panel_id],
+    )
+
+
+def apply_layout_overrides(
+    inference_dict: dict[str, object],
+    col_span: int | None,
+    height_px: int | None,
+) -> dict[str, object]:
+    """Overlay persisted size overrides onto an inference_result dict.
+
+    The size the user picked has to ride along on the inference_result, because
+    that is the only thing the layout is composed from — both for the admin app
+    and for a shared link. Without this the columns were written and then never
+    read, so every re-run silently reverted to the inferred size.
+    """
+    if col_span is not None:
+        inference_dict["col_span"] = col_span
+    if height_px is not None:
+        inference_dict["panel_height_px"] = height_px
+    return inference_dict
+
+
 def apply_override(
     conn: duckdb.DuckDBPyConnection,
     brain_conn: duckdb.DuckDBPyConnection,
