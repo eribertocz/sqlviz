@@ -1,6 +1,6 @@
 # Dashboard Studio: alcance, edición e inferencia
 
-**Fecha:** 2026-10-05; actualización de navegación: 2026-10-06. **Estado:**
+**Fecha:** 2026-10-05; decisión de autoría actualizada: 2026-10-07. **Estado:**
 especificación para implementar, con navegación entregada según
 [su documento de implementación](sqlviz-navigation.md). Los contratos visuales,
 modos pantalla/scroll e inferencia descritos aquí siguen pendientes.
@@ -23,7 +23,7 @@ vigente; la unidad de entrega es una experiencia verificable.
 | Orden | Foco | Cuándo podemos pasar al siguiente |
 | --- | --- | --- |
 | 1 | Aplicación y dominio: seguridad, integridad y persistencia | P0 cerrados; BP-01–05 corregidos; permisos, atomicidad y persistencia cubiertos por regresiones |
-| 2 | Contrato visual y de página | IDs estables; recomendación y overrides separados; propiedades versionadas y restaurables; mismos valores en editor/viewer |
+| 2 | Dataset mínimo, contrato visual y de página | Dataset/visual/panel separados, IDs estables y revisiones; recomendación, ajustes del builder y opciones expertas versionados y restaurables; mismos valores en editor/viewer |
 | 3 | Lienzo y navegación | Ocultar sidebar recupera todo su ancho; modos pantalla/scroll; drag/resize y undo/redo; ajustes sobreviven a recarga |
 | 4 | Inferencia y renderizado completos | Campos/series/unidades correctos, evaluación independiente y recomendaciones comparables; cambios manuales respetados |
 | 5 | Acabado de la experiencia | Plantillas, formatos, accesibilidad, rendimiento y pruebas visuales/E2E en la matriz soportada |
@@ -41,7 +41,10 @@ prohíbe revisar una capa cuando nuevos casos aporten evidencia.
 
 Principio: **SQL aporta datos; la inferencia propone; el autor decide.**
 El usuario puede aceptar un dashboard automático y después personalizar solo
-lo que necesita. SQLviz conserva ambos caminos sin exigir configurar todo.
+lo que necesita. La [decisión aceptada de autoría](sqlviz-visual-authoring-decision.md)
+establece tres niveles sobre la misma visualización: **inferencia automática →
+Visual Builder → ECharts native options**. Están planificados; su aceptación no
+entrega el editor experto ni modifica los contratos actuales.
 
 | Ámbito | Controles del autor | Restricción útil |
 | --- | --- | --- |
@@ -56,8 +59,13 @@ propiedades habituales y permitir desplegar opciones avanzadas. Cada propiedad
 admite «Automático» o un valor explícito; restablecer es distinto de guardar una
 copia del valor que hoy recomendó el motor.
 
-No exponer el objeto bruto de ECharts ni permitir JavaScript/HTML arbitrario como
-atajo de personalización. La amplitud del editor crece sobre un contrato propio.
+El nivel experto permite inspeccionar y editar opciones nativas serializables
+de ECharts, con validación, preview y precedencia visible respecto del builder.
+Se conserva el contrato mínimo de SQLviz para identidad, datos y publicación,
+sin recrear toda la gramática del motor. La prohibición anterior de opciones
+nativas queda reemplazada por esta decisión. JavaScript/HTML arbitrarios no
+forman parte del editor JSON inicial. Ver reglas de conflicto, persistencia,
+reset y seguridad en la [decisión de autoría](sqlviz-visual-authoring-decision.md).
 Las opciones existentes de selección X/Y deben persistirse y aplicarse de verdad
 en todos los renderers antes de añadir más controles.
 
@@ -116,8 +124,11 @@ configuración previa de scroll para poder volver sin perder trabajo.
 
 ### Contratos propuestos
 
-Separar `PageSpec` (modo, layout por breakpoint, tema), `PanelSpec` (dataset,
-encoding, formato y overrides) y preferencias de interfaz del usuario. Guardar
+Separar definición de dataset, configuración reutilizable de visualización,
+instancia de panel y `PageSpec` (modo, layout por breakpoint, tema), además de
+preferencias de interfaz del usuario. La visualización conserva encoding,
+formato, ajustes del builder y opciones nativas expertas; el panel conserva su
+referencia, posición y tamaño. Guardar
 el modo/layout en la revisión del dashboard; guardar sidebar e inspector como
 preferencias privadas. Migrar proyectos actuales a modo scroll para preservar
 su comportamiento, sin inferir que ya son compatibles con modo pantalla.
@@ -227,6 +238,7 @@ cuando varias gráficas sean válidas y acordar casos ambiguos con revisión hum
 | Selección | Medir acierto de especificación completa, top-3, abstención y cobertura por familia; comparar contra baseline con igual cobertura |
 | Robustez | Reordenar columnas, cambiar alias o variar filas no rompe el significado; casos pequeños, vacíos y de alta cardinalidad |
 | Control del autor | Ajustes persisten tras ejecutar, filtrar, recargar, publicar y abrir como viewer; restaurar automático es reversible |
+| Nivel experto | Opciones nativas validadas y versionadas; controles identifican overrides expertos; no perder configuración no representable; rechazo atómico y reset/undo |
 | Layout | Sin scroll vertical en configuraciones pantalla viables; cero ancho reservado con sidebar oculto; sin clipping en la matriz definida |
 | Responsive/accesibilidad | Teclado, zoom 200%, móvil, alternativa tabular y salida de presentación; limitaciones comunicadas |
 | Rendimiento | p50/p95 y memoria medidos con hardware, filas/paneles y fases declaradas; separar SQL, inferencia y renderizado |

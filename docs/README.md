@@ -14,6 +14,11 @@ Actualizada: **2026-10-07**.
 Para la siguiente capacidad a pulir, consultar [Dashboard Studio](architecture/sqlviz-dashboard-studio-spec.md):
 libertad de edición, modos pantalla/scroll, navegación sin rail y evaluación de
 inferencias completas. Incluye nuevos ensayos sintéticos y criterios de cierre.
+La [decisión aceptada de autoría](architecture/sqlviz-visual-authoring-decision.md)
+define Automático → Visual Builder → ECharts native options sobre una misma
+visualización, con precedencia, persistencia y restauración. Adelanta el contrato
+mínimo de dataset reutilizable a E1 antes del lienzo; estas capacidades siguen
+pendientes de implementación.
 
 La [navegación del workspace](architecture/sqlviz-navigation.md) documenta la
 primera capacidad visual implementada de ese alcance: ocultación completa,
@@ -50,8 +55,9 @@ valida composición en HTTP y conserva los resultados de autor/viewers. El
 siguiente foco es PATCH de otros campos, antes del contrato visual.
 La evidencia local no reemplaza CI.
 
-El [flujo de Git](architecture/sqlviz-git-workflow.md) recoge la consulta obligatoria
-antes de commits/ramas/tags y propone separar los cambios acumulados por alcance.
+El [flujo de Git](architecture/sqlviz-git-workflow.md) recoge la autorización
+permanente de gestión habitual: avisar cuándo corresponden commit/push/tag,
+registrar incrementos verificados y preservar trabajo ajeno e historial compartido.
 
 ## Qué documento tiene autoridad
 

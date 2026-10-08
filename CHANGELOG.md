@@ -57,6 +57,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Acceso visible al modo de concentración: oculta también editor e inspectores,
   conserva sus estados y restaura el foco al salir.
 
+### Changed
+
+- Documentación de la decisión aceptada para el Studio: inferencia automática,
+  Visual Builder y ECharts native options; separación dataset/visual/panel y
+  dataset mínimo antes del lienzo. Define precedencia, persistencia y reset de
+  ajustes expertos. Es diseño pendiente de implementación, no una función nueva.
+
 ### Fixed
 
 - Foco del buscador de dashboards/comandos rodea el campo completo con la lupa,

@@ -25,6 +25,13 @@ The next stage combines SQL authoring with visual dashboard design over reusable
 datasets. A visual query builder, governed metrics, and team permissions are
 planned capabilities, not features already delivered.
 
+The accepted Studio direction provides three authoring levels on the same visual:
+automatic inference, a Visual Builder, and expert native ECharts JSON options.
+Dataset definitions, reusable visuals and dashboard panel instances will be
+separate; the minimum dataset contract precedes the canvas. The expert editor
+and reusable dataset persistence are planned, not implemented features.
+See the [accepted authoring decision](docs/architecture/sqlviz-visual-authoring-decision.md).
+
 Start with the [documentation index](docs/README.md),
 [target architecture](docs/architecture/sqlviz-product-architecture.md), and
 [current delivery plan](docs/architecture/sqlviz-product-roadmap.md).

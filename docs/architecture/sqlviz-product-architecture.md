@@ -1,12 +1,15 @@
 # Dirección de producto y arquitectura objetivo
 
-**Fecha:** 2026-10-05. **Estado:** dirección recomendada para la siguiente etapa;
+**Fecha:** 2026-10-05; decisión de autoría aceptada: 2026-10-07.
+**Estado:** dirección para la siguiente etapa;
 los componentes objetivo aquí descritos no se consideran implementados.
 Base factual: [auditoría](sqlviz-audit-2026-10-05.md).
 Reglas de implementación y evaluación SOLID/integridad:
 [revisión de buenas prácticas](sqlviz-engineering-practices-review.md).
 Alcance detallado de lienzo, navegación y calidad de inferencia:
 [Dashboard Studio](sqlviz-dashboard-studio-spec.md).
+La [decisión de autoría visual](sqlviz-visual-authoring-decision.md) precisa los
+tres niveles aceptados y sustituye la exclusión anterior del editor ECharts nativo.
 
 ## 1. Producto y público
 
@@ -56,6 +59,13 @@ puede entregar antes de implementar un modelador relacional completo.
 La inferencia propone un punto de partida; el autor puede cambiarlo y volver al
 automático. Ningún refresh, filtro o nueva recomendación debe borrar elecciones
 explícitas. Los ajustes incompatibles con un nuevo esquema se señalan al usuario.
+
+Autoría progresiva sobre la misma visualización: **Automático → Visual Builder →
+ECharts native options**. El nivel experto edita opciones nativas JSON con preview,
+validación y procedencia visible. SQLviz mantiene un contrato mínimo de identidad,
+bindings y publicación; no replica toda la gramática de ECharts. Las propiedades
+expertas prevalecen en su ámbito y persisten aunque no tengan control visual.
+Restaurarlas es explícito y reversible. Estos niveles están planificados.
 
 Una consulta visual es una estructura tipada que compila a SQL parametrizado.
 No prometer conversión bidireccional de SQL arbitrario a controles: CTEs,
@@ -161,15 +171,19 @@ incompletos como totales reales. Aprendizaje recibe correcciones explícitas con
 | DataSource | Conexión, dialecto, capacidades, identidad y referencia a credenciales |
 | Dataset + revision | SQL o consulta visual, parámetros tipados, esquema, granularidad y fuente |
 | Metric | Definición, agregación, unidad, dimensiones compatibles, propietario y versión |
-| Panel | Dataset/revisión, visual inferido, overrides del autor y formato efectivo |
+| Visualization + revision | Dataset/bindings, recomendación, ajustes del builder, opciones ECharts expertas y formato efectivo |
+| Panel | Instancia de visualización/revisión dentro del dashboard, con identidad estable, posición y tamaño |
 | Dashboard + revision | Paneles con IDs estables, layout, tema y bindings de filtros |
 | Publication | Referencia explícita a una revisión; borradores no alteran lo publicado |
 | QueryExecution | Actor, recurso, parámetros, estado, tiempos, filas/bytes, truncamiento y frescura |
 | Share / Grant | Alcance, permisos, expiración y revocación; nunca permiso general al proyecto por accidente |
 
 No crear todas las tablas a la vez. Entregar invariantes en las fases del roadmap.
-Contrato visual efectivo = recomendación válida + overrides explícitos. Guardar
-ambos por separado. Preferencias privadas del lector, como su tema, no modifican
+Contrato visual efectivo = propuesta aceptada + ajustes del builder + opciones
+expertas validadas, con precedencia y conflictos definidos. Guardar su procedencia
+por separado. Una publicación fija revisiones; editar una visualización compartida
+no cambia silenciosamente dashboards publicados. Preferencias privadas del lector,
+como su tema, no modifican
 la revisión publicada del autor.
 
 ## 6. Ejecución y filtros
@@ -205,6 +219,11 @@ partes necesitan un contrato de cancelación.
 
 **Primero datasets reutilizables.** Nombre, descripción, campos, tipos, formatos,
 parámetros y fuente. Esto habilita el editor visual y elimina copias de SQL.
+Adelantar el contrato mínimo a la unidad de identidad/persistencia visual de E1,
+antes del lienzo. Explorar SQL no exige crear un dataset compartido; promover la
+consulta es una acción posterior. Catálogo completo y conectores permanecen en E3.
+Polars y un grafo de transformaciones requieren un runtime propio con límites y
+dependencias; incorporarlos cuando casos reales lo justifiquen, después del Studio.
 
 **Después semántica explícita.** Dimensiones, métricas, tiempo, granularidad y
 relaciones con cardinalidad. Definir medidas aditivas/no aditivas, razón de sumas
@@ -251,4 +270,5 @@ la entrega, no una tarea posterior.
 | ETL ligero e integraciones | Mantener foco en dashboards | Usuarios paguen por necesidades repetidas de preparación |
 | Investigación cognitiva opcional | Beneficio aún no validado | Un experimento supere una solución simple con usuarios reales |
 
-La siguiente acción concreta es E0 del [plan vigente](sqlviz-product-roadmap.md).
+La siguiente acción concreta es completar PATCH de dashboards y luego paneles
+en E1 del [plan vigente](sqlviz-product-roadmap.md).

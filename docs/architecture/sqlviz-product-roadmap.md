@@ -5,8 +5,9 @@
 **Estado:** base local E0 implementada; E1 en curso, E2–E5 pendientes. Las cuatro
 unidades E0, integridad y composición tipada de E1, y navegación parcial de E2
 están registradas en `feat/sqlviz-foundations`; ver el
-[registro de Git](sqlviz-git-workflow.md). Validación local documentada;
-ejecutar CI y preparar operación pública siguen siendo trabajo aparte.
+[registro de Git](sqlviz-git-workflow.md). Validación local documentada y CI
+verificado en [2731418](https://github.com/eribertocz/sqlviz/actions/runs/37711347859);
+ese resultado no acredita las capacidades futuras ni la operación pública.
 
 No asignar fechas ni versiones antes de dimensionar cada entrega. Los números de
 entrega indican dependencias, no promesas de calendario. Cada entrega debe poder
@@ -18,6 +19,9 @@ el desarrollo en el [Dashboard Studio](sqlviz-dashboard-studio-spec.md): contrat
 visual → lienzo/navegación → inferencia y renderizado → acabado. No ampliar la
 plataforma mientras ese recorrido esté incompleto. Esa especificación precisa
 los criterios de E1/E2 y adelanta la calidad de inferencia al núcleo del producto.
+La [decisión aceptada de autoría](sqlviz-visual-authoring-decision.md) incorpora
+Automático → Visual Builder → ECharts native options y adelanta el dataset mínimo
+a la unidad 10. El catálogo completo y las transformaciones siguen posteriores.
 
 ## Plan inmediato después de navegación
 
@@ -31,13 +35,14 @@ pequeñas con su propia evidencia antes de pasar a la siguiente:
 | --- | --- | --- |
 | 1 — En curso, unidad 8 | Completar PATCH restantes | Composición tipada entregada localmente (BP-04); PATCH distingue omisión/null, valida campos y no escribe parcialmente |
 | 2 — Unidad 9 | Migraciones y dependencias | Cambios de esquema probados sobre copias, rollback/fallo explícitos; storage no depende de inference ni de su memoria global |
-| 3 — Unidad 10 | Identidad de paneles y especificación visual persistida | Reordenar/editar SQL no transfiere configuración a otro panel; campos, formatos y layout sobreviven a reapertura y compartir |
+| 3 — Unidad 10, por incrementos | Dataset mínimo, identidad y configuración visual persistida | Dataset/visual/panel separados; varias visualizaciones reutilizan una definición; reordenar/editar SQL no transfiere ajustes; revisiones, campos y layout sobreviven a reapertura y compartir; contrato preparado para opciones expertas |
 | 4 — Completar unidad 11 | Definiciones de filtros versionadas | ID, tipos, defaults del autor, rangos con bindings explícitos y alcance por panel; reset restaura defaults reales; la inferencia no pisa decisiones publicadas |
 | 5 — Unidad pequeña de dominios/valores | Estados y semántica de filtros | Distinguir carga/error/vacío, ofrecer reintento y preservar el contexto; NULL seleccionable y contratos de zona horaria/fechas relativas definidos sin equivalencias ambiguas |
 | 6 — Completar contexto de lectura de unidad 12 | Prioridades y accesibilidad observada | Periodo/resumen compacto en móvil y filtros rápidos elegidos por el autor; tareas reales de navegación/filtros, teclado, zoom y nombres largos verificadas con usuarios |
 | 7 — Studio E2, lienzo | Pantalla/scroll y edición reversible | Modos persistidos por dashboard; pantalla sin scroll solo cuando el layout es viable, con explicación de falta de espacio; drag/resize, alineación, undo/redo y gráficos legibles en móvil |
 | 8 — Studio E2, inferencia/renderizado | Recomendaciones y gráficos completos | Elegir campos, series, unidades y formatos; comparar alternativas con un corpus independiente; soportar multiserie y mantener overrides del autor al filtrar/ejecutar |
-| 9 — Cierre de E2 | Publicación y acabado | Preview/publicación versionados, plantillas coherentes, estados vacíos/error/carga, alternativa tabular y exportaciones autorizadas; revisión integral de autor a viewer |
+| 9 — Studio E2, nivel experto | Editor ECharts native options | JSON nativo validado, preview, precedencia visible sobre el builder, IDs estables, diagnóstico de incompatibilidades y reset/undo; ajustes conservados en refresh y viewer |
+| 10 — Cierre de E2 | Publicación y acabado | Preview/publicación versionados, plantillas coherentes, estados vacíos/error/carga, alternativa tabular y exportaciones autorizadas; revisión integral de autor a viewer en los tres niveles |
 
 La inferencia puede preparar su corpus y contrato durante el lienzo, pero se
 entrega por incrementos revisables; no se pospone su calidad hasta después de
@@ -135,8 +140,13 @@ el mismo significado y la configuración guardada.
   publicadas/versionadas y la identidad persistida siguen pendientes.
 - Persistir campos X/Y, formato, tema y layout del autor. Separar preferencias
   privadas del lector. Inferencia no pisa overrides explícitos.
+- Incorporar por incrementos el dataset mínimo reutilizable, visualización con
+  revisión e instancia de panel; distinguir definición y resultado de ejecución.
+  Conservar exploración SQL directa y migrar explícitamente proyectos existentes.
 - Versionar contrato visual y generar/verificar tipos frontend desde schemas;
   conservar golden tests de compatibilidad.
+  Declarar procedencia de ajustes y compatibilidad del renderer; preparar el
+  contrato de opciones expertas según la [decisión de autoría](sqlviz-visual-authoring-decision.md).
 
 **Aceptación:** consultas con punto y coma en strings/comentarios se conservan;
 reordenar paneles no transfiere overrides; un fallo parcial no publica un estado
@@ -154,6 +164,10 @@ Los casos de uso nuevos se prueban sin HTTP y con fallos entre escrituras.
 **Resultado:** un autor entrega un dashboard presentable con pocos ajustes.
 
 - Canvas, inspector consistente, alineación/resize, secciones, títulos y texto.
+- Autoría progresiva: inferencia automática, Visual Builder y editor experto de
+  opciones nativas ECharts JSON. Validación/preview, overrides con precedencia,
+  conflictos de propiedades/listas explícitos y reset/undo; ningún refresh elimina
+  ajustes. Las opciones no representables mantienen su valor y explicación en UI.
 - Modo pantalla sin scroll para layouts viables y modo scroll, persistidos por
   dashboard; tratamiento explícito de falta de espacio, móvil y zoom.
 - Sidebar ocultable por completo (0 px), botón permanente para recuperar
@@ -187,6 +201,9 @@ inferencia. No activar telemetría externa sin decisión explícita.
 
 **Depende de:** E1; el canvas de E2 consume estos contratos al incorporarlos.
 **Resultado:** quien no escribe SQL crea gráficos usando datos preparados.
+El contrato mínimo de dataset reutilizable se entrega antes del lienzo, en la
+unidad 10 de E1. Esta fase amplía su catálogo y autoría de consultas mediante UI;
+el Visual Builder de gráficos de E2 no implica todavía un query builder completo.
 
 - Dataset guardado y versionado: fuente, SQL o consulta visual, campos, parámetros,
   granularidad, descripción, formatos y permisos.
@@ -253,7 +270,7 @@ con la que comparar resultados.
 | 7 — Entregado localmente | Dimensiones y overrides válidos (BP-03) | 49 casos Python y 9 frontend nuevos; rechazo/reapertura; navegador comprueba guardado, viewer y reset |
 | 8 — Parcial | Composición tipada (BP-04) y PATCH de campos restantes | BP-04 entregado localmente con 422 y compatibilidad; presencia/null y escritura de PATCH restantes pendientes |
 | 9 | Migraciones y límites de dependencias | Fallo explícito, rollback y ensayo sobre copias; storage independiente de inference |
-| 10 | Revisión estable de paneles y configuración visual persistida | Reabrir, reordenar, cambiar filtros y compartir sin perder ajustes |
+| 10 — Por incrementos | Dataset mínimo, revisión de visualizaciones/paneles y configuración visual persistida | Reutilizar una definición sin duplicar SQL; revisiones fijadas y opciones expertas previstas; reabrir, reordenar, filtrar y compartir sin perder ajustes |
 | 11 — Parcial | Definiciones y runtime compartido de filtros | Runtime compatible entregado; definiciones/tipos/defaults publicados pendientes |
 | 12 — Parcial | Cabecera de lectura y panel de filtros (E2) | Cabecera/panel entregados; prioridad publicada, ensayos de usuarios y modo pantalla pendientes |
 
