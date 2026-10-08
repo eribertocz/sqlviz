@@ -1,26 +1,33 @@
 # Flujo de Git
 
-**Decisión del usuario — 2026-10-07:** el agente se encarga de Git y debe consultar
-antes de efectuar commits, tags u otras acciones sobre ramas/historial/remotos.
-Leer estado/diffs y preparar código, pruebas y propuestas no necesita una nueva
-consulta. La autorización para implementar no equivale a autorizar un release.
+**Decisión del usuario — 2026-10-07:** el usuario autoriza de forma permanente
+la gestión habitual de Git y delega en el agente el criterio sobre commits,
+ramas, pushes y tags. Esta decisión sustituye la consulta individual anterior.
+El agente debe explicar cuándo corresponde cada acción y por qué, sin pedir
+de nuevo permiso para las operaciones habituales ya autorizadas.
 
 ## Trabajo habitual
 
 1. Revisar estado, rama y cambios existentes; preservar trabajo del usuario.
-2. Implementar un incremento y completar sus comprobaciones antes de proponer
+2. Implementar un incremento y completar sus comprobaciones antes de
    registrarlo. Incluir documentación del contrato y límites relevantes.
-3. Presentar rama, título, alcance y evidencia del commit; consultar al usuario.
-   Si autoriza un conjunto concreto, realizar ese conjunto sin repetir preguntas.
+3. Avisar que corresponde hacer commit, explicar su alcance y registrarlo cuando
+   el incremento esté terminado y verificado. Comunicar el resultado y su hash.
 4. Seleccionar archivos/hunks explícitos. Revisar el diff staged; evitar `git add .`
    y no incluir proyectos `.sqlviz`, secretos, builds ni artefactos de pruebas.
 5. Verificar cada estado intermedio si se divide trabajo acumulado; cada commit
    debe instalarse y pasar sus checks sin depender de archivos aún sin registrar.
 
-Consultar también antes de cambiar de rama, crear/borrar ramas, fusionar,
-reescribir historial, descartar cambios o publicar en un remoto. No modificar
-trabajo ajeno ni usar reset/clean para ordenar el árbol. Un push, merge o tag
-requiere su alcance explícito; un commit autorizado no los autoriza por extensión.
+Trabajar en ramas de alcance claro, preservar `main` y revisar los cambios antes
+de integrarlos. Hacer push de una rama verificada al remoto del proyecto cuando
+corresponda respaldar el incremento y ejecutar CI; comprobar antes el destino y
+los workflows que activa. Informar del resultado de CI sin darlo por aprobado
+si aún está pendiente. No usar force push ni reescribir historial compartido.
+
+La delegación habitual no autoriza descartar trabajo ajeno, borrar referencias
+con trabajo sin integrar ni desplegar el producto. Consultar únicamente cuando
+una operación destructiva, una reescritura o una publicación con alcance nuevo
+necesite una decisión del usuario. No usar reset/clean para ordenar el árbol.
 
 ## Registro del árbol acumulado
 
@@ -74,11 +81,13 @@ la ejecución remota sigue pendiente.
 
 Logs, manifests y copias de verificación están en `build/git-review`, ignorados
 por Git. No se incluyeron proyectos `.sqlviz`, bases de aprendizaje ni builds en
-los commits. No se crearon tags ni se publicó en un remoto en este incremento.
+los commits. En el registro inicial no se crearon tags ni se publicó en un remoto.
 
 ## Tags y releases
 
 Un incremento interno no necesita tag. Proponer un tag cuando se prepare una
 versión publicable, con versión consistente, changelog, build, migraciones si
 corresponde y CI verificados. Preferir un tag anotado sobre el commit exacto del
-release. Consultar su nombre y publicación al usuario antes de efectuarlo.
+release. Explicar cuándo corresponde y registrar su nombre, alcance y evidencia.
+La autorización de Git incluye los tags de versiones preparadas del proyecto;
+desplegar o publicar un release en otro canal requiere autorización propia.
