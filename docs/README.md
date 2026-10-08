@@ -58,8 +58,10 @@ dashboards con omisión/null y guardado atómico. El
 del panel y coordina edición/borrado. El
 [cuarto incremento](architecture/sqlviz-panel-presentation.md) valida títulos y
 etiquetas, guarda atómicamente y conserva borradores ante rechazo en el inspector
-y sobre el gráfico. El siguiente foco es la revisión de overrides, antes del
-contrato visual.
+y sobre el gráfico. El [quinto incremento](architecture/sqlviz-chart-overrides.md)
+valida tipos de gráfico, guarda decisiones manuales antes del aprendizaje y
+confirma el gráfico/composición con reintento; reset borra el ajuste real.
+El siguiente foco es la revisión de dimensiones, antes del contrato visual.
 La evidencia local no reemplaza CI.
 
 El [flujo de Git](architecture/sqlviz-git-workflow.md) recoge la autorización

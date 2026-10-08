@@ -17,8 +17,10 @@ from datetime import datetime, timezone
 
 import duckdb
 from sqlviz_core.models.panel_overrides import valid_dimension, validate_override
+from sqlviz_core.models.panels import Panel
 
 from .brain_db import log_feedback_event, record_chart_override, record_layout_override
+from .panel_repository import PanelNotFound, PanelRepository
 from .transactions import project_transaction
 
 _log = logging.getLogger(__name__)
@@ -92,19 +94,11 @@ def store_inference(
         )
 
 
-# field_name -> (inferred_* column, selected_* column, *_user_override column)
-_OVERRIDE_COLUMNS: dict[str, tuple[str, str, str]] = {
-    "chart_type": ("inferred_chart_type", "selected_chart_type", "chart_user_override"),
-    "col_span": ("inferred_col_span", "selected_col_span", "col_span_user_override"),
-    "height_px": ("inferred_height_px", "selected_height_px", "height_user_override"),
-}
-
-
 def clear_override(
     conn: duckdb.DuckDBPyConnection,
     panel_id: str,
     field_name: str,
-) -> None:
+) -> Panel:
     """Drop a user override, returning the field to whatever inference says.
 
     This is what "reset to auto" means: the override column goes back to NULL so
@@ -119,21 +113,10 @@ def clear_override(
         ValueError: Unknown field_name.
         LookupError: Panel not found.
     """
-    validate_override(field_name, None)
-    if conn.execute("SELECT 1 FROM panels WHERE id = ?", [panel_id]).fetchone() is None:
-        raise LookupError(f"Panel not found: {panel_id!r}")
-
-    inferred_col, selected_col, override_col = _OVERRIDE_COLUMNS[field_name]
-    conn.execute(
-        f"""
-        UPDATE panels SET
-            {selected_col} = {inferred_col},
-            {override_col} = NULL,
-            updated_at     = ?
-        WHERE id = ?
-        """,
-        [_now(), panel_id],
-    )
+    try:
+        return PanelRepository(conn).set_override(panel_id, field_name, None)
+    except PanelNotFound as exc:
+        raise LookupError("Panel not found") from exc
 
 
 def apply_layout_overrides(
@@ -161,33 +144,26 @@ def apply_override(
     panel_id: str,
     field_name: str,
     user_value: str,
-) -> None:
+) -> Panel:
     """Save the authoritative project override, then attempt optional learning.
 
-    Validation precedes every side effect. The project update is one atomic
-    statement. Brain patterns and their event use a separate cursor/transaction;
+    Validation precedes every side effect. The repository commits the project
+    update and confirmed snapshot before optional learning. Brain patterns and
+    their event use a separate cursor/transaction;
     failure there is logged without falsely reporting a failed project save.
     There is no atomic transaction spanning the two database files.
     """
     value = validate_override(field_name, user_value)
-    row = conn.execute(
-        "SELECT fingerprint, inferred_chart_type, inferred_col_span, "
-        "inferred_height_px, dashboard_id FROM panels WHERE id = ?",
-        [panel_id],
-    ).fetchone()
-    if row is None:
-        raise LookupError(f"Panel not found: {panel_id!r}")
-    fingerprint, inferred_chart, inferred_col, inferred_h, dashboard_id = row
-    _, selected_column, override_column = _OVERRIDE_COLUMNS[field_name]
-    conn.execute(
-        f"UPDATE panels SET {selected_column} = ?, {override_column} = ?, "
-        "updated_at = ? WHERE id = ?",
-        [value, value, _now(), panel_id],
-    )
+    try:
+        saved = PanelRepository(conn).set_override(panel_id, field_name, user_value)
+    except PanelNotFound as exc:
+        raise LookupError("Panel not found") from exc
+    fingerprint = saved.fingerprint
     if not fingerprint or fingerprint == "UNKNOWN":
-        return
+        return saved
     inferred = {
-        "chart_type": inferred_chart, "col_span": inferred_col, "height_px": inferred_h,
+        "chart_type": saved.inferred_chart_type, "col_span": saved.inferred_col_span,
+        "height_px": saved.inferred_height_px,
     }[field_name]
     try:
         brain = brain_conn() if callable(brain_conn) else brain_conn
@@ -207,11 +183,12 @@ def apply_override(
                 _log_event(
                     learning, fingerprint=fingerprint, field_name=field_name,
                     inferred_value=str(inferred) if inferred is not None else "",
-                    user_value=str(value), panel_id=panel_id, dashboard_id=dashboard_id,
+                    user_value=str(value), panel_id=panel_id, dashboard_id=saved.dashboard_id,
                 )
     except Exception:  # learning is optional; never hide a project write failure
         # Avoid logging raw SQL, data or database paths from an exception.
         _log.warning("Panel override saved; optional learning was not recorded")
+    return saved
 
 
 def _log_event(

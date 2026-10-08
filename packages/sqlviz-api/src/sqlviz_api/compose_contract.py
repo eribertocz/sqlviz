@@ -167,6 +167,7 @@ class CompositionInferenceInput(_Contract):
     explanation_v2: ExplanationInput | None = None
     feedback_preferred_chart: Name | None = None
     chart_engine_winner: Name | None = None
+    chart_user_override: Name | None = None
     trace_id: str = ""
     execution_state: Literal["success", "warning", "degraded", "failed"] = "success"
     module_timings: dict[str, Annotated[float, Field(ge=0)]] | None = None

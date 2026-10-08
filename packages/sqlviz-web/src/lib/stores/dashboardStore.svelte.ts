@@ -14,6 +14,8 @@ import { createFilterRuntime, patchFilterResults } from '$lib/filters/filterRunt
 
 export type { ExecResult };
 
+export type ChartOverrideResult = { saved: boolean; error: string | null };
+
 /**
  * Owns the author workspace: active dashboard, SQL drafts, panel execution,
  * confirmed results, layout and cache. Preview adapts the shared filter runtime
@@ -24,6 +26,7 @@ export function createDashboardStore() {
     let domainGeneration = 0;
     let sizeWrites: Promise<void> = Promise.resolve();
     let presentationWrites: Promise<void> = Promise.resolve();
+    let chartWrites: Promise<void> = Promise.resolve();
     let dashboardId      = $state<string | null>(null);
     let allDashboards    = $state<DashboardInfo[]>([]);
     let folders          = $state<FolderInfo[]>([]);
@@ -700,17 +703,51 @@ export function createDashboardStore() {
         }
     }
 
-    /** Chart type override: PATCH → re-execute → recompose (DOC6 §12.1). */
-    async function handleChartOverride(panelId: string, chartType: string) {
-        try {
-            await apiPatch(`/api/v1/panels/${panelId}/override`, {
-                field_name: 'chart_type',
-                user_value: chartType,
-            });
-            await refreshPanel(panelId);
-        } catch (e: unknown) {
-            uiStore.showToast(e instanceof Error ? e.message : 'Chart override failed.');
-        }
+    /** Publish a confirmed chart and composition together; keep the last chart on failure. */
+    function handleChartOverride(
+        panelId: string, chartType: string | null, refreshOnly = false,
+    ): Promise<ChartOverrideResult> {
+        const generation = viewGeneration;
+        const targetDashboard = dashboardId;
+        const current = () => generation === viewGeneration && targetDashboard === dashboardId;
+        const task = chartWrites.then(async (): Promise<ChartOverrideResult> => {
+            try {
+                if (!refreshOnly) {
+                    try {
+                        await apiPatch(`/api/v1/panels/${panelId}/override`, {
+                            field_name: 'chart_type', user_value: chartType,
+                        });
+                    } catch (cause: unknown) {
+                        const reason = cause instanceof Error ? cause.message : 'Could not save chart type.';
+                        return { saved: false, error: `${reason} The previous chart is kept; retry when ready.` };
+                    }
+                }
+                if (!current()) return { saved: true, error: null };
+                const snapshot = executedResults;
+                try {
+                    const exec = await apiPost<{
+                        inference_result: InferenceResult; data: Record<string, unknown>[];
+                    }>(`/api/v1/panels/${panelId}/execute`, { variables: { ...filterValues.current } });
+                    if (!current()) return { saved: true, error: null };
+                    const next = snapshot.map(r => r.panel_id === panelId ? { ...r, ...exec } : r);
+                    const composed = await recompose(next);
+                    if (!current()) return { saved: true, error: null };
+                    if (snapshot !== executedResults) {
+                        return { saved: true, error: 'Chart type saved. The view changed during refresh; retry refresh.' };
+                    }
+                    executedResults = next;
+                    layout = composed;
+                    return { saved: true, error: null };
+                } catch {
+                    return { saved: true, error: 'Chart type saved. Could not refresh the chart; retry refresh or run it again.' };
+                }
+            } finally {
+                // Also invalidate after transport failures whose commit status is unknown.
+                if (targetDashboard) dashboardCache.invalidate(targetDashboard);
+            }
+        });
+        chartWrites = task.then(() => {}, () => {});
+        return task;
     }
 
     /** Immutably patch one panel's inference_result inside executedResults. */

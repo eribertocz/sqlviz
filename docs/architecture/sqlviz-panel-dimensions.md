@@ -36,7 +36,10 @@ no se promete atomicidad conjunta de ancho y alto.
 - **Core:** política pura, sin DuckDB, Pydantic ni dependencias de UI.
 - **HTTP:** modelo estricto, autenticación de autor y traducción a 422/404/409.
 - **Storage:** vuelve a validar para que los consumidores directos tampoco
-  escriban tamaños inválidos; un único UPDATE guarda el campo del proyecto.
+  escriban tamaños inválidos. Desde el incremento de
+  [tipo de gráfico](sqlviz-chart-overrides.md), el escritor compartido del panel
+  confirma el campo y su copia de respuesta en una transacción, con protección
+  frente a borrado del panel/padre; después intenta el aprendizaje opcional.
 - **Editor:** espera la confirmación antes de modificar el gráfico, conserva
   datos/tamaño ante rechazo y serializa los cambios de dimensiones. Los
   controles quedan deshabilitados mientras se guarda. La recomposición vuelve

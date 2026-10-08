@@ -4,7 +4,9 @@
 la unidad 8 de E1; el [PATCH de dashboards](sqlviz-dashboard-patch.md) se implementa
 en el segundo incremento; el [PATCH básico del panel](sqlviz-panel-patch.md) en
 el tercero; [presentación](sqlviz-panel-presentation.md), en el cuarto.
-La revisión de overrides sigue pendiente. No modifica el archivo
+El [tipo de gráfico](sqlviz-chart-overrides.md) se revisa en el quinto incremento,
+que añade el metadato opcional `chart_user_override` a composición. Falta la
+revisión completa de dimensiones. Este incremento de composición no modifica el archivo
 `.sqlviz`, el algoritmo de inferencia ni la edición visual.
 
 ## Responsabilidad y límites

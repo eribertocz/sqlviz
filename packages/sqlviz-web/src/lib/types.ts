@@ -124,6 +124,7 @@ export interface InferenceResult {
     feedback_preferred_chart?: string | null;
     // Engine's pure winner before any panel-level override; used for stable list ordering
     chart_engine_winner?: string | null;
+    chart_user_override?: string | null;
 
     // V0.2.3 — Observability
     trace_id?: string;

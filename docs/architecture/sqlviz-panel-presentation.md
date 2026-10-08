@@ -2,7 +2,8 @@
 
 **Estado:** implementado el 2026-10-07, cuarto incremento de la unidad 8 de E1.
 Continúa el [PATCH básico del panel](sqlviz-panel-patch.md). E1 sigue abierto:
-la revisión de overrides de tipo y dimensiones es la siguiente parte.
+la revisión de tipo se entrega en [el quinto incremento](sqlviz-chart-overrides.md)
+y la revisión completa de dimensiones sigue pendiente.
 
 ## Contrato HTTP
 
@@ -110,8 +111,9 @@ controles de metadatos distintos. El autoguardado general de SQL y otros campos
 requiere su propia recuperación visible. Los selectores de campos X/Y siguen
 siendo ajustes de sesión; persistirlos corresponde al contrato visual posterior.
 
-La siguiente parte revisa las rutas de override de tipo y dimensiones, su
-confirmación transaccional y la separación del aprendizaje opcional. Después
+La revisión de tipo, su confirmación transaccional y separación del aprendizaje
+se entrega en [el incremento siguiente](sqlviz-chart-overrides.md). Falta completar
+la revisión de dimensiones. Después
 siguen migraciones/dependencias y dataset mínimo según el
 [plan vigente](sqlviz-product-roadmap.md). Este incremento no entrega el Studio.
 

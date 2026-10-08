@@ -270,5 +270,6 @@ la entrega, no una tarea posterior.
 | ETL ligero e integraciones | Mantener foco en dashboards | Usuarios paguen por necesidades repetidas de preparación |
 | Investigación cognitiva opcional | Beneficio aún no validado | Un experimento supere una solución simple con usuarios reales |
 
-La siguiente acción concreta es completar PATCH de dashboards y luego paneles
-en E1 del [plan vigente](sqlviz-product-roadmap.md).
+Los PATCH de dashboards/paneles, presentación y tipo de gráfico están entregados.
+La siguiente acción concreta es completar la revisión de dimensiones en E1 del
+[plan vigente](sqlviz-product-roadmap.md), antes de migraciones y contrato visual.

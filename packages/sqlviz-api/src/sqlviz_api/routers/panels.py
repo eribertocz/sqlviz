@@ -235,7 +235,10 @@ def _inference_only_response(
     except duckdb.Error:
         pass  # fall back to schema-less inference — no worse than before
 
-    result = sqlviz_inference.infer(sql, schema=schema, brain_conn=brain, debug=debug)
+    result = sqlviz_inference.infer(
+        sql, schema=schema, brain_conn=brain, debug=debug,
+        chart_override=panel.chart_user_override,
+    )
     result = dataclasses.replace(
         result,
         fallback_applied=True,
@@ -309,7 +312,9 @@ def execute_panel(
             db, plan.sql, plan.bindings,
         )
     except duckdb.ParserException:
-        result = sqlviz_inference.infer(sql, brain_conn=brain, debug=debug)
+        result = sqlviz_inference.infer(
+            sql, brain_conn=brain, debug=debug, chart_override=panel.chart_user_override,
+        )
         result = dataclasses.replace(
             result,
             fallback_applied=True,
@@ -351,7 +356,7 @@ def execute_panel(
             db,
             panel_id=panel_id,
             fingerprint=result.fingerprint,
-            chart_type=result.chart_winner,
+            chart_type=result.chart_engine_winner or result.chart_winner,
             col_span=result.col_span,
             height_px=result.panel_height_px,
             intent_type=result.intent_winner,
@@ -419,8 +424,7 @@ def override_panel(
     """Apply a user correction to a panel's inferred field.
 
     Writes selected_* and *_user_override in the .sqlviz file.
-    Persists the pattern to brain.duckdb so future executions of the
-    same SQL fingerprint return the user-preferred value.
+    Commits the project choice before attempting optional learning.
 
     field_name: "chart_type" | "col_span" | "height_px"
     user_value: the corrected value (always a string; cast in OverrideSystem),
@@ -428,12 +432,13 @@ def override_panel(
 
     Returns the updated PanelResponse.
     """
-    _fetch_one(db, panel_id)  # raises 404 if missing
     try:
         if body.user_value is None:
-            clear_override(db, panel_id, body.field_name)
+            saved = clear_override(db, panel_id, body.field_name)
         else:
-            apply_override(db, get_brain_connection, panel_id, body.field_name, body.user_value)
+            saved = apply_override(
+                db, get_brain_connection, panel_id, body.field_name, body.user_value,
+            )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except LookupError as exc:
@@ -442,7 +447,7 @@ def override_panel(
         raise HTTPException(
             status_code=409, detail="Panel changed concurrently; reload and try again",
         ) from None
-    return _fetch_one(db, panel_id)
+    return _to_response(saved)
 
 
 @router.patch("/{panel_id}/view-override", response_model=PanelViewOverrideResponse)

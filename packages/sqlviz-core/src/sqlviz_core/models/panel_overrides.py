@@ -1,6 +1,8 @@
-"""Manual panel dimensions, independent of inference recommendations and HTTP."""
+"""Manual panel choices, independent of inference recommendations and HTTP."""
 
 import re
+
+from .chart_types import CHART_TYPES
 
 COL_SPAN_MIN = 1
 COL_SPAN_MAX = 12
@@ -17,9 +19,9 @@ def validate_override(field_name: str, value: str | None) -> str | int | None:
     if not isinstance(value, str):
         raise ValueError("Override value must be a string or null")
     if field_name == "chart_type":
-        # Chart compatibility remains the chart engine's responsibility.
-        if not value or len(value) > 64:
-            raise ValueError("Chart type must contain between 1 and 64 characters")
+        # Dataset compatibility is evaluated separately from identifier validity.
+        if value not in CHART_TYPES:
+            raise ValueError("Unsupported chart type")
         return value
     lower, upper = (
         (COL_SPAN_MIN, COL_SPAN_MAX) if field_name == "col_span"

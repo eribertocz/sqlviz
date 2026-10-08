@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import duckdb
+from sqlviz_core.models.panel_overrides import validate_override
 from sqlviz_core.models.panel_presentation import PresentationField, normalize_presentation_value
 from sqlviz_core.models.panels import Panel, PanelChanges, validate_panel_changes
 
@@ -22,6 +23,12 @@ _SELECT = (
 
 _PRESENTATION_COLUMNS: dict[PresentationField, str] = {
     "title": "view_title", "x_label": "view_x_label", "y_label": "view_y_label",
+}
+
+_OVERRIDE_COLUMNS: dict[str, tuple[str, str, str]] = {
+    "chart_type": ("inferred_chart_type", "selected_chart_type", "chart_user_override"),
+    "col_span": ("inferred_col_span", "selected_col_span", "col_span_user_override"),
+    "height_px": ("inferred_height_px", "selected_height_px", "height_user_override"),
 }
 
 
@@ -77,7 +84,18 @@ class PanelRepository:
         normalized = normalize_presentation_value(field, value)
         return self._update_fields(panel_id, {_PRESENTATION_COLUMNS[field]: normalized})
 
-    def _update_fields(self, panel_id: str, changes: dict[str, object]) -> Panel:
+    def set_override(self, panel_id: str, field: str, value: str | None) -> Panel:
+        normalized = validate_override(field, value)
+        inferred, selected, override = _OVERRIDE_COLUMNS[field]
+        return self._update_fields(
+            panel_id, {selected: normalized, override: normalized},
+            restore_from=(selected, inferred) if value is None else None,
+        )
+
+    def _update_fields(
+        self, panel_id: str, changes: dict[str, object],
+        restore_from: tuple[str, str] | None = None,
+    ) -> Panel:
         """Only validated public operations supply column names to this private writer."""
         try:
             with project_transaction(self._db):
@@ -86,6 +104,9 @@ class PanelRepository:
                 # before DELETE; a plain DELETE alone is not a reliable fence.
                 DashboardRepository(self._db).get(previous.dashboard_id)
                 values = changes.copy()
+                if restore_from is not None:
+                    selected, inferred = restore_from
+                    values[selected] = getattr(previous, inferred)
                 values["updated_at"] = modification_timestamp(previous.updated_at)
                 assignments = ", ".join(f"{column} = ?" for column in values)
                 self._db.execute(

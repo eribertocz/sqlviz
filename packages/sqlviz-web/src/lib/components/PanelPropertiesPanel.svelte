@@ -103,12 +103,14 @@
         <!-- Chart type -->
         <section class="prop-section">
             <h3 class="section-title">Chart type</h3>
+            {#key panel.panel_id}
             <ChartSelectorPanel
                 embedded
                 {result}
-                onSelect={(ct) => dashboardStore.handleChartOverride(panel.panel_id, ct)}
+                onSelect={(ct, refreshOnly) => dashboardStore.handleChartOverride(panel.panel_id, ct, refreshOnly)}
                 onClose={() => {}}
             />
+            {/key}
         </section>
 
         <!-- Title -->

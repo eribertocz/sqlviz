@@ -7,6 +7,7 @@ import pytest
 import sqlviz_storage.override_system as overrides
 from sqlviz_storage import brain_db
 from sqlviz_storage.brain_db import get_layout_pattern
+from sqlviz_storage.panel_repository import PanelWriteConflict
 from sqlviz_storage.project_db import create_project
 
 
@@ -64,7 +65,7 @@ def test_project_failure_never_teaches_brain(db):
     with db.cursor() as writer:
         writer.execute("BEGIN")
         writer.execute("UPDATE panels SET selected_col_span = 8 WHERE id = 'p'")
-        with pytest.raises(duckdb.TransactionException):
+        with pytest.raises(PanelWriteConflict):
             overrides.apply_override(db, lambda: pytest.fail("No learning after failed save"),
                                      "p", "col_span", "6")
         writer.execute("ROLLBACK")

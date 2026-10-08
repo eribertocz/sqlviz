@@ -1,6 +1,7 @@
 <script lang="ts">
     import { ChevronRight, ChevronUp, Star, X } from 'lucide-svelte';
     import type { InferenceResult } from '$lib/types';
+    import type { ChartOverrideResult } from '$lib/stores/dashboardStore.svelte';
 
     const CHART_LABELS: Record<string, string> = {
         bar:            'Bar',
@@ -27,7 +28,7 @@
 
     let { result, onSelect, onClose, embedded = false }: {
         result: InferenceResult;
-        onSelect: (chartType: string) => void;
+        onSelect: (chartType: string | null, refreshOnly?: boolean) => Promise<ChartOverrideResult>;
         onClose: () => void;
         // When embedded in the Panel Properties panel, drop the modal chrome
         // (header, fixed sizing) so it flows as a plain section.
@@ -37,33 +38,61 @@
     const engineWinner = $derived(result.chart_engine_winner ?? result.chart_winner);
 
     // Recompute when the selected panel or its inference changes.
-    type ListItem = { chart: string; pct: number; isWinner: boolean };
+    type ListItem = { chart: string; pct: number | null; isWinner: boolean };
     const allItems: ListItem[] = $derived.by(() => {
         const alts = result.chart_alternatives ?? [];
-        if (alts.length === 0) {
-            return [{ chart: engineWinner, pct: 100, isWinner: true }];
-        }
-        return alts
+        const items: ListItem[] = alts.length === 0
+            ? [{ chart: engineWinner, pct: null, isWinner: true }]
+            : alts
             .map(a => ({
                 chart: a.chart,
                 pct: Math.round((a.pct ?? 0) * 100),
                 isWinner: a.chart === engineWinner,
             }))
             .sort((a, b) => b.pct - a.pct);
+        if (!items.some(item => item.chart === result.chart_winner)) {
+            items.push({ chart: result.chart_winner, pct: null, isWinner: false });
+        }
+        return items;
     });
 
-    const recommended = $derived(allItems.filter(a => a.pct >= 50));
-    const available    = $derived(allItems.filter(a => a.pct < 50));
+    const recommended = $derived(allItems.filter(a => a.isWinner || (a.pct !== null && a.pct >= 50)));
+    const available    = $derived(allItems.filter(a => !a.isWinner && (a.pct === null || a.pct < 50)));
 
     let showBreakdown = $state(false);
-    // The persisted winner is authoritative. A click provides immediate feedback
-    // until the next result arrives from the server.
-    let selected = $derived(result.chart_winner);
-    const isOverridden = $derived(selected !== engineWinner);
+    const selected = $derived(result.chart_winner);
+    const isOverridden = $derived(result.chart_user_override !== undefined
+        ? result.chart_user_override !== null : selected !== engineWinner);
+    let saving = $state(false);
+    let attempted = $state<string | null>(null);
+    let error = $state<string | null>(null);
+    let refreshOnly = $state(false);
 
-    function handleSelect(chartType: string) {
-        selected = chartType;
-        onSelect(chartType);
+    async function handleSelect(chartType: string | null, refresh = false) {
+        if (saving) return;
+        saving = true;
+        attempted = chartType;
+        refreshOnly = refresh;
+        error = null;
+        try {
+            const outcome = await onSelect(chartType, refresh);
+            refreshOnly = outcome.saved;
+            error = outcome.error;
+        } catch {
+            refreshOnly = refresh;
+            error = 'Could not confirm the chart change. Retry when ready.';
+        } finally {
+            saving = false;
+        }
+    }
+
+    function selectCandidate(event: Event, chartType: string) {
+        // Native radio clicks/arrow keys must not announce an unconfirmed save.
+        event.preventDefault();
+        const radio = event.currentTarget as HTMLInputElement;
+        radio.closest('.candidates')?.querySelectorAll<HTMLInputElement>('input[type="radio"]')
+            .forEach(input => { input.checked = input.value === selected; });
+        void handleSelect(chartType);
     }
 
     const breakdown = $derived(result.chart_scores?.[selected]?.breakdown);
@@ -87,11 +116,15 @@
                 <label class="candidate" class:winner={item.isWinner}>
                     <input type="radio" name="chart-sel" value={item.chart}
                            checked={selected === item.chart}
-                           onchange={() => handleSelect(item.chart)} />
+                           disabled={saving}
+                           onclick={(event) => selectCandidate(event, item.chart)}
+                           onchange={(event) => selectCandidate(event, item.chart)} />
                     <span class="chart-name">{labelFor(item.chart)}</span>
-                    <span class="score {scoreColor(item.pct)}">{item.pct}%</span>
-                    {#if item.isWinner}
-                        <span class="badge">{isOverridden ? 'Manual' : 'Auto'}</span>
+                    {#if item.pct !== null}<span class="score {scoreColor(item.pct)}">{item.pct}%</span>{/if}
+                    {#if selected === item.chart && isOverridden}
+                        <span class="badge">Manual</span>
+                    {:else if item.isWinner}
+                        <span class="badge">Auto</span>
                     {:else if result.feedback_preferred_chart === item.chart}
                         <span class="badge badge-preferred"><Star size={11} fill="currentColor" /></span>
                     {/if}
@@ -105,16 +138,32 @@
                 <label class="candidate candidate-available">
                     <input type="radio" name="chart-sel" value={item.chart}
                            checked={selected === item.chart}
-                           onchange={() => handleSelect(item.chart)} />
+                           disabled={saving}
+                           onclick={(event) => selectCandidate(event, item.chart)}
+                           onchange={(event) => selectCandidate(event, item.chart)} />
                     <span class="chart-name">{labelFor(item.chart)}</span>
-                    <span class="score {scoreColor(item.pct)}">{item.pct}%</span>
-                    {#if result.feedback_preferred_chart === item.chart}
+                    {#if item.pct !== null}<span class="score {scoreColor(item.pct)}">{item.pct}%</span>{/if}
+                    {#if selected === item.chart && isOverridden}
+                        <span class="badge">Manual</span>
+                    {:else if result.feedback_preferred_chart === item.chart}
                         <span class="badge badge-preferred">★</span>
                     {/if}
                 </label>
             {/each}
         {/if}
     </div>
+
+    {#if saving}
+        <p class="save-status" role="status">{refreshOnly ? 'Refreshing chart…' : 'Saving chart type…'}</p>
+    {/if}
+    {#if error}
+        <div class="save-status save-error" role="alert">
+            <p>{error}</p>
+            <button class="retry-btn" onclick={() => handleSelect(attempted, refreshOnly)}>
+                {refreshOnly ? 'Retry refresh' : 'Retry'}
+            </button>
+        </div>
+    {/if}
 
     <!-- Score breakdown (DOC6 §12.1.1) -->
     <button class="breakdown-toggle" onclick={() => showBreakdown = !showBreakdown}>
@@ -141,16 +190,31 @@
     {/if}
 
     {#if isOverridden}
-        <button class="reset-btn" onclick={() => {
-            selected = engineWinner;
-            onSelect(engineWinner);
-        }}>
+        <button class="reset-btn" disabled={saving} onclick={() => handleSelect(null)}>
             Reset to auto
         </button>
     {/if}
 </div>
 
 <style>
+    .save-status {
+        margin: 0;
+        padding: 0.5rem 0.875rem;
+        font-size: 0.75rem;
+        color: var(--sqlviz-text-muted);
+    }
+    .save-error { color: var(--sqlviz-text); }
+    .save-error p { margin: 0 0 0.375rem; }
+    .retry-btn {
+        padding: 0.25rem 0.5rem;
+        border: 1px solid var(--sqlviz-border);
+        border-radius: var(--sqlviz-radius);
+        background: var(--sqlviz-bg-surface);
+        color: var(--sqlviz-text);
+        cursor: pointer;
+    }
+    .retry-btn:hover { background: var(--sqlviz-bg-base); }
+    .candidate:has(input:disabled), .reset-btn:disabled { opacity: 0.65; cursor: wait; }
     .chart-selector {
         background: var(--sqlviz-bg-surface);
         border: 1px solid var(--sqlviz-hairline);

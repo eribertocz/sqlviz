@@ -74,7 +74,10 @@ edits. See [the basic panel contract](docs/architecture/sqlviz-panel-patch.md).
 Presentation PATCH now validates titles and axis labels and commits them atomically.
 The editor confirms saved text and retains failed drafts for retry, including
 axis labels edited on the chart. See [presentation contracts and reset behavior](docs/architecture/sqlviz-panel-presentation.md).
-The remaining override review is the next E1 increment.
+Manual chart choices now use supported identifiers, atomic confirmation and
+honest retry when refresh fails; reset clears the choice instead of pinning the
+current recommendation. See [chart override behavior](docs/architecture/sqlviz-chart-overrides.md).
+The remaining dimension review is the next E1 increment.
 
 ## Architecture today
 

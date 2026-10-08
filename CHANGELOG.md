@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Breaking
 
+- `PATCH /panels/{id}/override` para `chart_type` acepta únicamente los ocho
+  identificadores soportados actualmente. Tipos desconocidos o con espacios/casing
+  distinto ahora devuelven 422; `user_value: null` mantiene el retorno a automático.
 - `PATCH /panels/{id}/view-override` exige `value` explícito: solicitudes que
   enviaban solo `field` ahora reciben 422. Para borrar, enviar `value: null` o
   `value: ""`. Texto de más de 512 caracteres, solo espacios o campos extra
@@ -73,6 +76,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Cambio manual de gráfico se guarda transaccionalmente antes del aprendizaje,
+  con respuesta confirmada y conflictos de borrado/edición predecibles. La UI
+  conserva el gráfico ante rechazo o fallo de refresh y ofrece reintento específico
+  sin repetir aprendizaje. Reset borra el ajuste; reejecutar conserva el ganador
+  automático separado del manual, incluso si ambos coinciden.
 - El panel SQL respeta el alto disponible del workspace y mantiene visible su
   separador, incluso al restaurar una altura mayor o reducir la ventana.
   Arrastrar hacia abajo o usar el teclado reduce desde el tamaño visible,
