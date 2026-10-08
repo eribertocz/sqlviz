@@ -73,6 +73,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- El panel SQL respeta el alto disponible del workspace y mantiene visible su
+  separador, incluso al restaurar una altura mayor o reducir la ventana.
+  Arrastrar hacia abajo o usar el teclado reduce desde el tamaño visible,
+  sin un recorrido muerto después de llegar al límite superior.
 - El área de escritura SQL se ajusta al ampliar/reducir el panel y al cambiar
   el ancho disponible; Monaco observa su contenedor sin recrear el editor.
 - Presentación de paneles valida título/etiquetas con valor obligatorio, hasta

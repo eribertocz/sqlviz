@@ -121,6 +121,15 @@ distribuye ese espacio entre barra de acciones y área de escritura. Monaco usa
 La adaptación pertenece a `SQLEditor`, sin suscripciones del shell ni recreación
 del editor durante un arrastre. Monaco libera su observador al disponer la instancia.
 
+La altura solicitada es una preferencia privada de navegador, entre 120 y
+700 px. El shell limita la altura efectiva al espacio de trabajo mediante
+`max-height: 100%`; una ventana menor puede mostrar menos que la preferencia
+sin sobrescribirla. Cada ajuste parte de la altura renderizada y se limita al
+espacio actual antes de persistirlo. Así, el separador sigue accesible y reduce
+desde el primer movimiento, aunque se haya restaurado una altura mayor.
+La geometría pertenece al shell; `uiStore` conserva la preferencia y Monaco
+adapta el área de escritura. No se agregan observadores o listeners globales.
+
 Corrección del 2026-10-08: antes, ampliar el panel aumentaba el contenedor de
 252 a 352 px en el ensayo de escritorio, mientras Monaco permanecía en 252 px.
 Solo se recalculaba al abrirlo. La corrección permite que el área de escritura
@@ -133,6 +142,17 @@ el contenedor. El SQL escrito permanece durante el arrastre y al cerrar/reabrir;
 sin errores de página. Reporte y capturas en `build/editor-resize-review/`, con
 proyecto y aprendizaje en memoria. Svelte-check sin errores/advertencias,
 150 pruebas frontend pasan y build correcto. CI se verifica sobre el commit enviado.
+
+Revisión adicional del 2026-10-08 para el límite superior: antes, en una ventana
+1280×600 con 548 px de workspace, el arrastre dejaba el panel en 590 px y el
+separador a 11 px, oculto por encima del área que comienza a 52 px. Ahora se
+detiene en 548 px y el separador permanece accesible. Un arrastre descendente
+de 80 px reduce a 468 px. Al reducir la ventana con una preferencia de 700 px,
+un arrastre de 40 px reduce desde 548 a 508 px sin recorrido muerto. Restaurar
+700 px en una ventana 1280×500 muestra 448 px y ArrowDown reduce a 438 px.
+Cerrar/reabrir conserva esa altura y Monaco ocupa su contenedor en todos los
+casos, sin errores de página. Evidencia en `build/editor-bounds-review/`, con
+ambos catálogos en memoria; 150 pruebas frontend, check y build correctos.
 
 ## Responsabilidades de implementación
 

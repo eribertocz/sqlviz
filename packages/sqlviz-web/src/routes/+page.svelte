@@ -22,6 +22,18 @@
 
     let paletteOpen = $state(false);
     let readerSearchOpen = $state(false);
+    let editorDrawer = $state<HTMLDivElement | null>(null);
+
+    function resizeEditor(deltaY: number) {
+        const drawer = editorDrawer;
+        if (!drawer) return;
+        const availableHeight = drawer.parentElement?.clientHeight ?? 0;
+        if (availableHeight <= 0) return;
+        // Start from the visible height: a restored preference may exceed
+        // the workspace, and reducing it must respond on the first movement.
+        uiStore.setEditorHeight(Math.min(availableHeight, drawer.getBoundingClientRect().height - deltaY));
+    }
+
     let previousFocusMode = false;
     $effect(() => {
         const focused = uiStore.focusMode;
@@ -128,8 +140,8 @@
 
                 <!-- Editor drawer — floats at the bottom in Edit mode -->
                 {#if $editMode && uiStore.editorOpen && !uiStore.focusMode}
-                    <div class="editor-drawer" style="height: {uiStore.editorHeightPx}px">
-                        <VerticalResizer onDrag={(dy) => uiStore.setEditorHeight(uiStore.editorHeightPx - dy)} />
+                    <div bind:this={editorDrawer} class="editor-drawer" style="height: {uiStore.editorHeightPx}px">
+                        <VerticalResizer onDrag={resizeEditor} />
                         <EditorSection />
                     </div>
                 {:else if $editMode && !uiStore.focusMode}
@@ -210,6 +222,7 @@
         right: 0;
         bottom: 0;
         z-index: 15;
+        max-height: 100%;
         display: flex;
         flex-direction: column;
         /* Subtle breathing room so Monaco's bottom edge doesn't sit flush
