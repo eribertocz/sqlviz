@@ -114,11 +114,12 @@ Tampoco crea una revisión de configuración persistida en el servidor.
 - Observación de tareas con usuarios, medición de descubrimiento y accesibilidad
   completa. Las pruebas técnicas no demuestran superioridad comercial ni UX perfecta.
 
-E1 continúa con composición tipada y contratos PATCH restantes. Este incremento
-de interacción reutiliza el transporte existente y no cambia el formato `.sqlviz`
-ni sustituye migraciones o identidad estable de paneles.
-Los pendientes anteriores están ordenados con criterios de aceptación en el
-[plan inmediato después de navegación](sqlviz-product-roadmap.md#plan-inmediato-después-de-navegación).
+Este incremento de interacción reutiliza el transporte existente y no cambia el
+formato `.sqlviz` ni sustituye migraciones o identidad estable de paneles.
+Composición tipada y PATCH de dashboards, campos básicos, presentación y tipo de
+gráfico cuentan con entregas posteriores. Los pendientes de lectura anteriores
+se integran con criterios de aceptación en el
+[plan operativo del Studio](sqlviz-studio-delivery-plan.md), vigente desde 2026-10-08.
 
 ## Validación
 

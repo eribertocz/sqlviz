@@ -28,9 +28,14 @@ planned capabilities, not features already delivered.
 The accepted Studio direction provides three authoring levels on the same visual:
 automatic inference, a Visual Builder, and expert native ECharts JSON options.
 Dataset definitions, reusable visuals and dashboard panel instances will be
-separate; the minimum dataset contract precedes the canvas. The expert editor
-and reusable dataset persistence are planned, not implemented features.
+separate. Manual canvas geometry is now an internal core module; its persistence
+and UI are next. Drag/resize, the complete Visual Builder, expert editor and
+reusable dataset persistence are planned, not implemented features. The minimum
+dataset/visual contract precedes the complete three-level authoring workflow.
 See the [accepted authoring decision](docs/architecture/sqlviz-visual-authoring-decision.md).
+The [Studio delivery plan](docs/architecture/sqlviz-studio-delivery-plan.md)
+defines the current sequence and completion criteria; the
+[canvas contract](docs/architecture/sqlviz-canvas-contract.md) states what exists.
 
 Start with the [documentation index](docs/README.md),
 [target architecture](docs/architecture/sqlviz-product-architecture.md), and

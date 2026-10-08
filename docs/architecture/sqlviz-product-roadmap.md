@@ -13,53 +13,42 @@ No asignar fechas ni versiones antes de dimensionar cada entrega. Los números d
 entrega indican dependencias, no promesas de calendario. Cada entrega debe poder
 revisarse y probarse como incremento, con migraciones explícitas cuando proceda.
 
-**Foco según los requisitos del usuario:** trabajar sin prisa por
-capacidades completas y criterios de cierre. Tras E0 y la base de E1, concentrar
-el desarrollo en el [Dashboard Studio](sqlviz-dashboard-studio-spec.md): contrato
-visual → lienzo/navegación → inferencia y renderizado → acabado. No ampliar la
-plataforma mientras ese recorrido esté incompleto. Esa especificación precisa
-los criterios de E1/E2 y adelanta la calidad de inferencia al núcleo del producto.
-La [decisión aceptada de autoría](sqlviz-visual-authoring-decision.md) incorpora
-Automático → Visual Builder → ECharts native options y adelanta el dataset mínimo
-a la unidad 10. El catálogo completo y las transformaciones siguen posteriores.
+**Foco según los requisitos del usuario:** trabajar sin prisa por capacidades
+completas y criterios de cierre. Tras E0 y la base de E1, concentrar el desarrollo
+en el Dashboard Studio. El [plan operativo](sqlviz-studio-delivery-plan.md)
+adelanta composición manual y drag/resize, y entrega temprano el primer recorrido
+Automático → Visual Builder → ECharts native options. No ampliar la plataforma
+mientras ese recorrido esté incompleto. La
+[especificación del Studio](sqlviz-dashboard-studio-spec.md) conserva el detalle
+funcional y la [decisión de autoría](sqlviz-visual-authoring-decision.md) define
+motor, contratos y precedencia.
 
-## Plan inmediato después de navegación
+## Plan operativo: Dashboard Studio
 
-La cabecera, selector, control de marca/navegación, filtros con borrador y runtime
-confirmado están implementados localmente. Eso no cierra E1 ni entrega el Studio.
-La navegación directa solicitada no introduce un nuevo formato persistido.
-Los pendientes del incremento anterior se trabajan en este orden, en unidades
-pequeñas con su propia evidencia antes de pasar a la siguiente:
+El [plan operativo del Studio](sqlviz-studio-delivery-plan.md) es la única
+secuencia de trabajo actual. Reemplaza el orden inmediato anterior, que dejaba
+el lienzo y el nivel experto demasiado lejos del recorrido central.
 
-| Orden | Capacidad pendiente | Qué debe demostrar el cierre |
-| --- | --- | --- |
-| 1 — En curso, unidad 8 | Revisión de overrides de paneles | Composición, PATCH de dashboards, campos básicos, presentación y tipo de gráfico entregados; revisar controles y confirmación de dimensiones sobre el escritor transaccional |
-| 2 — Unidad 9 | Migraciones y dependencias | Cambios de esquema probados sobre copias, rollback/fallo explícitos; storage no depende de inference ni de su memoria global |
-| 3 — Unidad 10, por incrementos | Dataset mínimo, identidad y configuración visual persistida | Dataset/visual/panel separados; varias visualizaciones reutilizan una definición; reordenar/editar SQL no transfiere ajustes; revisiones, campos y layout sobreviven a reapertura y compartir; contrato preparado para opciones expertas |
-| 4 — Completar unidad 11 | Definiciones de filtros versionadas | ID, tipos, defaults del autor, rangos con bindings explícitos y alcance por panel; reset restaura defaults reales; la inferencia no pisa decisiones publicadas |
-| 5 — Unidad pequeña de dominios/valores | Estados y semántica de filtros | Distinguir carga/error/vacío, ofrecer reintento y preservar el contexto; NULL seleccionable y contratos de zona horaria/fechas relativas definidos sin equivalencias ambiguas |
-| 6 — Completar contexto de lectura de unidad 12 | Prioridades y accesibilidad observada | Periodo/resumen compacto en móvil y filtros rápidos elegidos por el autor; tareas reales de navegación/filtros, teclado, zoom y nombres largos verificadas con usuarios |
-| 7 — Studio E2, lienzo | Pantalla/scroll y edición reversible | Modos persistidos por dashboard; pantalla sin scroll solo cuando el layout es viable, con explicación de falta de espacio; drag/resize, alineación, undo/redo y gráficos legibles en móvil |
-| 8 — Studio E2, inferencia/renderizado | Recomendaciones y gráficos completos | Elegir campos, series, unidades y formatos; comparar alternativas con un corpus independiente; soportar multiserie y mantener overrides del autor al filtrar/ejecutar |
-| 9 — Studio E2, nivel experto | Editor ECharts native options | JSON nativo validado, preview, precedencia visible sobre el builder, IDs estables, diagnóstico de incompatibilidades y reset/undo; ajustes conservados en refresh y viewer |
-| 10 — Cierre de E2 | Publicación y acabado | Preview/publicación versionados, plantillas coherentes, estados vacíos/error/carga, alternativa tabular y exportaciones autorizadas; revisión integral de autor a viewer en los tres niveles |
+**S0 entregado:** [geometría manual](sqlviz-canvas-contract.md), todavía sin UI,
+almacenamiento o endpoints. **Siguiente: S1**, identidad segura de paneles,
+documento de layout persistido y controles de posición/tamaño. Después S2 añade
+drag/resize sobre ese mismo contrato. La revisión de dimensiones de E1 se
+incorpora a S1; no es una línea independiente de mantenimiento.
 
-La inferencia puede preparar su corpus y contrato durante el lienzo, pero se
-entrega por incrementos revisables; no se pospone su calidad hasta después de
-plantillas decorativas. **La mayor inversión será Studio e inferencia/renderizado**:
-combinan modelo persistido, geometría, interacción y significado de los datos.
-No se prometen fechas ni «perfección» por completar checks técnicos.
+S3 separa dataset/visual/panel; S4 verifica el primer recorrido de los tres niveles
+y S5 amplía inferencia/renderizado. S6–S8 completan pantalla/scroll, áreas,
+interacciones y publicación. La mayor inversión será el núcleo visual S3–S5.
+Migraciones y correcciones de dependencias se entregan según las necesidades de
+cada incremento; no se declara todo E1 cerrado para empezar una interfaz.
 
-Los presets actuales son privados de navegador. Presets compartidos, favoritos
-y URLs/historial de dashboards quedan como extensiones posteriores de lectura,
-con alcance, permisos y persistencia definidos. No bloquean la unidad 8 ni se
-introducen antes de consolidar los contratos anteriores. La cancelación efectiva
-en el motor de consultas iniciadas debe diseñarse aparte: descartar respuestas
-tardías en la UI no equivale a detener SQL.
+Cabecera, selector, control de marca y filtros confirmados ya existen, pero no
+cierran el Studio. Presets compartidos, favoritos y URLs/historial conservan su
+alcance futuro. La cancelación efectiva de consultas sigue pendiente:
+descartar respuestas tardías en UI no equivale a detener SQL en el motor.
 
-E3 (datasets y constructor visual sin SQL), E4 (métricas, modelado y roles de
-equipo) y E5 (refresh/integraciones) conservan sus dependencias. ETL general y
-expansión de conectores no se adelantan al recorrido central del Studio.
+Los apartados E0–E5 siguientes son mapa técnico e historial de dependencias, no
+una segunda lista de prioridades. ETL general, modelado avanzado y ampliación de
+conectores se mantienen posteriores al recorrido central del Studio.
 
 ## E0 — Cerrar exposición y recuperar una base verificable
 
@@ -125,8 +114,8 @@ el mismo significado y la configuración guardada.
   **Campos básicos del panel entregados localmente:** [PATCH y coordinación con borrado](sqlviz-panel-patch.md).
   **Presentación entregada localmente:** [contrato, guardado confirmado y reintento](sqlviz-panel-presentation.md).
   **Tipo de gráfico entregado:** [contrato, confirmación y reset real](sqlviz-chart-overrides.md).
-  **Foco siguiente:** revisión de dimensiones; el autoguardado
-  general de borradores todavía necesita recuperación visible.
+  **Foco siguiente:** dimensiones y guardado integrado en S1 del lienzo manual;
+  identidad estable y recuperación visible de borradores son requisitos de ese flujo.
 - Verificar dirección de imports e instalación independiente de paquetes;
   eliminar la dependencia no declarada storage → inference. Definir resultado
   del guardado de overrides cuando falle el aprendizaje secundario.
@@ -206,8 +195,9 @@ inferencia. No activar telemetría externa sin decisión explícita.
 
 **Depende de:** E1; el canvas de E2 consume estos contratos al incorporarlos.
 **Resultado:** quien no escribe SQL crea gráficos usando datos preparados.
-El contrato mínimo de dataset reutilizable se entrega antes del lienzo, en la
-unidad 10 de E1. Esta fase amplía su catálogo y autoría de consultas mediante UI;
+El contrato mínimo de dataset reutilizable se entrega en S3 antes de la autoría
+completa en los tres niveles. La geometría manual se integra primero sobre IDs
+estables en S1–S2. Esta fase amplía catálogo y autoría de consultas mediante UI;
 el Visual Builder de gráficos de E2 no implica todavía un query builder completo.
 
 - Dataset guardado y versionado: fuente, SQL o consulta visual, campos, parámetros,
@@ -262,7 +252,10 @@ gemelo cognitivo, SDK de veinte motores y decisiones autónomas sobre negocio.
 Se pueden experimentar si existe una pregunta medible y una alternativa simple
 con la que comparar resultados.
 
-## Primeras unidades de trabajo
+## Historial de primeras unidades y pendientes técnicos
+
+Esta tabla registra E0/E1 y los primeros incrementos de lectura. No determina
+el orden inmediato: sus pendientes se integran según S1–S8 del plan operativo.
 
 | Orden | Unidad revisable | Evidencia de cierre |
 | --- | --- | --- |

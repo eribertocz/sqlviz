@@ -1,6 +1,12 @@
 # Documentación de SQLviz
 
-Actualizada: **2026-10-07**.
+Actualizada: **2026-10-08**.
+
+**Qué trabajamos ahora:** [plan operativo del Dashboard Studio](architecture/sqlviz-studio-delivery-plan.md).
+S0 entrega el núcleo de geometría; S1 incorporará persistencia y controles de
+posición/tamaño, y S2 drag/resize. Después se completa el recorrido Automático →
+Visual Builder → ECharts nativo. Este es el orden operativo vigente, con criterios
+de cierre; los apartados E0–E5 conservan el mapa técnico e historial.
 
 ## Orden de lectura
 
@@ -16,9 +22,11 @@ libertad de edición, modos pantalla/scroll, navegación sin rail y evaluación 
 inferencias completas. Incluye nuevos ensayos sintéticos y criterios de cierre.
 La [decisión aceptada de autoría](architecture/sqlviz-visual-authoring-decision.md)
 define Automático → Visual Builder → ECharts native options sobre una misma
-visualización, con precedencia, persistencia y restauración. Adelanta el contrato
-mínimo de dataset reutilizable a E1 antes del lienzo; estas capacidades siguen
-pendientes de implementación.
+visualización, con precedencia, persistencia y restauración. El contrato mínimo
+de dataset/visual precede la autoría completa en los tres niveles; la geometría
+manual puede integrarse antes sobre referencias de panel estables. El
+[núcleo del canvas](architecture/sqlviz-canvas-contract.md) ya está implementado
+y probado; no habilita todavía UI de arrastre ni guardado del nuevo lienzo.
 
 La [navegación del workspace](architecture/sqlviz-navigation.md) documenta la
 primera capacidad visual implementada de ese alcance: ocultación completa,
@@ -34,7 +42,7 @@ demanda y publicación coherente de datos/contexto. Incluye diagnóstico del có
 límites entre capas y criterios de cierre. Su [primer incremento de lectura](architecture/sqlviz-reader-context.md)
 ya implementa cabecera compacta, panel de filtros y confirmación coherente;
 prioridades/defaults publicados y contratos persistidos siguen pendientes.
-Su orden está en el [plan inmediato después de navegación](architecture/sqlviz-product-roadmap.md#plan-inmediato-después-de-navegación).
+Su evolución se integra en el [plan operativo del Studio](architecture/sqlviz-studio-delivery-plan.md).
 
 La base E0 se entrega por unidades. Su [primera unidad de arranque local](architecture/sqlviz-local-startup.md)
 ya está implementada: loopback por defecto, Quack opt-in y ownership explícito de
@@ -61,7 +69,9 @@ etiquetas, guarda atómicamente y conserva borradores ante rechazo en el inspect
 y sobre el gráfico. El [quinto incremento](architecture/sqlviz-chart-overrides.md)
 valida tipos de gráfico, guarda decisiones manuales antes del aprendizaje y
 confirma el gráfico/composición con reintento; reset borra el ajuste real.
-El siguiente foco es la revisión de dimensiones, antes del contrato visual.
+La revisión pendiente de dimensiones se incorpora a S1, el lienzo persistido.
+S0 ya valida doce columnas, tamaños exactos, colisiones y viabilidad de espacio;
+no reemplaza los overrides legacy ni su API.
 La evidencia local no reemplaza CI.
 
 El [flujo de Git](architecture/sqlviz-git-workflow.md) recoge la autorización
@@ -74,8 +84,9 @@ El código y las pruebas describen lo implementado; una especificación por sí 
 no demuestra que una capacidad exista. La auditoría tiene fecha y commit de
 referencia: hay que actualizar sus estados cuando se corrijan los hallazgos.
 
-La arquitectura objetivo y el nuevo plan de entregas establecen la dirección
-recomendada a partir de esta revisión. **No indican funcionalidades ya entregadas.**
+La arquitectura objetivo establece límites entre módulos; el plan operativo del
+Studio establece el orden actual. Las especificaciones describen dirección y
+criterios; **no indican por sí solas funcionalidades entregadas.**
 Los contratos publicados siguen vigentes hasta que una migración explícita los
 reemplace. Un documento estratégico no autoriza romper el formato `.sqlviz`.
 

@@ -1,6 +1,6 @@
 # Dashboard Studio: alcance, edición e inferencia
 
-**Fecha:** 2026-10-05; decisión de autoría actualizada: 2026-10-07. **Estado:**
+**Fecha:** 2026-10-05; autoría y orden de entrega actualizados: 2026-10-08. **Estado:**
 especificación para implementar, con navegación entregada según
 [su documento de implementación](sqlviz-navigation.md). Los contratos visuales,
 modos pantalla/scroll e inferencia descritos aquí siguen pendientes.
@@ -20,17 +20,20 @@ necesarias. Un inspector no está terminado hasta que valida, guarda, reabre y
 renderiza sus cambios también en el viewer. La separación arquitectónica sigue
 vigente; la unidad de entrega es una experiencia verificable.
 
-| Orden | Foco | Cuándo podemos pasar al siguiente |
-| --- | --- | --- |
-| 1 | Aplicación y dominio: seguridad, integridad y persistencia | P0 cerrados; BP-01–05 corregidos; permisos, atomicidad y persistencia cubiertos por regresiones |
-| 2 | Dataset mínimo, contrato visual y de página | Dataset/visual/panel separados, IDs estables y revisiones; recomendación, ajustes del builder y opciones expertas versionados y restaurables; mismos valores en editor/viewer |
-| 3 | Lienzo y navegación | Ocultar sidebar recupera todo su ancho; modos pantalla/scroll; drag/resize y undo/redo; ajustes sobreviven a recarga |
-| 4 | Inferencia y renderizado completos | Campos/series/unidades correctos, evaluación independiente y recomendaciones comparables; cambios manuales respetados |
-| 5 | Acabado de la experiencia | Plantillas, formatos, accesibilidad, rendimiento y pruebas visuales/E2E en la matriz soportada |
+El orden operativo y sus criterios están en el
+[plan del Studio](sqlviz-studio-delivery-plan.md), que reemplaza la secuencia
+anterior de esta sección. S0 entrega geometría pura; S1 integra identidad segura,
+persistencia y controles; S2 añade drag/resize; S3 separa dataset/visual/panel;
+S4 verifica los tres niveles sobre la misma visualización y S5 amplía inferencia.
+Pantalla/scroll, áreas, interacciones y publicación se completan después.
 
-La recopilación de casos de inferencia y el diseño del contrato empiezan desde
-ahora para orientar las etapas 2–4. No se amplía a ETL general, más conectores o
-modelado avanzado mientras este recorrido esté incompleto.
+La geometría manual no requiere esperar al catálogo de datasets, pero sí conservar
+identidad al editar SQL. El contrato dataset/visual precede la autoría completa
+del builder y JSON nativo. El [núcleo entregado](sqlviz-canvas-contract.md) no
+implementa todavía UI, persistencia o distribución responsive.
+La recopilación de casos y el diseño de inferencia orientan estas entregas.
+No se amplía a ETL general, más conectores o modelado avanzado mientras este
+recorrido esté incompleto.
 
 «Impecable» se traduce en criterios comprobables para el alcance soportado:
 sin defectos críticos conocidos, sin pérdida de ajustes, sin datos incorrectos
@@ -201,7 +204,7 @@ Los resultados anteriores demuestran un hueco de evaluación fuera de ese corpus
 
 ## 6. Cómo mejorar la inferencia de extremo a extremo
 
-Orden de trabajo dentro de la etapa 4:
+Orden de trabajo de inferencia en S4–S5 del plan operativo:
 
 1. Validar SQL/esquema/perfil: roles semánticos, tipos, cardinalidad, temporalidad,
    granularidad, valores nulos, unidades conocidas y distribución. El alias

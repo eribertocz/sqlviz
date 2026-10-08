@@ -19,6 +19,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Núcleo interno de geometría manual del dashboard: doce columnas, posiciones y
+  alturas exactas, operaciones inmutables, colisiones y evaluación de espacio
+  pantalla/scroll con mínimos suministrados por el renderer. Incluye 54 casos;
+  todavía no integra UI, persistencia ni endpoints del nuevo lienzo.
+
 - El logo de navegación muestra el icono de abrir/cerrar al pasar el mouse o
   recibir foco de teclado; en táctil el icono permanece visible. Conserva un
   único botón, su tamaño y la preferencia de movimiento reducido; ambos iconos
@@ -69,9 +74,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Prioridad del Studio: geometría y lienzo persistido → drag/resize → dataset y
+  visual → primer recorrido Automático/Visual Builder/ECharts nativo. Los tres
+  niveles son parte del núcleo; el editor experto no se pospone al acabado.
+
 - Documentación de la decisión aceptada para el Studio: inferencia automática,
   Visual Builder y ECharts native options; separación dataset/visual/panel y
-  dataset mínimo antes del lienzo. Define precedencia, persistencia y reset de
+  dataset mínimo antes de la autoría completa en los tres niveles. Define precedencia, persistencia y reset de
   ajustes expertos. Es diseño pendiente de implementación, no una función nueva.
 
 ### Fixed
@@ -183,6 +192,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   del worker provisional, evitando su rechazo `Canceled` al cerrar el editor.
 
 ### Documentation
+
+- Plan operativo único del Studio con entregas S0–S8, criterios de cierre,
+  reglas de libertad/legibilidad y análisis del informe de producto. Contrato
+  del núcleo geométrico documentado; alineados README, índice, roadmap,
+  especificación del Studio y decisión de autoría.
 
 - Plan inmediato después de navegación: composición/PATCH, migraciones,
   identidad/configuración persistida, semántica y contexto de filtros,

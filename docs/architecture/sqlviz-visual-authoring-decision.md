@@ -1,6 +1,8 @@
 # Autoría visual: automático, builder y ECharts nativo
 
 **Decisión aceptada por el usuario:** 2026-10-07.
+**Prioridad de entrega actualizada:** 2026-10-08; ver el
+[plan operativo del Studio](sqlviz-studio-delivery-plan.md).
 **Estado:** diseño para implementar. Este documento no entrega nuevos controles,
 datasets persistidos ni un editor experto. Prevalece sobre la exclusión anterior
 de opciones nativas en la especificación del Studio.
@@ -55,9 +57,12 @@ publicados: sus referencias deben fijar revisiones. Actualizar una referencia
 es una acción explícita con preview y validación de dependencias.
 
 Se puede promover una consulta de exploración a dataset reutilizable. Incorporar
-su contrato mínimo junto con identidad y persistencia visual antes del lienzo;
-el catálogo completo, conectores y métricas siguen sus fases posteriores. Polars,
-el DAG de transformaciones y la IA no forman parte de este primer contrato.
+su contrato mínimo junto con identidad y persistencia visual antes del recorrido
+completo de los tres niveles. La geometría manual puede integrarse primero sobre
+referencias estables de paneles existentes; antes de persistirla, garantizar que
+editar o reordenar SQL no reasigna su identidad. El catálogo completo, conectores
+y métricas siguen posteriores. Polars, el DAG de transformaciones y la IA no
+forman parte de este primer contrato.
 
 ## Precedencia y edición reversible
 
@@ -104,10 +109,13 @@ aislamiento propios. Procesar opciones con HTML/URLs conforme a la
 
 ## Cierre y orden de entrega
 
-Continuar con PATCH de dashboards y luego paneles; completar migraciones y
-dependencias; entregar identidad, dataset mínimo y configuración visual;
-después implementar builder/lienzo, inferencia completa y editor experto por
-incrementos pequeños. Ver el [plan vigente](sqlviz-product-roadmap.md).
+Los contratos PATCH de dashboards, campos básicos, presentación y tipo de gráfico
+ya tienen incrementos entregados. El [núcleo de geometría](sqlviz-canvas-contract.md)
+es S0. Continuar con lienzo persistido y controles (S1), drag/resize (S2), dataset
+mínimo y visual (S3), y el primer recorrido de los tres niveles (S4), según el
+[plan operativo](sqlviz-studio-delivery-plan.md). Las migraciones y correcciones
+de dependencias requeridas acompañan cada entrega. El nivel experto tiene un
+primer flujo funcional en S4; no queda al final del acabado.
 
 Para cerrar el nivel experto deben pasar: guardado/reapertura, mismos resultados
 en editor/viewer, filtros y refresh sin pérdida de ajustes, precedencia visible,

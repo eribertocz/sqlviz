@@ -219,9 +219,12 @@ partes necesitan un contrato de cancelación.
 
 **Primero datasets reutilizables.** Nombre, descripción, campos, tipos, formatos,
 parámetros y fuente. Esto habilita el editor visual y elimina copias de SQL.
-Adelantar el contrato mínimo a la unidad de identidad/persistencia visual de E1,
-antes del lienzo. Explorar SQL no exige crear un dataset compartido; promover la
-consulta es una acción posterior. Catálogo completo y conectores permanecen en E3.
+El contrato mínimo se entrega antes de la autoría completa en los tres niveles;
+la geometría manual puede integrarse primero sobre referencias estables de panel.
+El [plan operativo del Studio](sqlviz-studio-delivery-plan.md) define esta
+secuencia y sus requisitos de identidad/persistencia. Explorar SQL no exige crear
+un dataset compartido; promover la consulta es una acción posterior. Catálogo
+completo y conectores permanecen en E3.
 Polars y un grafo de transformaciones requieren un runtime propio con límites y
 dependencias; incorporarlos cuando casos reales lo justifiquen, después del Studio.
 
