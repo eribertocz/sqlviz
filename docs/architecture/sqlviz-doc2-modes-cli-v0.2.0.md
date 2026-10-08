@@ -1,4 +1,9 @@
 # SQLviz — Modes & CLI
+
+> **Estado documental — 2026-10-06:** diseño histórico. El arranque actual usa
+> loopback y Quack opcional; FastAPI no se comunica con DuckDB vía Quack.
+> Ver [política implementada](sqlviz-local-startup.md) y
+> [auditoría de autorización/aislamiento](sqlviz-audit-2026-10-05.md).
 **Version:** v0.2.0 (Draft)
 **Status:** Work in Progress
 **Last Updated:** 2026-06-08
@@ -152,17 +157,15 @@ When SQLviz starts, three things happen in order:
 ```
 
 ```python
-# cli.py — simplified startup
+# Current startup: Quack is disabled unless explicitly requested.
+from sqlviz_cli.server import serve
 
 conn = duckdb.connect("my_project.sqlviz")
 
-# Start Quack — handles admin/viewer concurrency via HTTP
-conn.execute("INSTALL quack FROM core_nightly")
-conn.execute("LOAD quack")
-conn.execute("CALL quack_serve('quack:localhost', token = 'token')")
-
-# Start FastAPI — serves the UI
-uvicorn.run(app, port=4000)
+try:
+    serve(conn, db_path="my_project.sqlviz", host="127.0.0.1", port=4000)
+finally:
+    conn.close()
 ```
 
 ---

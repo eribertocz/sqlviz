@@ -5,6 +5,173 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- Contrato HTTP tipado de composición, adaptación explícita a dataclasses y
+  esquema OpenAPI; conserva resultados originales y etiquetas de ejes.
+- Cabecera compacta de Preview y viewers: selector del título, filtros bajo
+  demanda y apariencia/acciones secundarias en opciones, sin búsqueda duplicada.
+- Control de marca/navegación directo en la esquina superior izquierda de editor,
+  Preview y workspace. El mismo botón abre/cierra sin moverse en escritorio;
+  la biblioteca móvil enfoca búsqueda y devuelve foco al cerrar. Se retira
+  navegación de opciones y la marca repetida del sidebar.
+- Navegación simplificada a un solo logo/control visual (36 px en escritorio,
+  44 px en móvil). El sidebar de escritorio ya no repite el botón de cierre;
+  el modal móvil conserva su cierre interior y recuperación de foco.
+- Panel de filtros con borrador, Aplicar/Cancelar, resumen confirmado y presets
+  locales; runtime compartido que confirma el conjunto de paneles afectados,
+  conserva datos ante fallos y descarta respuestas de una vista abandonada.
+- Selector compacto en cabecera del viewer de workspace: búsqueda por
+  dashboard/carpeta y Ctrl/Cmd+K sin abrir sidebar; la variante con flechas queda
+  disponible en el componente para recorridos explícitos futuros.
+- Contrato de dimensiones manuales en core (1–12 columnas y 120–900 px),
+  validación estricta de PATCH y 49 casos nuevos Python más 9 frontend.
+- Política de jerarquía en core, repositorio de carpetas y revisión interna
+  transaccional del árbol, compartida con la ubicación de dashboards; 93 casos
+  nuevos de política, repositorio, transacciones y API.
+- Repositorio transaccional para borrado de dashboards y servicio de limpieza
+  de sesiones después del commit; 25 casos nuevos de integridad y concurrencia.
+- Contrato de parámetros en core y servicio de preparación por aplicación:
+  valores simples/listas tipadas y acotadas, sin coerción del transporte.
+- Límites de cuerpos API antes de JSON, incluyendo solicitudes chunked.
+- QueryService por aplicación: catálogo analítico aislado, adaptación de tablas
+  locales y límites de tiempo, filas, bytes, memoria y concurrencia.
+- Servicio de autorización por aplicación, principal de autor/lector y sesiones
+  administrativas y de lector separadas, con expiración y revocación.
+- Credenciales con alcance en cada solicitud de ambos viewers; los enlaces con
+  contraseña emiten una sesión temporal ligada a ese enlace y aplicación.
+- Arranque Quack opcional mediante `--quack`, con credencial propia en
+  `SQLVIZ_QUACK_TOKEN`, parámetros enlazados y extensión previamente instalada.
+- Navegación de workspace totalmente ocultable: recupera los 260 px del
+  explorador; acceso directo en la cabecera de editor, Preview y viewer.
+- Panel modal de navegación hasta 900 px, con cierre por Escape/clic exterior,
+  foco contenido y cierre al seleccionar un dashboard.
+- Búsqueda local por dashboard/carpeta y acceso visible a búsqueda/comandos en
+  la cabecera; preferencias privadas de visibilidad para editor y viewer.
+- Acceso visible al modo de concentración: oculta también editor e inspectores,
+  conserva sus estados y restaura el foco al salir.
+
+### Fixed
+
+- CI entrega el build verificado del frontend a los jobs Python antes de probar
+  login y archivos estáticos, evitando depender de artefactos locales previos.
+- `/compose` rechaza con 422 resultados incompletos, tipos/rangos incorrectos,
+  números no finitos, versiones incompatibles, IDs repetidos y más de 256 paneles,
+  antes de ejecutar el motor; conserva autorización y dimensiones manuales.
+- Opciones de filtros conservan tipos simples, incluidos cero y falso; búsquedas
+  Command tienen nombre accesible de raíz y la biblioteca recupera foco al control de cabecera.
+- Filtros booleanos distinguen sin restricción, verdadero y falso mediante
+  Any/Yes/No, evitando confundir falso con la ausencia de filtro.
+- Dominios de filtros se solicitan secuencialmente y sin duplicar variables;
+  abandonar la vista detiene la carga y descarta dominios tardíos, evitando
+  ráfagas de consultas que agotaban los slots analíticos.
+- Navegación del viewer descarta respuestas de dashboards abandonados y
+  filtros pendientes; acceso revocado retira también el selector.
+- Workspace compartido vacío muestra estado explícito; un solo dashboard
+  conserva su título sin controles de cambio innecesarios.
+- Overrides de tamaño rechazan rangos/tipos inválidos antes de escribir; null
+  explícito restablece automático y conflictos de escritura devuelven 409.
+- El editor conserva gráfico y dimensiones si falla el guardado; serializa
+  cambios, usa valores confirmados y recompone sin ejecutar SQL para reset.
+- Guardar dimensiones no depende del aprendizaje: patrón/evento se intentan
+  después, en otra transacción. Ajustar alto conserva ancho aprendido y viceversa.
+- Overrides históricos inválidos no se propagan al renderer ni al ancho KPI;
+  sus valores no se reparan automáticamente en el archivo.
+- La caché de resultados evita suscribirse a sus propias escrituras reactivas.
+- Carpetas rechazan padres inexistentes y movimientos bajo sí mismas o sus
+  descendientes. Cambios simultáneos del árbol/ubicación devuelven 409 sin ciclos
+  ni referencias nuevas a carpetas eliminadas.
+- PATCH distingue omisión de null para parent_id/folder_id; null mueve a raíz,
+  compatible con el alias anterior "". El frontend envía null al desagrupar.
+- Borrar una carpeta promueve sus contenidos directos en la misma transacción,
+  preservando subárboles, dashboards, paneles y accesos compartidos.
+- El contexto de transacciones conserva el conflicto de COMMIT cuando DuckDB
+  ya abortó la transacción; otros fallos de rollback no se ocultan.
+- Borrar un dashboard elimina también paneles, enlaces y memoria de filtros
+  de forma atómica. Un fallo revierte el conjunto y conserva sesiones; otros
+  dashboards y enlaces de workspace se mantienen.
+- Crear paneles/enlaces de dashboard verifica y modifica el padre en la misma
+  transacción; colisiones con borrado devuelven 409 sin crear huérfanos.
+- El diálogo de borrado informa también de filtros guardados y enlaces afectados.
+- Placeholders detectados desde SQL parseado: strings/comentarios no generan
+  filtros. Multiselección adapta nodos IN sin modificar literales mediante regex.
+- Valores inválidos/excesivos fallan explícitamente y errores de filtros no
+  repiten valores enviados. El cuerpo de ejecución rechaza SQL/campos desconocidos.
+- Selector de gráficos actualiza selección y scores al cambiar panel/resultado.
+- Error de mypy de neutralización corregido; retiradas las seis advertencias
+  Svelte previas, incluyendo autofocus en dos formularios.
+- API/meta y metadata de creación usan la versión instalada común; CI usa
+  Node 24.21.0, Python 3.12/3.13 e instalación con lockfile requerido.
+- SQL de gráficos, dominios y sondeos ya no se ejecuta contra metadatos. Autor y
+  lector solo ejecutan consultas de lectura; archivos/red, secretos, vistas y
+  catálogos adjuntos no se exponen. No se migra el archivo del proyecto.
+- Consultas que exceden presupuestos fallan explícitamente sin resultados
+  parciales; timeout interrumpe DuckDB y libera recursos de la operación.
+- CRUD y listados de autor requieren sesión; lectura, ejecución, dominios y
+  composición verifican el alcance del enlace. Revocar o rotar el secreto impide
+  nuevas solicitudes, también tras desbloquear un enlace protegido.
+- Ejecutar como lector no persiste inferencias, clasificación ni aprendizaje;
+  se rechazan sentencias de modificación y múltiples queries guardados.
+- Los viewers retiran los resultados al recibir un rechazo de acceso; las
+  respuestas de datos usan `no-store` y los cursores se cierran por solicitud.
+- El CLI escucha por defecto en `127.0.0.1` en demo y proyectos persistentes;
+  escuchar en LAN requiere `--host` explícito.
+- Se elimina la instalación automática de Quack desde nightly y el token fijo.
+  Si Quack se solicita y no puede arrancar, el CLI falla con un mensaje sin
+  credenciales; los recursos se cierran también durante fallos de arranque.
+- Los atajos globales respetan campos de texto y las combinaciones de Monaco.
+- El cierre del explorador devuelve el foco al control de navegación; una
+  restricción de localStorage no interrumpe la interfaz.
+- Los dashboards con igual nombre conservan IDs distintos en la búsqueda de
+  comandos. El título accesible del diálogo se ubica dentro de su contenido.
+- El editor no crea una instancia huérfana si se cierra durante la carga de
+  Monaco. Se desactiva el resaltado de coincidencias de palabras que dependía
+  del worker provisional, evitando su rechazo `Canceled` al cerrar el editor.
+
+### Documentation
+
+- Plan inmediato después de navegación: composición/PATCH, migraciones,
+  identidad/configuración persistida, semántica y contexto de filtros,
+  Studio pantalla/scroll, inferencia y publicación, con criterios de cierre.
+- Especificación conjunta de navegación y filtros y primer incremento de lectura:
+  cabecera compacta, edición bajo demanda y runtime confirmado. Prioridades,
+  defaults publicados y semántica persistida completa siguen pendientes.
+- Contratos de dimensiones, reset, aprendizaje opcional y límites de
+  concurrencia documentados; BP-03 corregido y composición tipada como siguiente unidad.
+- Política de jerarquía, PATCH y creación concurrente en proyectos anteriores;
+  BP-02 y BP-05 de ubicación corregidos. Explorador anidado y otros PATCH pendientes.
+- Política de integridad del dashboard, ownership de dependencias, protección
+  concurrente y conservación del historial de aprendizaje; BP-01 corregido.
+- Política de ejecución analítica, compatibilidad y límites reales de aislamiento
+  y presupuestos. Pendientes: datasets externos, cuotas de SO y declaraciones
+  persistidas de tipos de parámetros. Contrato de transporte implementado.
+- Política de autorización, transporte de credenciales y límites del incremento.
+- Política de arranque local, ownership de conexiones y pruebas del primer
+  incremento de E0, complementada por autorización y ejecución analítica.
+- Documento de navegación con decisiones, responsabilidades, pruebas y límites.
+- Especificación del Dashboard Studio: libertad visual equilibrada, pantalla sin
+  scroll/scroll, sidebar totalmente ocultable y criterios de calidad de inferencia.
+  Ensayos adicionales detectan asignación de ejes por posición y omisión de
+  métricas; se registra el límite del benchmark actual de 52 casos. Navegación
+  implementada; contratos visuales, modos de página e inferencia pendientes.
+- Evaluación adicional de buenas prácticas de arquitectura, con cinco problemas
+  reproducidos de integridad/contratos, dirección de dependencias y criterios de
+  refactorización incorporados a E1. BP-01/02 y BP-05 de ubicación corregidos;
+  BP-03/04 y PATCH de otros campos pendientes.
+- Auditoría técnica y de producto del 2026-10-05 con evidencia de autorización
+  incompleta, baseline de pruebas y prioridades de corrección. Los hallazgos de
+  seguridad originales tienen seguimiento en la auditoría; el aislamiento
+  analítico HTTP se implementa en la tercera unidad; E0 permanece abierto.
+- Nueva dirección de autoría SQL y visual, arquitectura objetivo y plan de
+  entregas con criterios de aceptación; documentos anteriores señalados como
+  históricos cuando su alcance o prioridad cambió.
+- README corregido: Python 3.12+, fábrica de aplicación, CLI en puerto 4000,
+  instalación del workspace y limitaciones de seguridad actuales.
+
+---
+
 ## [v0.2.11] — 2026-07-25
 
 Objetivo: compartir dashboards en la red local de forma confiable, motor de

@@ -1,5 +1,10 @@
 # SQLviz Dashboard Editing UX — v1.0
 
+> **Ampliación — 2026-10-05:** [Dashboard Studio](sqlviz-dashboard-studio-spec.md)
+> precisa la siguiente etapa y prevalece en modo pantalla/scroll, navegación
+> completamente ocultable, persistencia de personalización y calidad de
+> inferencia. Especificar estos comportamientos no los convierte en entregados.
+
 > **Estado:** Especificación oficial. Este documento define el diseño completo
 > del flujo de edición de dashboards **antes** de implementar. Ninguna parte
 > está implementada por el solo hecho de existir este documento — ver

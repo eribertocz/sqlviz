@@ -1,4 +1,11 @@
 # SQLviz — Vision & Philosophy
+
+> **Nota de revisión — 2026-10-05:** documento histórico. La dirección vigente
+> está en [Producto y arquitectura](sqlviz-product-architecture.md). La prohibición
+> de edición visual y «SQL como única interfaz» ya no guían el desarrollo: se
+> conserva SQL y se incorpora autoría visual sobre datasets. El texto original
+> se preserva para explicar decisiones anteriores, no como restricción actual.
+
 **Version:** v0.1.0 (Draft)
 **Status:** Work in Progress
 **Last Updated:** 2026-06-08

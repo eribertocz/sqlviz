@@ -1,5 +1,12 @@
 # SQLviz — DOC11: Filter Engine Roadmap (Parameter Intelligence)
 
+> **Revisión de prioridad — 2026-10-05:** el alcance «Frozen para V0.4.0» que sigue
+> es histórico. Este documento se conserva como catálogo de propuestas; sus
+> veinte motores no son un compromiso vigente. Implementar filtros desde casos
+> de usuario y contratos, según el [nuevo plan](sqlviz-product-roadmap.md).
+> La seguridad de parámetros/recursos debe resolverse en E0/E1 y no posponerse
+> a V1.0.
+
 **Plan de construcción oficial de V0.4.0.**
 Mismo rol para V0.4 que DOC10 tuvo para V0.2: define el alcance, los módulos, las
 fases de construcción, el modelo de datos y la definición de Done.
