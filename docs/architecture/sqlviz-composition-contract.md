@@ -1,7 +1,8 @@
 # Contrato HTTP de composición
 
 **Estado:** BP-04 implementado localmente el 2026-10-07. Es la primera parte de
-la unidad 8 de E1; los PATCH restantes siguen pendientes. No modifica el archivo
+la unidad 8 de E1; el [PATCH de dashboards](sqlviz-dashboard-patch.md) se implementa
+en el segundo incremento y los PATCH de paneles siguen pendientes. No modifica el archivo
 `.sqlviz`, el algoritmo de inferencia ni la edición visual.
 
 ## Responsabilidad y límites
@@ -79,8 +80,9 @@ y conservación del JSON. Se ejercitan también resultados reales de SQL con KPI
 categorías, fechas, correlación, filas vacías y nulls. Las pruebas existentes
 comprueban el alcance de viewers y la persistencia de tamaños manuales.
 
-El siguiente incremento es PATCH de campos restantes: presencia/omisión/null,
-tipos y límites antes de escribir, respuesta predecible y escritura atómica.
+El segundo incremento entrega [PATCH de dashboards](sqlviz-dashboard-patch.md):
+presencia/omisión/null, tipos y límites antes de escribir y escritura atómica.
+Los contratos PATCH de paneles son el siguiente incremento.
 BP-04 no cierra E1 ni certifica calidad de inferencia, usabilidad o rendimiento.
 
 Validación local del 2026-10-07:

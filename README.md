@@ -65,7 +65,10 @@ save is rejected. See [dimension contracts and learning limits](docs/architectur
 Dashboard composition now validates typed inference results before calling the
 engine, rejects invalid requests with 422, and preserves presentation labels and
 manual dimensions. See [the composition contract](docs/architecture/sqlviz-composition-contract.md).
-Remaining PATCH contracts are the next E1 increment.
+Dashboard PATCH now validates strict fields, distinguishes omission from explicit
+clearing, preserves exact SQL drafts, and commits all changes atomically.
+See [the dashboard PATCH contract](docs/architecture/sqlviz-dashboard-patch.md).
+Panel PATCH contracts are the next E1 increment.
 
 ## Architecture today
 
@@ -128,7 +131,7 @@ uv run sqlviz local-demo.sqlviz --host 127.0.0.1 --port 4000 --no-browser
 
 The CLI prompts for an admin password when creating a project. Author API routes
 require that login; shared viewers use credentials limited to their share.
-Analytical isolation and resource limits remain pending, as described above.
+Source adapters and operational hardening remain pending, as described above.
 
 Both demo and persistent projects listen on `127.0.0.1` by default. LAN binding
 requires an explicit `--host 0.0.0.0`; the security limitations above still

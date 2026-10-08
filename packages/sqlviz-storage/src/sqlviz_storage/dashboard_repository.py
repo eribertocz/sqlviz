@@ -11,10 +11,29 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import duckdb
+from sqlviz_core.models.dashboards import Dashboard, DashboardChanges, normalize_dashboard_changes
 
+from sqlviz_storage.folder_repository import FolderRepository
 from sqlviz_storage.transactions import project_transaction
+
+_SELECT = (
+    "SELECT id, name, folder_id, connection_id, sort_order, created_at, updated_at,"
+    " dashboard_hint, dashboard_domain, description, sql_content, last_run_at, last_run_sql "
+    "FROM dashboards"
+)
+
+
+def _from_row(row: tuple[Any, ...]) -> Dashboard:
+    return Dashboard(
+        id=row[0], name=row[1], folder_id=row[2], connection_id=row[3],
+        sort_order=row[4], created_at=row[5], updated_at=row[6],
+        dashboard_hint=row[7], dashboard_domain=row[8], description=row[9],
+        sql_content=row[10] if row[10] is not None else "",
+        last_run_at=row[11], last_run_sql=row[12],
+    )
 
 
 class DashboardNotFound(Exception):
@@ -23,6 +42,14 @@ class DashboardNotFound(Exception):
 
 class DashboardWriteConflict(Exception):
     """The whole write was rolled back; the caller may refresh and retry."""
+
+
+def _modified_at(previous: str) -> str:
+    now = datetime.now(timezone.utc)
+    modified_at = now.isoformat(timespec="microseconds")
+    if modified_at == previous:
+        modified_at = (now + timedelta(microseconds=1)).isoformat(timespec="microseconds")
+    return modified_at
 
 
 @contextmanager
@@ -43,10 +70,7 @@ def dashboard_write(db: duckdb.DuckDBPyConnection, dashboard_id: str) -> Iterato
             ).fetchone()
             if row is None:
                 raise DashboardNotFound("Dashboard not found")
-            now = datetime.now(timezone.utc)
-            modified_at = now.isoformat(timespec="microseconds")
-            if modified_at == row[0]:
-                modified_at = (now + timedelta(microseconds=1)).isoformat(timespec="microseconds")
+            modified_at = _modified_at(row[0])
             db.execute(
                 "UPDATE dashboards SET updated_at = ? WHERE id = ?", [modified_at, dashboard_id],
             )
@@ -62,10 +86,46 @@ class DashboardDeletion:
 
 
 class DashboardRepository:
-    """Persistence of the deletion operation; no HTTP or session dependencies."""
+    """Dashboard reads and atomic mutations; no HTTP or session dependencies."""
 
     def __init__(self, db: duckdb.DuckDBPyConnection) -> None:
         self._db = db
+
+    def get(self, dashboard_id: str) -> Dashboard:
+        row = self._db.execute(f"{_SELECT} WHERE id = ?", [dashboard_id]).fetchone()
+        if row is None:
+            raise DashboardNotFound("Dashboard not found")
+        return _from_row(row)
+
+    def list(self) -> list[Dashboard]:
+        rows = self._db.execute(f"{_SELECT} ORDER BY sort_order, created_at").fetchall()
+        return [_from_row(row) for row in rows]
+
+    def update(self, dashboard_id: str, changes: DashboardChanges) -> Dashboard:
+        normalized = normalize_dashboard_changes(changes)
+        if not normalized:
+            return self.get(dashboard_id)
+        # Placement shares the folder-tree fence; all other fields still get
+        # their own transaction without contending on unrelated folder changes.
+        transaction = (
+            FolderRepository(self._db).dashboard_placement(normalized["folder_id"])
+            if "folder_id" in normalized else project_transaction(self._db)
+        )
+        try:
+            with transaction:
+                previous = self.get(dashboard_id)
+                values: dict[str, object] = dict(normalized)
+                values["updated_at"] = _modified_at(previous.updated_at)
+                # Field names are whitelisted by core; values are always bound.
+                assignments = ", ".join(f"{column} = ?" for column in values)
+                self._db.execute(
+                    f"UPDATE dashboards SET {assignments} WHERE id = ?",
+                    [*values.values(), dashboard_id],
+                )
+                result = self.get(dashboard_id)
+        except (duckdb.TransactionException, duckdb.ConstraintException) as exc:
+            raise DashboardWriteConflict("Dashboard write conflicted; refresh and retry") from exc
+        return result
 
     def delete(self, dashboard_id: str) -> DashboardDeletion:
         with dashboard_write(self._db, dashboard_id):

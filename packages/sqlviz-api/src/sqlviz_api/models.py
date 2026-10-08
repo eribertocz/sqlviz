@@ -6,9 +6,16 @@ sqlviz-storage and sqlviz-inference use plain dataclasses — DOC3 Section 8.
 
 from __future__ import annotations
 
-from typing import Literal, Self
+from typing import Literal, Self, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlviz_core.models.dashboards import (
+    MAX_DASHBOARD_DESCRIPTION_LENGTH,
+    MAX_DASHBOARD_ID_LENGTH,
+    MAX_DASHBOARD_NAME_LENGTH,
+    DashboardChanges,
+    normalize_dashboard_changes,
+)
 from sqlviz_core.models.panel_overrides import validate_override
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -56,15 +63,26 @@ class DashboardCreate(BaseModel):
 
 
 class DashboardUpdate(BaseModel):
-    name: str | None = None
-    folder_id: str | None = Field(default=None, strict=True)
-    connection_id: str | None = None
-    sort_order: int | None = None
-    description: str | None = None
+    model_config = ConfigDict(extra="forbid", strict=True)
+    name: str | None = Field(default=None, min_length=1, max_length=MAX_DASHBOARD_NAME_LENGTH)
+    folder_id: str | None = Field(default=None, max_length=MAX_DASHBOARD_ID_LENGTH)
+    connection_id: str | None = Field(default=None, max_length=MAX_DASHBOARD_ID_LENGTH)
+    sort_order: int | None = Field(default=None, ge=-(2**31), le=2**31 - 1)
+    description: str | None = Field(default=None, max_length=MAX_DASHBOARD_DESCRIPTION_LENGTH)
     sql_content: str | None = None   # Draft editor text (auto-saved).
     last_run_at: str | None = None   # ISO timestamp of the last successful run.
     last_run_sql: str | None = None  # Exact SQL of the last successful run.
     # Omission preserves placement; null (or legacy "") moves to root.
+
+    def changes(self) -> DashboardChanges:
+        return normalize_dashboard_changes(
+            cast(DashboardChanges, self.model_dump(exclude_unset=True)),
+        )
+
+    @model_validator(mode="after")
+    def validate_changes(self) -> Self:
+        self.changes()
+        return self
 
 
 class DashboardResponse(BaseModel):

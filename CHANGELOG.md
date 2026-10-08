@@ -66,6 +66,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- PATCH de dashboards rechaza tipos, campos y límites inválidos antes de guardar;
+  distingue omisión/null y conserva SQL exacto. Actualización de campos, ubicación
+  y timestamp es atómica, con rollback y conflictos 409; PATCH vacío no escribe.
 - Foco del buscador de dashboards/comandos rodea el campo completo con la lupa,
   evitando el marco rectangular interior; conserva el espacio exterior.
 - Items de búsqueda de dashboards y comandos resaltan en índigo suave al pasar

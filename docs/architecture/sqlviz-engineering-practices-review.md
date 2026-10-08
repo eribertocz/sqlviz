@@ -12,7 +12,9 @@ La matriz inferior conserva la evaluación de la base auditada. BP-01 y BP-02
 tienen corrección posterior; BP-03 también está corregido y BP-05 para ubicación.
 **Seguimiento — 2026-10-07:** BP-04 tiene corrección local mediante el
 [contrato tipado de composición](sqlviz-composition-contract.md).
-PATCH de otros campos y contratos de adaptadores siguen pendientes.
+El [PATCH de dashboards](sqlviz-dashboard-patch.md) también valida campos en core
+y HTTP, distingue omisión/null y confirma campos/ubicación en una transacción.
+PATCH de paneles y contratos de adaptadores siguen pendientes.
 
 La [cuarta unidad de E0](sqlviz-parameters-and-quality.md) mueve validación de
 valores a core y planificación de filtros a un servicio sin FastAPI; usa AST
@@ -27,7 +29,9 @@ que repita el repositorio. La [tercera unidad de E1](sqlviz-panel-dimensions.md)
 lleva los rangos manuales a core, valida antes de escribir y confirma tamaños
 en UI. El aprendizaje opcional tiene su propia transacción de patrón/evento.
 La primera parte de la unidad 8 valida composición en HTTP, conserva el resultado
-original y entrega dataclasses al motor. Siguiente: PATCH de campos restantes.
+original y entrega dataclasses al motor. El segundo incremento lleva PATCH de
+dashboards al repositorio transaccional, sin añadir capas que repitan la operación.
+Siguiente: contratos PATCH de paneles.
 
 ## 1. Dictamen
 

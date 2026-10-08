@@ -52,7 +52,9 @@ conflictos concurrentes. Su [tercera unidad](architecture/sqlviz-panel-dimension
 valida dimensiones, conserva el gráfico ante rechazo y separa el aprendizaje
 opcional del guardado. La [primera parte de la unidad 8](architecture/sqlviz-composition-contract.md)
 valida composición en HTTP y conserva los resultados de autor/viewers. El
-siguiente foco es PATCH de otros campos, antes del contrato visual.
+[segundo incremento](architecture/sqlviz-dashboard-patch.md) valida PATCH de
+dashboards con omisión/null y guardado atómico. El siguiente foco es PATCH de
+paneles, antes del contrato visual.
 La evidencia local no reemplaza CI.
 
 El [flujo de Git](architecture/sqlviz-git-workflow.md) recoge la autorización
