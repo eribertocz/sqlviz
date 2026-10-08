@@ -52,9 +52,16 @@ tardía no reemplaza el dashboard actual. Se descartan también filtros pendient
 al navegar y resultados de filtros de una vista abandonada. Esto no cancela
 trabajo ya iniciado en el servidor ni añade caché persistente.
 
-El sidebar tiene un acceso directo en la esquina superior izquierda: el logo
-como único elemento visible de un botón, con nombre Mostrar/Ocultar y
-`aria-expanded`. Ese botón mantiene la posición en escritorio y sirve para
+El sidebar tiene un acceso directo en la esquina superior izquierda: un único
+botón muestra el logo en reposo y, al pasar el mouse o recibir foco visible por
+teclado, lo sustituye por el icono de abrir/cerrar según `aria-expanded`.
+En dispositivos sin hover o con puntero táctil, el icono funcional permanece
+visible. Las dos representaciones se superponen dentro del mismo botón, con
+una transición breve de opacidad y sin animación si se solicita movimiento reducido.
+Su nombre accesible Mostrar/Ocultar siempre describe la acción disponible.
+Ambos iconos usan siempre `--sqlviz-primary`, el mismo índigo del logo, tanto
+en reposo como con hover/foco y en ambos estados de navegación.
+Ese botón mantiene la posición en escritorio y sirve para
 abrir/cerrar. La cabecera del workspace se encuentra por encima de sidebar y
 canvas; abrir el panel no desplaza el control hacia la derecha. El botón mide
 36 × 36 px en escritorio y 44 × 44 px en móvil. En el sidebar se muestra
@@ -141,6 +148,16 @@ build estático y revisión Chromium: ancla estable y 260 px recuperados en
 escritorio; cabecera a 390/320 px, búsqueda enfocada y cierre/foco móvil.
 La simplificación posterior a un único logo/control y cierre solo en modal pasa
 28 pruebas específicas de navegación/explorador, sin diagnósticos Svelte.
+El cambio posterior de logo a icono según hover/foco pasa esas mismas 28 pruebas,
+check sin errores/advertencias y build estático. Chromium con API aislada en
+memoria comprueba el icono correcto al abrir/cerrar, ancla estable, Enter/Espacio,
+movimiento reducido y tap/foco en móvil táctil de 390 px, para workspace,
+Preview y editor. Sin errores de página. Reporte/capturas en
+`build/navigation-hover-review`, ignorado por Git; el servidor de ensayo se cerró.
+El ajuste de color conserva el índigo exacto del logo (`#5B5BD6`) en ambos
+iconos. Check y build pasan; Chromium verifica el stroke en los dos temas,
+abierto/cerrado y con/sin hover, además de un dispositivo táctil. Evidencia en
+`build/navigation-hover-review/color-report.json`; sin errores de página.
 Los registros siguientes
 corresponden a entregas anteriores, incluida la variante con flechas.
 

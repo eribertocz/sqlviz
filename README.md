@@ -36,6 +36,8 @@ without opening the sidebar or reducing the dashboard canvas. Filters are edited
 in a temporary panel and applied together; failed updates retain confirmed data
 and criteria. A compact logo button at the top left opens or closes the
 library; appearance and secondary actions remain under view options.
+The logo reveals the open/close icon on hover or keyboard focus; touch devices
+keep that action icon visible in the same button.
 See [implemented behavior and validation](docs/architecture/sqlviz-navigation.md).
 See [reader context, architecture and limits](docs/architecture/sqlviz-reader-context.md).
 Screen-fit page layouts and broader visual customization remain planned.

@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- El logo de navegación muestra el icono de abrir/cerrar al pasar el mouse o
+  recibir foco de teclado; en táctil el icono permanece visible. Conserva un
+  único botón, su tamaño y la preferencia de movimiento reducido; ambos iconos
+  comparten el color índigo del logo.
 - Contrato HTTP tipado de composición, adaptación explícita a dataclasses y
   esquema OpenAPI; conserva resultados originales y etiquetas de ejes.
 - Cabecera compacta de Preview y viewers: selector del título, filtros bajo
