@@ -2,7 +2,8 @@
 
 **Estado:** BP-04 implementado localmente el 2026-10-07. Es la primera parte de
 la unidad 8 de E1; el [PATCH de dashboards](sqlviz-dashboard-patch.md) se implementa
-en el segundo incremento y los PATCH de paneles siguen pendientes. No modifica el archivo
+en el segundo incremento; el [PATCH básico del panel](sqlviz-panel-patch.md) en
+el tercero. Presentación y revisión de overrides siguen pendientes. No modifica el archivo
 `.sqlviz`, el algoritmo de inferencia ni la edición visual.
 
 ## Responsabilidad y límites
@@ -82,7 +83,8 @@ comprueban el alcance de viewers y la persistencia de tamaños manuales.
 
 El segundo incremento entrega [PATCH de dashboards](sqlviz-dashboard-patch.md):
 presencia/omisión/null, tipos y límites antes de escribir y escritura atómica.
-Los contratos PATCH de paneles son el siguiente incremento.
+Los campos básicos del panel se entregan en el [tercer incremento](sqlviz-panel-patch.md).
+Presentación y revisión de overrides son el siguiente foco.
 BP-04 no cierra E1 ni certifica calidad de inferencia, usabilidad o rendimiento.
 
 Validación local del 2026-10-07:

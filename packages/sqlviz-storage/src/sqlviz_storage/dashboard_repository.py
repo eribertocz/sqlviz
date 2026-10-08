@@ -10,13 +10,13 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import duckdb
 from sqlviz_core.models.dashboards import Dashboard, DashboardChanges, normalize_dashboard_changes
 
 from sqlviz_storage.folder_repository import FolderRepository
+from sqlviz_storage.timestamps import modification_timestamp
 from sqlviz_storage.transactions import project_transaction
 
 _SELECT = (
@@ -44,14 +44,6 @@ class DashboardWriteConflict(Exception):
     """The whole write was rolled back; the caller may refresh and retry."""
 
 
-def _modified_at(previous: str) -> str:
-    now = datetime.now(timezone.utc)
-    modified_at = now.isoformat(timespec="microseconds")
-    if modified_at == previous:
-        modified_at = (now + timedelta(microseconds=1)).isoformat(timespec="microseconds")
-    return modified_at
-
-
 @contextmanager
 def dashboard_write(db: duckdb.DuckDBPyConnection, dashboard_id: str) -> Iterator[None]:
     """Validate and fence the parent, then commit all writes or roll them back.
@@ -70,7 +62,7 @@ def dashboard_write(db: duckdb.DuckDBPyConnection, dashboard_id: str) -> Iterato
             ).fetchone()
             if row is None:
                 raise DashboardNotFound("Dashboard not found")
-            modified_at = _modified_at(row[0])
+            modified_at = modification_timestamp(row[0])
             db.execute(
                 "UPDATE dashboards SET updated_at = ? WHERE id = ?", [modified_at, dashboard_id],
             )
@@ -115,7 +107,7 @@ class DashboardRepository:
             with transaction:
                 previous = self.get(dashboard_id)
                 values: dict[str, object] = dict(normalized)
-                values["updated_at"] = _modified_at(previous.updated_at)
+                values["updated_at"] = modification_timestamp(previous.updated_at)
                 # Field names are whitelisted by core; values are always bound.
                 assignments = ", ".join(f"{column} = ?" for column in values)
                 self._db.execute(
@@ -129,6 +121,14 @@ class DashboardRepository:
 
     def delete(self, dashboard_id: str) -> DashboardDeletion:
         with dashboard_write(self._db, dashboard_id):
+            # UPDATE vs DELETE alone does not reliably conflict. Fence the same
+            # timestamp used by panel editing before removing any owned rows.
+            modified_at = modification_timestamp("")
+            alternate = modification_timestamp(modified_at)
+            self._db.execute(
+                "UPDATE panels SET updated_at = CASE WHEN updated_at = ? THEN ? ELSE ? END "
+                "WHERE dashboard_id = ?", [modified_at, alternate, modified_at, dashboard_id],
+            )
             self._db.execute("DELETE FROM panels WHERE dashboard_id = ?", [dashboard_id])
             tokens = self._db.execute(
                 "DELETE FROM shares WHERE dashboard_id = ? RETURNING token", [dashboard_id],

@@ -14,7 +14,9 @@ tienen corrección posterior; BP-03 también está corregido y BP-05 para ubicac
 [contrato tipado de composición](sqlviz-composition-contract.md).
 El [PATCH de dashboards](sqlviz-dashboard-patch.md) también valida campos en core
 y HTTP, distingue omisión/null y confirma campos/ubicación en una transacción.
-PATCH de paneles y contratos de adaptadores siguen pendientes.
+El [PATCH básico de paneles](sqlviz-panel-patch.md) valida nombre/SQL/orden y los
+actualiza de forma atómica; los borrados participan en la protección de la fila.
+Presentación, revisión de overrides y contratos de adaptadores siguen pendientes.
 
 La [cuarta unidad de E0](sqlviz-parameters-and-quality.md) mueve validación de
 valores a core y planificación de filtros a un servicio sin FastAPI; usa AST
@@ -31,7 +33,8 @@ en UI. El aprendizaje opcional tiene su propia transacción de patrón/evento.
 La primera parte de la unidad 8 valida composición en HTTP, conserva el resultado
 original y entrega dataclasses al motor. El segundo incremento lleva PATCH de
 dashboards al repositorio transaccional, sin añadir capas que repitan la operación.
-Siguiente: contratos PATCH de paneles.
+El tercero lleva campos básicos del panel al repositorio y prueba edición/borrado
+concurrentes sin serializar paneles distintos. Siguiente: presentación y overrides.
 
 ## 1. Dictamen
 

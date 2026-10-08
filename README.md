@@ -68,7 +68,10 @@ manual dimensions. See [the composition contract](docs/architecture/sqlviz-compo
 Dashboard PATCH now validates strict fields, distinguishes omission from explicit
 clearing, preserves exact SQL drafts, and commits all changes atomically.
 See [the dashboard PATCH contract](docs/architecture/sqlviz-dashboard-patch.md).
-Panel PATCH contracts are the next E1 increment.
+Basic panel PATCH now validates name/SQL/order, preserves visual settings and
+commits atomically. Panel and dashboard deletion also conflict with active panel
+edits. See [the basic panel contract](docs/architecture/sqlviz-panel-patch.md).
+Presentation PATCH and the remaining override review are the next E1 increment.
 
 ## Architecture today
 

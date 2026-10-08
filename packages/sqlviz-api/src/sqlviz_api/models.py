@@ -17,6 +17,7 @@ from sqlviz_core.models.dashboards import (
     normalize_dashboard_changes,
 )
 from sqlviz_core.models.panel_overrides import validate_override
+from sqlviz_core.models.panels import MAX_PANEL_NAME_LENGTH, PanelChanges, validate_panel_changes
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -142,9 +143,20 @@ class PanelCreate(BaseModel):
 
 
 class PanelUpdate(BaseModel):
-    name: str | None = None
+    model_config = ConfigDict(extra="forbid", strict=True)
+    name: str | None = Field(default=None, min_length=1, max_length=MAX_PANEL_NAME_LENGTH)
     sql_content: str | None = None
-    sort_order: int | None = None
+    sort_order: int | None = Field(default=None, ge=-(2**31), le=2**31 - 1)
+
+    def changes(self) -> PanelChanges:
+        changes = cast(PanelChanges, self.model_dump(exclude_unset=True))
+        validate_panel_changes(changes)
+        return changes
+
+    @model_validator(mode="after")
+    def validate_changes(self) -> Self:
+        self.changes()
+        return self
 
 
 class PanelResponse(BaseModel):

@@ -33,7 +33,7 @@ pequeñas con su propia evidencia antes de pasar a la siguiente:
 
 | Orden | Capacidad pendiente | Qué debe demostrar el cierre |
 | --- | --- | --- |
-| 1 — En curso, unidad 8 | Completar PATCH de paneles | Composición tipada (BP-04) y PATCH de dashboards entregados localmente; completar tipos, límites, omisión/null y atomicidad de paneles |
+| 1 — En curso, unidad 8 | Presentación y revisión de overrides de paneles | Composición, PATCH de dashboards y campos básicos del panel entregados localmente; completar tipos, límites, omisión/null y atomicidad de ajustes visuales |
 | 2 — Unidad 9 | Migraciones y dependencias | Cambios de esquema probados sobre copias, rollback/fallo explícitos; storage no depende de inference ni de su memoria global |
 | 3 — Unidad 10, por incrementos | Dataset mínimo, identidad y configuración visual persistida | Dataset/visual/panel separados; varias visualizaciones reutilizan una definición; reordenar/editar SQL no transfiere ajustes; revisiones, campos y layout sobreviven a reapertura y compartir; contrato preparado para opciones expertas |
 | 4 — Completar unidad 11 | Definiciones de filtros versionadas | ID, tipos, defaults del autor, rangos con bindings explícitos y alcance por panel; reset restaura defaults reales; la inferencia no pisa decisiones publicadas |
@@ -122,7 +122,8 @@ el mismo significado y la configuración guardada.
   **BP-03 entregado:** [dimensiones y overrides](sqlviz-panel-dimensions.md).
   **BP-04 entregado localmente:** [composición tipada](sqlviz-composition-contract.md).
   **PATCH de dashboards entregado localmente:** [tipos, omisión/null y atomicidad](sqlviz-dashboard-patch.md).
-  **Foco siguiente:** contratos PATCH de paneles.
+  **Campos básicos del panel entregados localmente:** [PATCH y coordinación con borrado](sqlviz-panel-patch.md).
+  **Foco siguiente:** contratos de presentación y revisión de overrides de paneles.
 - Verificar dirección de imports e instalación independiente de paquetes;
   eliminar la dependencia no declarada storage → inference. Definir resultado
   del guardado de overrides cuando falle el aprendizaje secundario.
@@ -269,7 +270,7 @@ con la que comparar resultados.
 | 5 — Entregado localmente | Borrado atómico del dashboard y sus elementos (BP-01) | 25 casos nuevos: rollback, reapertura, concurrencia y sesiones |
 | 6 — Entregado localmente | Jerarquía y PATCH/null de ubicación (BP-02/BP-05 parcial) | 93 casos nuevos, promociones atómicas y reapertura; UI a raíz/delete conserva gráficos y acceso |
 | 7 — Entregado localmente | Dimensiones y overrides válidos (BP-03) | 49 casos Python y 9 frontend nuevos; rechazo/reapertura; navegador comprueba guardado, viewer y reset |
-| 8 — Parcial | Composición tipada (BP-04) y PATCH de campos restantes | Composición y PATCH de dashboards entregados localmente; tipos, límites y atomicidad de PATCH de paneles pendientes |
+| 8 — Parcial | Composición tipada (BP-04) y PATCH de campos restantes | Composición, PATCH de dashboards y campos básicos del panel entregados localmente; presentación y revisión de overrides pendientes |
 | 9 | Migraciones y límites de dependencias | Fallo explícito, rollback y ensayo sobre copias; storage independiente de inference |
 | 10 — Por incrementos | Dataset mínimo, revisión de visualizaciones/paneles y configuración visual persistida | Reutilizar una definición sin duplicar SQL; revisiones fijadas y opciones expertas previstas; reabrir, reordenar, filtrar y compartir sin perder ajustes |
 | 11 — Parcial | Definiciones y runtime compartido de filtros | Runtime compatible entregado; definiciones/tipos/defaults publicados pendientes |

@@ -10,7 +10,7 @@ from unittest.mock import Mock
 
 import duckdb
 import pytest
-import sqlviz_storage.dashboard_repository as repository_module
+import sqlviz_storage.timestamps as timestamps_module
 from sqlviz_storage.dashboard_repository import (
     DashboardNotFound,
     DashboardRepository,
@@ -237,7 +237,7 @@ def test_equal_clock_value_still_performs_a_real_parent_write(db, monkeypatch) -
         def now(cls, tz=None):
             return fixed
 
-    monkeypatch.setattr(repository_module, "datetime", FixedClock)
+    monkeypatch.setattr(timestamps_module, "datetime", FixedClock)
     db.execute("UPDATE dashboards SET updated_at = ? WHERE id = 'a'", [fixed.isoformat()])
     # Use exactly the same microsecond format the writer will produce.
     db.execute("UPDATE dashboards SET updated_at = ? WHERE id = 'a'",

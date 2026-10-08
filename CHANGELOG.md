@@ -66,6 +66,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- PATCH básico de paneles valida nombre, SQL y orden sin coerción; rechaza null
+  y campos desconocidos antes de escribir, conserva ajustes visuales y SQL exacto,
+  y guarda en una transacción. PATCH vacío no cambia fechas. Borrados de panel y
+  dashboard protegen las filas frente a edición concurrente y revierten con 409.
 - PATCH de dashboards rechaza tipos, campos y límites inválidos antes de guardar;
   distingue omisión/null y conserva SQL exacto. Actualización de campos, ubicación
   y timestamp es atómica, con rollback y conflictos 409; PATCH vacío no escribe.

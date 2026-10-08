@@ -19,6 +19,7 @@ import sqlviz_inference
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 from sqlviz_core.models import ColumnSchema
+from sqlviz_core.models.panels import Panel
 from sqlviz_inference.dashboard.dashboard_classifier import classify_dashboard
 from sqlviz_inference.filters.domain import build_domain_query
 from sqlviz_inference.filters.parameters import filter_parameter_names
@@ -30,6 +31,7 @@ from sqlviz_storage.override_system import (
     clear_override,
     store_inference,
 )
+from sqlviz_storage.panel_repository import PanelRepository
 from sqlviz_storage.panel_view_overrides import (
     apply_view_overrides,
     get_view_overrides,
@@ -70,41 +72,13 @@ def _require_viewer_query(sql: str) -> None:
     except AccessDenied as exc:
         raise HTTPException(exc.status_code, exc.detail) from None
 
-_SELECT = (
-    "SELECT id, dashboard_id, name, sql_content, sort_order, created_at, updated_at,"
-    " fingerprint,"
-    " inferred_chart_type, selected_chart_type, chart_user_override,"
-    " inferred_col_span,   selected_col_span,   col_span_user_override,"
-    " inferred_height_px,  selected_height_px,  height_user_override "
-    "FROM panels"
-)
-
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-
-def _row_to_response(row: tuple[Any, ...]) -> PanelResponse:
-    return PanelResponse(
-        id=row[0],
-        dashboard_id=row[1],
-        name=row[2],
-        sql_content=row[3],
-        sort_order=row[4],
-        created_at=row[5],
-        updated_at=row[6],
-        fingerprint=row[7],
-        inferred_chart_type=row[8],
-        selected_chart_type=row[9],
-        chart_user_override=row[10],
-        inferred_col_span=row[11],
-        selected_col_span=row[12],
-        col_span_user_override=row[13],
-        inferred_height_px=row[14],
-        selected_height_px=row[15],
-        height_user_override=row[16],
-    )
+def _to_response(panel: Panel) -> PanelResponse:
+    return PanelResponse(**dataclasses.asdict(panel))
 
 
 def _require_dashboard(db: DbDep, dashboard_id: str) -> None:
@@ -119,12 +93,7 @@ def _require_dashboard(db: DbDep, dashboard_id: str) -> None:
 
 
 def _fetch_one(db: DbDep, panel_id: str) -> PanelResponse:
-    row = db.execute(
-        f"{_SELECT} WHERE id = ?", [panel_id]
-    ).fetchone()
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"Panel '{panel_id}' not found")
-    return _row_to_response(row)
+    return _to_response(PanelRepository(db).get(panel_id))
 
 
 @router.get("", response_model=list[PanelResponse])
@@ -139,16 +108,7 @@ def list_panels(
             raise HTTPException(403, "Viewer requests require a dashboard_id")
         require_dashboard_access(principal, dashboard_id)
         _require_dashboard(db, dashboard_id)
-    if dashboard_id is not None:
-        rows = db.execute(
-            f"{_SELECT} WHERE dashboard_id = ? ORDER BY sort_order, created_at",
-            [dashboard_id],
-        ).fetchall()
-    else:
-        rows = db.execute(
-            f"{_SELECT} ORDER BY sort_order, created_at"
-        ).fetchall()
-    return [_row_to_response(r) for r in rows]
+    return [_to_response(panel) for panel in PanelRepository(db).list(dashboard_id)]
 
 
 @router.post("", response_model=PanelResponse, status_code=201)
@@ -181,29 +141,12 @@ def get_panel(panel_id: str, db: DbDep, principal: ReaderDep) -> PanelResponse:
 
 @router.patch("/{panel_id}", response_model=PanelResponse)
 def update_panel(panel_id: str, body: PanelUpdate, db: DbDep, _admin: AdminDep) -> PanelResponse:
-    _fetch_one(db, panel_id)  # raises 404 if missing
-
-    updates: dict[str, str | int] = {}
-    if body.name is not None:
-        updates["name"] = body.name
-    if body.sql_content is not None:
-        updates["sql_content"] = body.sql_content
-    if body.sort_order is not None:
-        updates["sort_order"] = body.sort_order
-    updates["updated_at"] = _now()
-
-    set_clause = ", ".join(f"{col} = ?" for col in updates)
-    db.execute(
-        f"UPDATE panels SET {set_clause} WHERE id = ?",
-        [*updates.values(), panel_id],
-    )
-    return _fetch_one(db, panel_id)
+    return _to_response(PanelRepository(db).update(panel_id, body.changes()))
 
 
 @router.delete("/{panel_id}", status_code=204)
 def delete_panel(panel_id: str, db: DbDep, _admin: AdminDep) -> None:
-    _fetch_one(db, panel_id)  # raises 404 if missing
-    db.execute("DELETE FROM panels WHERE id = ?", [panel_id])
+    PanelRepository(db).delete(panel_id)
 
 
 def _update_dashboard_classification(

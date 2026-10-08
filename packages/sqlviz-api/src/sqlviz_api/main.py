@@ -46,6 +46,7 @@ from sqlviz_core.models.parameters import ParameterError, ParameterLimits
 from sqlviz_core.version import __version__
 from sqlviz_storage.dashboard_repository import DashboardNotFound, DashboardWriteConflict
 from sqlviz_storage.folder_repository import FolderWriteConflict
+from sqlviz_storage.panel_repository import PanelNotFound, PanelWriteConflict
 
 from sqlviz_api.quack_server import QuackConnectionRouter
 from sqlviz_api.request_limits import RequestBodyLimitMiddleware
@@ -115,6 +116,19 @@ def create_app(
             "detail": "Dashboard changed concurrently or has a conflicting dependency. "
                       "Refresh and retry.",
             "code": "dashboard_write_conflict",
+        })
+    @app.exception_handler(PanelNotFound)
+    async def _panel_missing(request: Request, exc: PanelNotFound) -> JSONResponse:
+        return JSONResponse(status_code=404, content={
+            "detail": "Panel not found", "code": "panel_not_found",
+        })
+
+    @app.exception_handler(PanelWriteConflict)
+    async def _panel_conflict(request: Request, exc: PanelWriteConflict) -> JSONResponse:
+        return JSONResponse(status_code=409, content={
+            "detail": "Panel changed concurrently or has a conflicting dependency. "
+                      "Refresh and retry.",
+            "code": "panel_write_conflict",
         })
     app.add_middleware(RequestBodyLimitMiddleware)
 

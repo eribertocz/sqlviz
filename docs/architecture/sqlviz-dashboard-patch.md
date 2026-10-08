@@ -2,7 +2,8 @@
 
 **Estado:** implementado localmente el 2026-10-07, como segundo incremento de
 la unidad 8 de E1, después de [composición tipada](sqlviz-composition-contract.md).
-Los PATCH de paneles siguen pendientes. No cambia el esquema `.sqlviz`, el
+El [PATCH básico del panel](sqlviz-panel-patch.md) se implementa en el tercer
+incremento; presentación y revisión de overrides siguen pendientes. No cambia el esquema `.sqlviz`, el
 algoritmo de inferencia ni el contrato visual aceptado para el Studio.
 
 ## Semántica de actualización

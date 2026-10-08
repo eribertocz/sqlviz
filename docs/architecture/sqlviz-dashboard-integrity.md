@@ -1,7 +1,7 @@
 # Integridad del borrado de dashboards
 
-**Actualizado:** 2026-10-06. **Estado:** primera unidad de E1 implementada en el
-árbol de trabajo. Corrige BP-01; el resto de E1 continúa pendiente.
+**Actualizado:** 2026-10-07. **Estado:** primera unidad de E1 implementada,
+con ampliación para edición de paneles. Corrige BP-01; el resto de E1 continúa pendiente.
 
 ## Comportamiento
 
@@ -45,6 +45,13 @@ genérico, un registro global de conexiones ni una jerarquía de interfaces sin
 un segundo adaptador que la necesite.
 
 ## Creación simultánea y transacciones
+
+**Ampliación del 2026-10-07:** el [PATCH básico de paneles](sqlviz-panel-patch.md)
+incorpora UPDATE de timestamps de los paneles antes del borrado del conjunto.
+Protege también frente a ediciones concurrentes, sin depender de que DELETE
+por sí solo provoque conflicto. Esa escritura adicional pertenece a la misma
+transacción y se revierte junto con todas las filas si falla. Paneles distintos
+pueden editarse simultáneamente; borrar su dashboard compite con cualquiera de ellos.
 
 Una transacción de borrado por sí sola no evita que otro request compruebe el
 padre, espere y cree un panel huérfano. `dashboard_write` establece una escritura
