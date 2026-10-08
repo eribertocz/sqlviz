@@ -59,6 +59,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Foco del buscador de dashboards/comandos rodea el campo completo con la lupa,
+  evitando el marco rectangular interior; conserva el espacio exterior.
 - Items de búsqueda de dashboards y comandos resaltan en índigo suave al pasar
   el mouse o navegar con teclado; el fondo anterior coincidía con el diálogo.
 - CI entrega el build verificado del frontend a los jobs Python antes de probar

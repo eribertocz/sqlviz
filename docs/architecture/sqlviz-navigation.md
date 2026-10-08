@@ -65,6 +65,9 @@ Los items de búsqueda y comandos comparten el resaltado `bg-accent` cuando
 Bits UI selecciona una opción por mouse o teclado; `bg-muted` coincidía con el
 fondo del diálogo. El componente compartido conserva los items deshabilitados
 sin interacción y no añade un estado de hover separado de la selección de teclado.
+El buscador conserva 8 px de espacio exterior (4 px de la raíz y 4 px del
+wrapper). El foco se dibuja sobre el grupo redondeado que contiene lupa y texto,
+sin marco adicional en el input interior; este se ajusta al alto del grupo.
 Ese botón mantiene la posición en escritorio y sirve para
 abrir/cerrar. La cabecera del workspace se encuentra por encima de sidebar y
 canvas; abrir el panel no desplaza el control hacia la derecha. El botón mide
@@ -167,6 +170,12 @@ La corrección del resaltado de items pasa check sin diagnósticos, build y las
 acciones con mouse, selección por flechas, búsqueda/Enter y selector del viewer
 en temas claro y oscuro; sin errores de página. Evidencia en
 `build/command-hover-review`, ignorado por Git, con API de ensayo en memoria.
+El ajuste de foco del buscador pasa check sin diagnósticos, build y las mismas
+25 pruebas. Chromium verifica foco automático, un único marco en el grupo,
+8 px de espacio lateral, input contenido, búsqueda/Enter y selección por flechas
+en el diálogo claro/oscuro y el selector de workspace de escritorio/táctil;
+sin overflow ni errores de página. Evidencia en `build/command-focus-review`,
+ignorado por Git; la API de ensayo en memoria se cerró.
 Los registros siguientes
 corresponden a entregas anteriores, incluida la variante con flechas.
 
