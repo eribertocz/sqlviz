@@ -23,6 +23,7 @@ export function createDashboardStore() {
     let viewGeneration = 0;
     let domainGeneration = 0;
     let sizeWrites: Promise<void> = Promise.resolve();
+    let presentationWrites: Promise<void> = Promise.resolve();
     let dashboardId      = $state<string | null>(null);
     let allDashboards    = $state<DashboardInfo[]>([]);
     let folders          = $state<FolderInfo[]>([]);
@@ -832,18 +833,64 @@ export function createDashboardStore() {
 
     /**
      * Presentation override (panel title / axis label). Patches the local layout
-     * optimistically, then persists so it survives reload AND appears in shared
-     * viewers (the API overlays it onto every execute).
+     * after confirmation, so rejected writes never replace the current chart.
+     * Returns an actionable error while the input retains its unsaved draft.
      */
-    async function setViewOverride(panelId: string, field: 'title' | 'x_label' | 'y_label', value: string) {
-        const v = value.trim();
-        if (field === 'title') patchPanelResult(panelId, { title: v || undefined });
-        else patchPanelVisualSpec(panelId, { [field]: v || null });
-        try {
-            await apiPatch(`/api/v1/panels/${panelId}/view-override`, { field, value: v });
-        } catch {
-            // Non-fatal: the next execute reconciles from the persisted value.
-        }
+    function setViewOverride(
+        panelId: string, field: 'title' | 'x_label' | 'y_label', value: string,
+    ): Promise<string | null> {
+        const generation = viewGeneration;
+        const targetDashboard = dashboardId;
+        const current = () => generation === viewGeneration && targetDashboard === dashboardId;
+        const task = presentationWrites.then(async () => {
+            try {
+                let saved: { field: string; value: string | null };
+                try {
+                    saved = await apiPatch(`/api/v1/panels/${panelId}/view-override`, { field, value });
+                } catch (cause: unknown) {
+                    const reason = cause instanceof Error ? cause.message : 'Could not save.';
+                    return `${reason} Your text is kept; retry when ready.`;
+                }
+                if (!current()) return null;
+                if (field === 'title' && saved.value === null) {
+                    // An incoming result already contains its persisted title:
+                    // clearing it requires the engine's actual automatic title.
+                    const snapshot = executedResults;
+                    try {
+                        const exec = await apiPost<{
+                            inference_result: InferenceResult; data: Record<string, unknown>[];
+                        }>(`/api/v1/panels/${panelId}/execute`, { variables: { ...filterValues.current } });
+                        if (!current() || snapshot !== executedResults) return null;
+                        const next = snapshot.map(r => r.panel_id === panelId ? { ...r, ...exec } : r);
+                        const composed = await recompose(next);
+                        if (current() && snapshot === executedResults) {
+                            executedResults = next;
+                            layout = composed;
+                        }
+                    } catch {
+                        return 'Title reset saved. Could not refresh the chart; retry or run it again.';
+                    }
+                } else if (field === 'title') {
+                    patchPanelResult(panelId, { title: saved.value! });
+                    patchExecutedResult(panelId, { title: saved.value! });
+                } else {
+                    patchPanelVisualSpec(panelId, { [field]: saved.value });
+                    executedResults = executedResults.map(r =>
+                        r.panel_id === panelId && r.inference_result.visual_spec
+                            ? { ...r, inference_result: { ...r.inference_result, visual_spec: {
+                                ...r.inference_result.visual_spec, [field]: saved.value,
+                            } } } : r,
+                    );
+                }
+                return null;
+            } finally {
+                // Navigation may have cached the old chart while the save was
+                // pending. Also invalidate after an ambiguous transport failure.
+                if (targetDashboard) dashboardCache.invalidate(targetDashboard);
+            }
+        });
+        presentationWrites = task.then(() => {}, () => {});
+        return task;
     }
 
     /** Session-only X/Y axis override — mutates the panel's visual_spec. */

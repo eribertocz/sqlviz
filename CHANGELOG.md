@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Breaking
+
+- `PATCH /panels/{id}/view-override` exige `value` explícito: solicitudes que
+  enviaban solo `field` ahora reciben 422. Para borrar, enviar `value: null` o
+  `value: ""`. Texto de más de 512 caracteres, solo espacios o campos extra
+  también se rechazan; los clientes deben corregir esas entradas.
+
 ### Added
 
 - El logo de navegación muestra el icono de abrir/cerrar al pasar el mouse o
@@ -66,6 +73,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- Presentación de paneles valida título/etiquetas con valor obligatorio, hasta
+  512 caracteres y sin coerción; null/vacío restaura automático. Guarda ajuste
+  y fecha en una transacción, con rollback y coordinación frente a borrado.
+- Inspector y etiquetas sobre el gráfico comparten guardado confirmado:
+  conservan el texto al fallar y ofrecen reintento con errores legibles.
+  Restablecer el título consulta la inferencia real con los filtros actuales;
+  distingue guardado exitoso de un fallo posterior al actualizar el gráfico.
 - PATCH básico de paneles valida nombre, SQL y orden sin coerción; rechaza null
   y campos desconocidos antes de escribir, conserva ajustes visuales y SQL exacto,
   y guarda en una transacción. PATCH vacío no cambia fechas. Borrados de panel y

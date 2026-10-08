@@ -16,7 +16,9 @@ El [PATCH de dashboards](sqlviz-dashboard-patch.md) también valida campos en co
 y HTTP, distingue omisión/null y confirma campos/ubicación en una transacción.
 El [PATCH básico de paneles](sqlviz-panel-patch.md) valida nombre/SQL/orden y los
 actualiza de forma atómica; los borrados participan en la protección de la fila.
-Presentación, revisión de overrides y contratos de adaptadores siguen pendientes.
+El [contrato de presentación](sqlviz-panel-presentation.md) valida títulos y
+etiquetas, reutiliza esa transacción y confirma el guardado en UI con recuperación
+de errores. La revisión de overrides y los contratos de adaptadores siguen pendientes.
 
 La [cuarta unidad de E0](sqlviz-parameters-and-quality.md) mueve validación de
 valores a core y planificación de filtros a un servicio sin FastAPI; usa AST
@@ -34,7 +36,8 @@ La primera parte de la unidad 8 valida composición en HTTP, conserva el resulta
 original y entrega dataclasses al motor. El segundo incremento lleva PATCH de
 dashboards al repositorio transaccional, sin añadir capas que repitan la operación.
 El tercero lleva campos básicos del panel al repositorio y prueba edición/borrado
-concurrentes sin serializar paneles distintos. Siguiente: presentación y overrides.
+concurrentes sin serializar paneles distintos. El cuarto extiende esa operación
+a presentación y unifica sus controles de guardado. Siguiente: revisión de overrides.
 
 ## 1. Dictamen
 

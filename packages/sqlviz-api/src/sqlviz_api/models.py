@@ -17,6 +17,11 @@ from sqlviz_core.models.dashboards import (
     normalize_dashboard_changes,
 )
 from sqlviz_core.models.panel_overrides import validate_override
+from sqlviz_core.models.panel_presentation import (
+    MAX_PRESENTATION_TEXT_LENGTH,
+    PresentationField,
+    normalize_presentation_value,
+)
 from sqlviz_core.models.panels import MAX_PANEL_NAME_LENGTH, PanelChanges, validate_panel_changes
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -178,6 +183,9 @@ class PanelResponse(BaseModel):
     inferred_height_px: int | None = None
     selected_height_px: int | None = None
     height_user_override: int | None = None
+    view_title: str | None = None
+    view_x_label: str | None = None
+    view_y_label: str | None = None
 
 
 class PanelOverrideRequest(BaseModel):
@@ -195,8 +203,21 @@ class PanelOverrideRequest(BaseModel):
 
 
 class PanelViewOverrideRequest(BaseModel):
-    field: str            # "title" | "x_label" | "y_label"
-    value: str | None = None   # "" / None clears the override
+    model_config = ConfigDict(extra="forbid", strict=True)
+    field: PresentationField
+    value: str | None = Field(max_length=MAX_PRESENTATION_TEXT_LENGTH)
+
+    @model_validator(mode="after")
+    def validate_value(self) -> Self:
+        normalize_presentation_value(self.field, self.value)
+        return self
+
+
+class PanelViewOverrideResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+    field: PresentationField
+    value: str | None
+    updated_at: str
 
 
 class ExecuteBody(BaseModel):

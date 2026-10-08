@@ -7,6 +7,21 @@ export type ExecResult = {
     data: Record<string, unknown>[];
 };
 
+/** Keep server validation messages readable without rendering raw JSON values. */
+async function responseError(response: Response): Promise<Error> {
+    const body: unknown = await response.json().catch(() => null);
+    const detail = body && typeof body === 'object' && 'detail' in body ? body.detail : null;
+    if (typeof detail === 'string') return new Error(detail);
+    if (Array.isArray(detail)) {
+        const messages = detail.flatMap(item =>
+            item && typeof item === 'object' && 'msg' in item && typeof item.msg === 'string'
+                ? [item.msg] : [],
+        );
+        if (messages.length) return new Error(messages.slice(0, 3).join('; '));
+    }
+    return new Error(`${response.status} ${response.statusText}`.trim());
+}
+
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
     const r = await fetch(path, {
         method: 'POST',
@@ -14,8 +29,7 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
         body:    body !== undefined ? JSON.stringify(body) : undefined,
     });
     if (!r.ok) {
-        const err = await r.json().catch(() => null) as { detail?: string } | null;
-        throw new Error(err?.detail ?? `${r.status} ${r.statusText}`);
+        throw await responseError(r);
     }
     return r.json() as Promise<T>;
 }
@@ -46,8 +60,7 @@ export async function recompose(
 export async function apiGet<T>(path: string): Promise<T> {
     const r = await fetch(path);
     if (!r.ok) {
-        const err = await r.json().catch(() => null) as { detail?: string } | null;
-        throw new Error(err?.detail ?? `${r.status} ${r.statusText}`);
+        throw await responseError(r);
     }
     return r.json() as Promise<T>;
 }
@@ -55,8 +68,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 export async function apiDelete(path: string): Promise<void> {
     const r = await fetch(path, { method: 'DELETE' });
     if (!r.ok && r.status !== 204) {
-        const err = await r.json().catch(() => null) as { detail?: string } | null;
-        throw new Error(err?.detail ?? `${r.status} ${r.statusText}`);
+        throw await responseError(r);
     }
 }
 
@@ -67,8 +79,7 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
         body:    JSON.stringify(body),
     });
     if (!r.ok) {
-        const err = await r.json().catch(() => null) as { detail?: string } | null;
-        throw new Error(err?.detail ?? `${r.status} ${r.statusText}`);
+        throw await responseError(r);
     }
     return r.json() as Promise<T>;
 }

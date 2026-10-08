@@ -35,7 +35,6 @@ from sqlviz_storage.panel_repository import PanelRepository
 from sqlviz_storage.panel_view_overrides import (
     apply_view_overrides,
     get_view_overrides,
-    set_view_override,
 )
 
 from sqlviz_api.dependencies import DbDep, ParametersDep, QueriesDep
@@ -47,6 +46,7 @@ from sqlviz_api.models import (
     PanelResponse,
     PanelUpdate,
     PanelViewOverrideRequest,
+    PanelViewOverrideResponse,
 )
 from sqlviz_api.security import (
     AdminDep,
@@ -445,22 +445,23 @@ def override_panel(
     return _fetch_one(db, panel_id)
 
 
-@router.patch("/{panel_id}/view-override", status_code=200)
+@router.patch("/{panel_id}/view-override", response_model=PanelViewOverrideResponse)
 def set_panel_view_override(
     panel_id: str,
     body: PanelViewOverrideRequest,
     db: DbDep,
     _admin: AdminDep,
-) -> dict[str, str]:
+) -> PanelViewOverrideResponse:
     """Set a presentation override (panel title / axis label) on a panel.
 
     Persisted on the panel and overlaid onto the render contract by execute,
     so it shows in the admin app AND in shared viewers. field:
     "title" | "x_label" | "y_label"; value "" clears it.
     """
-    _fetch_one(db, panel_id)  # raises 404 if missing
-    try:
-        set_view_override(db, panel_id, body.field, body.value)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return {"status": "ok"}
+    saved = PanelRepository(db).set_presentation(panel_id, body.field, body.value)
+    values = {
+        "title": saved.view_title, "x_label": saved.view_x_label, "y_label": saved.view_y_label,
+    }
+    return PanelViewOverrideResponse(
+        field=body.field, value=values[body.field], updated_at=saved.updated_at,
+    )

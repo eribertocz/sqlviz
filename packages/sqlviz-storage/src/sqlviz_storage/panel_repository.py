@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import duckdb
+from sqlviz_core.models.panel_presentation import PresentationField, normalize_presentation_value
 from sqlviz_core.models.panels import Panel, PanelChanges, validate_panel_changes
 
 from sqlviz_storage.dashboard_repository import DashboardRepository
@@ -15,8 +16,13 @@ _SELECT = (
     "SELECT id, dashboard_id, name, sql_content, sort_order, created_at, updated_at,"
     " fingerprint, inferred_chart_type, selected_chart_type, chart_user_override,"
     " inferred_col_span, selected_col_span, col_span_user_override,"
-    " inferred_height_px, selected_height_px, height_user_override FROM panels"
+    " inferred_height_px, selected_height_px, height_user_override,"
+    " view_title, view_x_label, view_y_label FROM panels"
 )
+
+_PRESENTATION_COLUMNS: dict[PresentationField, str] = {
+    "title": "view_title", "x_label": "view_x_label", "y_label": "view_y_label",
+}
 
 
 def _from_row(row: tuple[Any, ...]) -> Panel:
@@ -28,6 +34,7 @@ def _from_row(row: tuple[Any, ...]) -> Panel:
         chart_user_override=row[10], inferred_col_span=row[11], selected_col_span=row[12],
         col_span_user_override=row[13], inferred_height_px=row[14], selected_height_px=row[15],
         height_user_override=row[16],
+        view_title=row[17], view_x_label=row[18], view_y_label=row[19],
     )
 
 
@@ -62,13 +69,23 @@ class PanelRepository:
         validate_panel_changes(changes)
         if not changes:
             return self.get(panel_id)
+        return self._update_fields(panel_id, dict(changes))
+
+    def set_presentation(
+        self, panel_id: str, field: PresentationField, value: str | None,
+    ) -> Panel:
+        normalized = normalize_presentation_value(field, value)
+        return self._update_fields(panel_id, {_PRESENTATION_COLUMNS[field]: normalized})
+
+    def _update_fields(self, panel_id: str, changes: dict[str, object]) -> Panel:
+        """Only validated public operations supply column names to this private writer."""
         try:
             with project_transaction(self._db):
                 previous = self.get(panel_id)
                 # Reject legacy orphans. Repository deletions fence updated_at
                 # before DELETE; a plain DELETE alone is not a reliable fence.
                 DashboardRepository(self._db).get(previous.dashboard_id)
-                values: dict[str, object] = dict(changes)
+                values = changes.copy()
                 values["updated_at"] = modification_timestamp(previous.updated_at)
                 assignments = ", ".join(f"{column} = ?" for column in values)
                 self._db.execute(

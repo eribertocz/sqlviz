@@ -55,8 +55,11 @@ valida composición en HTTP y conserva los resultados de autor/viewers. El
 [segundo incremento](architecture/sqlviz-dashboard-patch.md) valida PATCH de
 dashboards con omisión/null y guardado atómico. El
 [tercer incremento](architecture/sqlviz-panel-patch.md) valida nombre/SQL/orden
-del panel y coordina edición/borrado. El siguiente foco son los contratos de
-presentación y la revisión de overrides, antes del contrato visual.
+del panel y coordina edición/borrado. El
+[cuarto incremento](architecture/sqlviz-panel-presentation.md) valida títulos y
+etiquetas, guarda atómicamente y conserva borradores ante rechazo en el inspector
+y sobre el gráfico. El siguiente foco es la revisión de overrides, antes del
+contrato visual.
 La evidencia local no reemplaza CI.
 
 El [flujo de Git](architecture/sqlviz-git-workflow.md) recoge la autorización

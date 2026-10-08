@@ -12,21 +12,12 @@ Storage: three nullable columns on `panels` (NULL = use the inferred default).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 import duckdb
+from sqlviz_core.models.panel_presentation import PresentationField
 
-# public field name -> panels column
-_COLUMN: dict[str, str] = {
-    "title": "view_title",
-    "x_label": "view_x_label",
-    "y_label": "view_y_label",
-}
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+from sqlviz_storage.panel_repository import PanelRepository
 
 
 def set_view_override(
@@ -36,14 +27,7 @@ def set_view_override(
     value: str | None,
 ) -> None:
     """Set (or clear, with '' / None) one presentation field on a panel."""
-    if field not in _COLUMN:
-        raise ValueError(f"Unknown view-override field: {field!r}")
-    column = _COLUMN[field]
-    normalized = value if (value is not None and value != "") else None
-    conn.execute(
-        f"UPDATE panels SET {column} = ?, updated_at = ? WHERE id = ?",
-        [normalized, _now(), panel_id],
-    )
+    PanelRepository(conn).set_presentation(panel_id, cast(PresentationField, field), value)
 
 
 def get_view_overrides(conn: duckdb.DuckDBPyConnection, panel_id: str) -> dict[str, str | None]:

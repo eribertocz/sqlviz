@@ -2,7 +2,7 @@
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import type { DashboardPanel } from '$lib/types';
     import ChartSelectorPanel from './ChartSelectorPanel.svelte';
-    import { Input } from '$lib/components/ui/input/index.js';
+    import PanelPresentationInput from './PanelPresentationInput.svelte';
     import { Button } from '$lib/components/ui/button/index.js';
     import XIcon from '@lucide/svelte/icons/x';
     import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
@@ -17,26 +17,10 @@
         panel.data.length > 0 ? Object.keys(panel.data[0]) : []
     );
 
-    // ── Title ────────────────────────────────────────────────────────────────
-    let titleValue = $state('');
-    $effect(() => { titleValue = result.title ?? ''; });
-    function commitTitle() {
-        if (titleValue !== (result.title ?? '')) {
-            dashboardStore.setViewOverride(panel.panel_id, 'title', titleValue);
-        }
-    }
-
     // ── Axis titles ────────────────────────────────────────────────────────────
     const hasAxes = $derived(
         !!spec && ['line', 'bar', 'bar_horizontal', 'scatter', 'histogram'].includes(spec.chart_type)
     );
-    let xLabelValue = $state('');
-    let yLabelValue = $state('');
-    $effect(() => { xLabelValue = spec?.x_label ?? ''; });
-    $effect(() => { yLabelValue = spec?.y_label ?? ''; });
-    function commitXLabel() { dashboardStore.setViewOverride(panel.panel_id, 'x_label', xLabelValue); }
-    function commitYLabel() { dashboardStore.setViewOverride(panel.panel_id, 'y_label', yLabelValue); }
-
     // ── Panel SQL ──────────────────────────────────────────────────────────────
     const panelSql = $derived(
         dashboardStore.panelSQLs[dashboardStore.panelIds.indexOf(panel.panel_id)] ?? ''
@@ -130,8 +114,10 @@
         <!-- Title -->
         <section class="prop-section">
             <h3 class="section-title">Title</h3>
-            <Input bind:value={titleValue} placeholder="Panel title"
-                onblur={commitTitle} onkeydown={(e) => e.key === 'Enter' && commitTitle()} />
+            {#key panel.panel_id}
+                <PanelPresentationInput panelId={panel.panel_id} field="title" label="Panel title"
+                    value={result.title} placeholder="Panel title" />
+            {/key}
         </section>
 
         <!-- Axes -->
@@ -163,12 +149,12 @@
         {#if hasAxes}
             <section class="prop-section">
                 <h3 class="section-title">Axis titles</h3>
-                <label class="field-label" for="axis-x-label">X axis title</label>
-                <Input id="axis-x-label" bind:value={xLabelValue} placeholder={spec?.x_field ?? 'X'}
-                    onblur={commitXLabel} onkeydown={(e) => e.key === 'Enter' && commitXLabel()} />
-                <label class="field-label" for="axis-y-label">Y axis title</label>
-                <Input id="axis-y-label" bind:value={yLabelValue} placeholder={spec?.y_fields[0] ?? 'Y'}
-                    onblur={commitYLabel} onkeydown={(e) => e.key === 'Enter' && commitYLabel()} />
+                {#key panel.panel_id}
+                    <PanelPresentationInput panelId={panel.panel_id} field="x_label" label="X axis title"
+                        value={spec?.x_label} placeholder={spec?.x_field ?? 'X'} />
+                    <PanelPresentationInput panelId={panel.panel_id} field="y_label" label="Y axis title"
+                        value={spec?.y_label} placeholder={spec?.y_fields[0] ?? 'Y'} />
+                {/key}
             </section>
         {/if}
 

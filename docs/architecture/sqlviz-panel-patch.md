@@ -2,7 +2,8 @@
 
 **Estado:** implementado localmente el 2026-10-07, como tercer incremento de la
 unidad 8 de E1. Continúa el [PATCH de dashboards](sqlviz-dashboard-patch.md).
-Los contratos de presentación y la revisión de overrides siguen pendientes;
+Los [contratos de presentación](sqlviz-panel-presentation.md) se entregan en el
+cuarto incremento; la revisión de overrides sigue pendiente;
 este incremento no cierra E1 ni implementa el Studio.
 
 ## Contrato del autor
@@ -114,9 +115,10 @@ decisiones anteriores con los nuevos campos. La identidad actual por posición,
 reconciliación de visualizaciones y revisiones persistidas pertenecen a unidades
 posteriores. No se cambian esquema, `PanelCreate`, aprendizaje ni formato visual.
 
-Los ajustes de presentación y overrides tienen sus propias rutas, todavía por
-completar/revisar. La recuperación visible del autoguardado en la UI también sigue
-pendiente. El conflicto transaccional no evita sobrescrituras en solicitudes
+Los [ajustes de presentación](sqlviz-panel-presentation.md) ya usan la misma
+operación transaccional y tienen recuperación visible en sus controles. La
+revisión de las otras rutas de overrides y la recuperación del autoguardado
+general en la UI siguen pendientes. El conflicto transaccional no evita sobrescrituras en solicitudes
 sucesivas: edición condicional, revisión y coordinación entre pestañas requieren
 su contrato posterior. El servidor no reintenta automáticamente un conflicto.
 

@@ -1,12 +1,13 @@
 <script lang="ts">
+    import { tick } from 'svelte';
     import { editMode } from '$lib/stores/editMode';
-    import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import type { DashboardPanel } from '$lib/types';
     import EChartsRenderer from './EChartsRenderer.svelte';
     import KPIRenderer from './KPIRenderer.svelte';
     import PanelFooter from './PanelFooter.svelte';
     import PanelHeader from './PanelHeader.svelte';
     import PanelOverflow from './PanelOverflow.svelte';
+    import PanelPresentationInput from './PanelPresentationInput.svelte';
     import TableRenderer from './TableRenderer.svelte';
 
     let { panel, selected = false, palette, onEditSQL, onExplain, onDelete, onSelect }: {
@@ -33,20 +34,14 @@
     const yTitle = $derived((spec?.y_label || spec?.y_fields[0]) ?? '');
 
     let editingAxis = $state<'x_label' | 'y_label' | null>(null);
-    let axisDraft = $state('');
-    function startEditAxis(axis: 'x_label' | 'y_label', current: string) {
-        editingAxis = axis;
-        axisDraft = current;
-    }
-    function commitAxis() {
-        if (editingAxis) dashboardStore.setViewOverride(panel.panel_id, editingAxis, axisDraft);
+    let xChip = $state<HTMLButtonElement | null>(null);
+    let yChip = $state<HTMLButtonElement | null>(null);
+    async function closeAxis() {
+        const axis = editingAxis;
         editingAxis = null;
+        await tick();
+        (axis === 'x_label' ? xChip : yChip)?.focus();
     }
-    function axisKeydown(e: KeyboardEvent) {
-        if (e.key === 'Enter') { e.preventDefault(); commitAxis(); }
-        else if (e.key === 'Escape') { e.preventDefault(); editingAxis = null; }
-    }
-    function focusInput(node: HTMLInputElement) { node.focus(); node.select(); }
 </script>
 
 <!--
@@ -59,7 +54,7 @@
     class:selected={selected && $editMode}
     class:clickable={$editMode}
     onclick={selectPanel}
-    onkeydown={(e) => { if ($editMode && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selectPanel(); } }}
+    onkeydown={(e) => { if (e.target === e.currentTarget && $editMode && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selectPanel(); } }}
     role="button"
     tabindex={$editMode ? 0 : -1}
     aria-label={$editMode ? 'Open panel properties' : 'Panel'}
@@ -96,17 +91,21 @@
                 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
                 <div class="axis-edit axis-x" onclick={(e) => e.stopPropagation()} role="presentation">
                     {#if editingAxis === 'x_label'}
-                        <input class="axis-input" bind:value={axisDraft} use:focusInput onkeydown={axisKeydown} onblur={commitAxis} />
+                        <PanelPresentationInput panelId={panel.panel_id} field="x_label" label="X axis title"
+                            value={spec?.x_label} placeholder={xTitle || 'X axis'} compact autofocus
+                            onSaved={closeAxis} onCancel={closeAxis} />
                     {:else}
-                        <button class="axis-chip" onclick={() => startEditAxis('x_label', xTitle)} title="Edit X axis title">{xTitle || 'X axis'}</button>
+                        <button bind:this={xChip} class="axis-chip" onclick={() => editingAxis = 'x_label'} title="Edit X axis title">{xTitle || 'X axis'}</button>
                     {/if}
                 </div>
                 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
                 <div class="axis-edit axis-y" onclick={(e) => e.stopPropagation()} role="presentation">
                     {#if editingAxis === 'y_label'}
-                        <input class="axis-input" bind:value={axisDraft} use:focusInput onkeydown={axisKeydown} onblur={commitAxis} />
+                        <PanelPresentationInput panelId={panel.panel_id} field="y_label" label="Y axis title"
+                            value={spec?.y_label} placeholder={yTitle || 'Y axis'} compact autofocus
+                            onSaved={closeAxis} onCancel={closeAxis} />
                     {:else}
-                        <button class="axis-chip" onclick={() => startEditAxis('y_label', yTitle)} title="Edit Y axis title">{yTitle || 'Y axis'}</button>
+                        <button bind:this={yChip} class="axis-chip" onclick={() => editingAxis = 'y_label'} title="Edit Y axis title">{yTitle || 'Y axis'}</button>
                     {/if}
                 </div>
             {/if}
@@ -153,11 +152,9 @@
     /* Inline axis-title editing overlays (edit mode) */
     .axis-edit { position: absolute; z-index: 5; }
     .axis-x { bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; }
-    /* Y sits at the left, centred; both its chip and its edit input are rotated
-       to match the rendered (vertical) axis title. */
+    /* Rotate only the label; its editor and validation message stay readable. */
     .axis-y { top: 0; bottom: 0; left: 2px; display: flex; align-items: center; }
-    .axis-y .axis-chip,
-    .axis-y .axis-input { transform: rotate(-90deg); }
+    .axis-y .axis-chip { transform: rotate(-90deg); }
     .axis-chip {
         font-size: 11px;
         font-weight: 600;
@@ -174,15 +171,4 @@
         transition: border-color 0.12s, color 0.12s, background 0.12s;
     }
     .axis-chip:hover { border-color: var(--sqlviz-border); color: var(--sqlviz-text); background: var(--sqlviz-bg-base); }
-    .axis-input {
-        font-size: 11px;
-        width: 150px;
-        max-width: 70%;
-        padding: 1px 6px;
-        border: 1px solid var(--sqlviz-primary);
-        border-radius: 4px;
-        background: var(--sqlviz-bg);
-        color: var(--sqlviz-text);
-        outline: none;
-    }
 </style>

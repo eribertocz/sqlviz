@@ -28,6 +28,9 @@ class Panel:
     inferred_height_px: int | None = None
     selected_height_px: int | None = None
     height_user_override: int | None = None
+    view_title: str | None = None
+    view_x_label: str | None = None
+    view_y_label: str | None = None
 
 
 class PanelChanges(TypedDict, total=False):
