@@ -27,12 +27,13 @@
     async function save() {
         if (saving || closing) return;
         if (!error && draft === (value ?? '')) { finish(); return; }
+        const complete = onSaved;
         saving = true;
         error = null;
         try {
             error = await dashboardStore.setViewOverride(panelId, field, draft);
             await tick();
-            if (!error) { draft = value ?? ''; finish(); }
+            if (!error) { draft = value ?? ''; finish(complete); }
         } catch {
             error = 'Could not save. Your text is kept; retry when ready.';
         } finally {
@@ -40,8 +41,8 @@
         }
     }
 
-    function finish() {
-        if (onSaved) { closing = true; onSaved(); }
+    function finish(complete = onSaved) {
+        if (complete) { closing = true; complete(); }
     }
 
     async function retry() {

@@ -80,6 +80,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   conservan el texto al fallar y ofrecen reintento con errores legibles.
   Restablecer el título consulta la inferencia real con los filtros actuales;
   distingue guardado exitoso de un fallo posterior al actualizar el gráfico.
+- La confirmación de una etiqueta conserva el editor que inició la solicitud;
+  no cierra ni roba el foco de una edición posterior al cambiar rápidamente de eje.
 - PATCH básico de paneles valida nombre, SQL y orden sin coerción; rechaza null
   y campos desconocidos antes de escribir, conserva ajustes visuales y SQL exacto,
   y guarda en una transacción. PATCH vacío no cambia fechas. Borrados de panel y

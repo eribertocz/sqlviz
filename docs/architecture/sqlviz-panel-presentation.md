@@ -79,6 +79,9 @@ permite cancelar con Escape y mantiene el editor abierto si falla. El editor
 del eje Y y sus errores se muestran horizontalmente para poder leerlos.
 Al confirmar o cancelar esa edición se devuelve el foco a su etiqueta; el blur
 producido por ese cierre no guarda un borrador cancelado ni repite la escritura.
+La confirmación captura la sesión de edición que inició el guardado: si el usuario
+abre otra etiqueta mientras espera, la respuesta anterior no cierra su nuevo
+borrador ni le roba el foco.
 Los campos
 usan el color de texto del tema para conservar contraste en claro y oscuro.
 
@@ -132,13 +135,14 @@ Validación local del 2026-10-07:
 
 - Suite Python completa: **2106 pasan y 3 se omiten**, en 210,40 s.
 - **112 pruebas enfocadas** de presentación y PATCH básico pasan.
-- **149 pruebas frontend** pasan; 16 nuevas de este incremento.
+- **150 pruebas frontend** pasan; 17 nuevas de este incremento y su corrección de sesión.
 - Ruff y mypy estricto pasan, con 136 archivos de código revisados por mypy.
 - Svelte-check sin errores ni advertencias; build de producción generado.
 - Navegador Chromium, escritorio 1600×1000: guardado exacto sin consultas,
   validación 422 real, conflicto 409 simulado con reintento en inspector y gráfico,
   foco al reintentar/cerrar, Escape sin escritura, viewer con recarga y título
-  automático real. Color del texto verificado en claro/oscuro; sin errores JS.
+  automático real. Cambiar de eje durante un guardado conserva el nuevo borrador
+  y su foco. Color del texto verificado en claro/oscuro; sin errores JS.
 - 129 enlaces Markdown locales verificados y `git diff --check` sin errores.
 
 Persisten las advertencias conocidas de teardown `derived_inert` y tamaño de

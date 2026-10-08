@@ -67,3 +67,17 @@ it('cancels an inline draft with Escape without persisting it', async () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(dashboardStore.setViewOverride).not.toHaveBeenCalled();
 });
+
+it('finishes the editor that started the save when its completion target changes meanwhile', async () => {
+    let resolve!: (value: null) => void;
+    const originalEditor = vi.fn(), nextEditor = vi.fn();
+    vi.mocked(dashboardStore.setViewOverride).mockImplementationOnce(() => new Promise(r => { resolve = r; }));
+    const screen = render(PanelPresentationInput, { ...props, onSaved: originalEditor });
+    const input = screen.getByRole('textbox');
+    await fireEvent.input(input, { target: { value: 'Pending' } });
+    await fireEvent.keyDown(input, { key: 'Enter' });
+    await screen.rerender({ ...props, onSaved: nextEditor });
+    resolve(null);
+    await waitFor(() => expect(originalEditor).toHaveBeenCalledTimes(1));
+    expect(nextEditor).not.toHaveBeenCalled();
+});

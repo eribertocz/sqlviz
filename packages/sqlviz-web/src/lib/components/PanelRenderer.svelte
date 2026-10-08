@@ -34,13 +34,21 @@
     const yTitle = $derived((spec?.y_label || spec?.y_fields[0]) ?? '');
 
     let editingAxis = $state<'x_label' | 'y_label' | null>(null);
+    let axisGeneration = 0;
     let xChip = $state<HTMLButtonElement | null>(null);
     let yChip = $state<HTMLButtonElement | null>(null);
-    async function closeAxis() {
-        const axis = editingAxis;
-        editingAxis = null;
-        await tick();
-        (axis === 'x_label' ? xChip : yChip)?.focus();
+    function startEditAxis(axis: 'x_label' | 'y_label') {
+        axisGeneration++;
+        editingAxis = axis;
+    }
+    function closeAxis(axis: 'x_label' | 'y_label') {
+        const generation = axisGeneration;
+        return async () => {
+            if (axisGeneration !== generation || editingAxis !== axis) return;
+            editingAxis = null;
+            await tick();
+            if (axisGeneration === generation) (axis === 'x_label' ? xChip : yChip)?.focus();
+        };
     }
 </script>
 
@@ -93,9 +101,9 @@
                     {#if editingAxis === 'x_label'}
                         <PanelPresentationInput panelId={panel.panel_id} field="x_label" label="X axis title"
                             value={spec?.x_label} placeholder={xTitle || 'X axis'} compact autofocus
-                            onSaved={closeAxis} onCancel={closeAxis} />
+                            onSaved={closeAxis('x_label')} onCancel={closeAxis('x_label')} />
                     {:else}
-                        <button bind:this={xChip} class="axis-chip" onclick={() => editingAxis = 'x_label'} title="Edit X axis title">{xTitle || 'X axis'}</button>
+                        <button bind:this={xChip} class="axis-chip" onclick={() => startEditAxis('x_label')} title="Edit X axis title">{xTitle || 'X axis'}</button>
                     {/if}
                 </div>
                 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -103,9 +111,9 @@
                     {#if editingAxis === 'y_label'}
                         <PanelPresentationInput panelId={panel.panel_id} field="y_label" label="Y axis title"
                             value={spec?.y_label} placeholder={yTitle || 'Y axis'} compact autofocus
-                            onSaved={closeAxis} onCancel={closeAxis} />
+                            onSaved={closeAxis('y_label')} onCancel={closeAxis('y_label')} />
                     {:else}
-                        <button bind:this={yChip} class="axis-chip" onclick={() => editingAxis = 'y_label'} title="Edit Y axis title">{yTitle || 'Y axis'}</button>
+                        <button bind:this={yChip} class="axis-chip" onclick={() => startEditAxis('y_label')} title="Edit Y axis title">{yTitle || 'Y axis'}</button>
                     {/if}
                 </div>
             {/if}
