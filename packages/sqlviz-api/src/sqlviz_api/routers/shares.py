@@ -20,12 +20,12 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
-from sqlviz_storage.auth import hash_password, verify_password
+from sqlviz_storage.auth import hash_password
+from sqlviz_storage.dashboard_repository import dashboard_write
 from sqlviz_storage.sharing import (
     generate_share_nonce,
     generate_share_token,
     get_session_secret,
-    verify_share_token,
 )
 
 from sqlviz_api.dependencies import DbDep
@@ -35,7 +35,14 @@ from sqlviz_api.models import (
     ShareRevokeRequest,
     UnlockRequest,
 )
-from sqlviz_api.routers.auth import AdminDep, is_admin
+from sqlviz_api.security import (
+    AccessDep,
+    AdminDep,
+    get_valid_share,
+    require_share_access,
+    unlock_viewer,
+)
+from sqlviz_api.services.access import WORKSPACE_ID
 
 router = APIRouter(tags=["shares"])
 
@@ -45,32 +52,11 @@ _VALID_MODES: frozenset[str] = frozenset({"private", "password", "public"})
 # (access to every dashboard, with navigation). Real dashboards use UUIDs, so
 # this never collides. It keeps workspace shares in the same table/flow — the
 # token still derives from (dashboard_id, nonce, secret) and stays revocable.
-_WORKSPACE_ID = "__workspace__"
+_WORKSPACE_ID = WORKSPACE_ID
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
-def _fetch_share_by_token(db: DbDep, token: str) -> dict[str, Any]:
-    """Look up a share row by token. Always queries the DB — never recomputes."""
-    row = db.execute(
-        "SELECT id, dashboard_id, nonce, token, mode, password_hash, created_at, revoked "
-        "FROM shares WHERE token = ?",
-        [token],
-    ).fetchone()
-    if row is None:
-        raise HTTPException(status_code=404, detail="Share not found")
-    return {
-        "id": row[0],
-        "dashboard_id": row[1],
-        "nonce": row[2],
-        "token": row[3],
-        "mode": row[4],
-        "password_hash": row[5],
-        "created_at": row[6],
-        "revoked": row[7],
-    }
 
 
 def _dashboard_view_data(db: DbDep, dashboard_id: str) -> dict[str, Any]:
@@ -117,12 +103,11 @@ def _dashboard_view_data(db: DbDep, dashboard_id: str) -> dict[str, Any]:
 def _workspace_view_data(db: DbDep) -> dict[str, Any]:
     """Return every folder + dashboard for a workspace share's navigable sidebar.
 
-    Panels are fetched lazily by the viewer per dashboard (public panels API),
+    Panels are fetched lazily through the scoped, authorized panels API,
     so this stays a lightweight metadata listing.
     """
     folder_rows = db.execute(
-        "SELECT id, name, parent_id, sort_order FROM folders "
-        "ORDER BY sort_order, created_at"
+        "SELECT id, name, parent_id, sort_order FROM folders ORDER BY sort_order, created_at"
     ).fetchall()
     dash_rows = db.execute(
         "SELECT id, name, folder_id, sort_order, dashboard_hint, dashboard_domain, "
@@ -130,8 +115,7 @@ def _workspace_view_data(db: DbDep) -> dict[str, Any]:
     ).fetchall()
     return {
         "folders": [
-            {"id": r[0], "name": r[1], "parent_id": r[2], "sort_order": r[3]}
-            for r in folder_rows
+            {"id": r[0], "name": r[1], "parent_id": r[2], "sort_order": r[3]} for r in folder_rows
         ],
         "dashboards": [
             {
@@ -150,6 +134,7 @@ def _workspace_view_data(db: DbDep) -> dict[str, Any]:
 
 # ── Admin: create share ───────────────────────────────────────────────────────
 
+
 @router.post(
     "/api/v1/dashboards/{dashboard_id}/share",
     response_model=ShareCreateResponse,
@@ -164,12 +149,7 @@ def create_share(
     if body.mode not in _VALID_MODES:
         raise HTTPException(status_code=422, detail=f"Invalid mode {body.mode!r}")
     if body.mode == "password" and not body.password:
-        raise HTTPException(
-            status_code=422, detail="password required when mode='password'"
-        )
-
-    if db.execute("SELECT id FROM dashboards WHERE id = ?", [dashboard_id]).fetchone() is None:
-        raise HTTPException(status_code=404, detail=f"Dashboard '{dashboard_id}' not found")
+        raise HTTPException(status_code=422, detail="password required when mode='password'")
 
     session_secret = get_session_secret(db)
     nonce = generate_share_nonce()
@@ -181,12 +161,13 @@ def create_share(
 
     share_id = str(uuid.uuid4())
     now = _now()
-    db.execute(
-        "INSERT INTO shares "
-        "(id, dashboard_id, nonce, token, mode, password_hash, created_at, revoked) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, false)",
-        [share_id, dashboard_id, nonce, token, body.mode, pw_hash, now],
-    )
+    with dashboard_write(db, dashboard_id):
+        db.execute(
+            "INSERT INTO shares "
+            "(id, dashboard_id, nonce, token, mode, password_hash, created_at, revoked) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, false)",
+            [share_id, dashboard_id, nonce, token, body.mode, pw_hash, now],
+        )
     return ShareCreateResponse(
         id=share_id,
         dashboard_id=dashboard_id,
@@ -198,20 +179,26 @@ def create_share(
 
 # ── Admin: revoke share ───────────────────────────────────────────────────────
 
+
 @router.patch("/api/v1/shares/{share_id}", status_code=200)
 def revoke_share(
     share_id: str,
     body: ShareRevokeRequest,
     db: DbDep,
     _admin: AdminDep,
+    access: AccessDep,
 ) -> dict[str, str]:
-    if db.execute("SELECT id FROM shares WHERE id = ?", [share_id]).fetchone() is None:
+    row = db.execute("SELECT token FROM shares WHERE id = ?", [share_id]).fetchone()
+    if row is None:
         raise HTTPException(status_code=404, detail=f"Share '{share_id}' not found")
     db.execute("UPDATE shares SET revoked = ? WHERE id = ?", [body.revoked, share_id])
+    if body.revoked:
+        access.viewer_sessions.revoke_binding(str(row[0]))
     return {"status": "ok"}
 
 
 # ── Public: view share ────────────────────────────────────────────────────────
+
 
 @router.get("/view/{token}")
 def view_share(token: str, db: DbDep, request: Request) -> JSONResponse:
@@ -223,49 +210,38 @@ def view_share(token: str, db: DbDep, request: Request) -> JSONResponse:
     mode="private" is an admin-only *preview* link — it only opens for the
     authenticated admin; anyone else gets 404 (so it's never exposed).
     """
-    share = _fetch_share_by_token(db, token)
-    secret = get_session_secret(db)
-
-    if not verify_share_token(token, share, secret):
-        raise HTTPException(status_code=404, detail="Share not found")
+    share = get_valid_share(request, db, token)
 
     # A workspace token is not valid on the single-dashboard endpoint.
     if str(share["dashboard_id"]) == _WORKSPACE_ID:
         raise HTTPException(status_code=404, detail="Share not found")
 
     mode = str(share["mode"])
-    if mode == "private" and not is_admin(request):
-        raise HTTPException(status_code=404, detail="Share not found")
     if mode == "password":
-        return JSONResponse(content={"requires_password": True, "mode": "password"})
+        if not request.headers.get("X-SQLviz-Viewer-Session"):
+            return JSONResponse(content={"requires_password": True, "mode": "password"})
+    require_share_access(request, db, token)
 
     return JSONResponse(content=_dashboard_view_data(db, str(share["dashboard_id"])))
 
 
 # ── Public: unlock password-protected share ───────────────────────────────────
 
+
 @router.post("/view/{token}/unlock")
-def unlock_share(token: str, body: UnlockRequest, db: DbDep) -> JSONResponse:
-    share = _fetch_share_by_token(db, token)
-    secret = get_session_secret(db)
-
-    if not verify_share_token(token, share, secret):
-        raise HTTPException(status_code=404, detail="Share not found")
-
-    if str(share["dashboard_id"]) == _WORKSPACE_ID:
-        raise HTTPException(status_code=404, detail="Share not found")
-
-    if str(share["mode"]) != "password":
-        raise HTTPException(status_code=404, detail="Share not found")
-
-    stored = share.get("password_hash")
-    if not verify_password(body.password, str(stored) if stored is not None else ""):
-        raise HTTPException(status_code=401, detail="Invalid password")
-
-    return JSONResponse(content=_dashboard_view_data(db, str(share["dashboard_id"])))
+def unlock_share(token: str, body: UnlockRequest, db: DbDep, request: Request) -> JSONResponse:
+    session = unlock_viewer(request, db, token, body.password, workspace=False)
+    share = get_valid_share(request, db, token)
+    return JSONResponse(
+        content={
+            **_dashboard_view_data(db, str(share["dashboard_id"])),
+            "viewer_session": session,
+        }
+    )
 
 
 # ── Admin: create workspace share ─────────────────────────────────────────────
+
 
 @router.post(
     "/api/v1/workspace/share",
@@ -284,9 +260,7 @@ def create_workspace_share(
     if body.mode not in _VALID_MODES:
         raise HTTPException(status_code=422, detail=f"Invalid mode {body.mode!r}")
     if body.mode == "password" and not body.password:
-        raise HTTPException(
-            status_code=422, detail="password required when mode='password'"
-        )
+        raise HTTPException(status_code=422, detail="password required when mode='password'")
 
     session_secret = get_session_secret(db)
     nonce = generate_share_nonce()
@@ -315,11 +289,9 @@ def create_workspace_share(
 
 # ── Public: view / unlock workspace share ─────────────────────────────────────
 
-def _verify_workspace(db: DbDep, token: str) -> dict[str, Any]:
-    share = _fetch_share_by_token(db, token)
-    secret = get_session_secret(db)
-    if not verify_share_token(token, share, secret):
-        raise HTTPException(status_code=404, detail="Share not found")
+
+def _verify_workspace(db: DbDep, token: str, request: Request) -> dict[str, Any]:
+    share = get_valid_share(request, db, token)
     if str(share["dashboard_id"]) != _WORKSPACE_ID:
         raise HTTPException(status_code=404, detail="Share not found")
     return share
@@ -327,21 +299,18 @@ def _verify_workspace(db: DbDep, token: str) -> dict[str, Any]:
 
 @router.get("/view/workspace/{token}")
 def view_workspace_share(token: str, db: DbDep, request: Request) -> JSONResponse:
-    share = _verify_workspace(db, token)
+    share = _verify_workspace(db, token, request)
     mode = str(share["mode"])
-    if mode == "private" and not is_admin(request):
-        raise HTTPException(status_code=404, detail="Share not found")
     if mode == "password":
-        return JSONResponse(content={"requires_password": True, "mode": "password"})
+        if not request.headers.get("X-SQLviz-Viewer-Session"):
+            return JSONResponse(content={"requires_password": True, "mode": "password"})
+    require_share_access(request, db, token)
     return JSONResponse(content=_workspace_view_data(db))
 
 
 @router.post("/view/workspace/{token}/unlock")
-def unlock_workspace_share(token: str, body: UnlockRequest, db: DbDep) -> JSONResponse:
-    share = _verify_workspace(db, token)
-    if str(share["mode"]) != "password":
-        raise HTTPException(status_code=404, detail="Share not found")
-    stored = share.get("password_hash")
-    if not verify_password(body.password, str(stored) if stored is not None else ""):
-        raise HTTPException(status_code=401, detail="Invalid password")
-    return JSONResponse(content=_workspace_view_data(db))
+def unlock_workspace_share(
+    token: str, body: UnlockRequest, db: DbDep, request: Request
+) -> JSONResponse:
+    session = unlock_viewer(request, db, token, body.password, workspace=True)
+    return JSONResponse(content={**_workspace_view_data(db), "viewer_session": session})

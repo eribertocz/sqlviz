@@ -29,7 +29,7 @@ from sqlglot import exp
 _BOOLEAN_PARENTS = (exp.Where, exp.And, exp.Or, exp.Not, exp.Having)
 
 
-def _predicate_ancestor(node: exp.Expression) -> exp.Expression | None:
+def _predicate_ancestor(node: exp.Expr) -> exp.Expr | None:
     """Return the boolean predicate that owns ``node``, or None.
 
     Walks up from a ``$var`` placeholder to the nearest ancestor that sits
@@ -68,10 +68,10 @@ def neutralize_filters(sql: str, all_vars: list[str]) -> str | None:
     # Dedupe by object identity: a range like `col BETWEEN $a AND $b` reaches
     # the same Between node from both placeholders, and replacing an already
     # detached node twice must be avoided.
-    targets: dict[int, exp.Expression] = {}
-    wanted = set(all_vars)
+    targets: dict[int, exp.Expr] = {}
+    wanted = {name.lower() for name in all_vars}
     for placeholder in tree.find_all(exp.Placeholder):
-        if placeholder.name not in wanted:
+        if placeholder.name.lower() not in wanted:
             continue
         predicate = _predicate_ancestor(placeholder)
         if predicate is None:

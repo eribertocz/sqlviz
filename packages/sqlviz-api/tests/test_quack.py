@@ -16,16 +16,15 @@ Concurrency:
 
 from __future__ import annotations
 
-import time
 from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-import sqlviz_api.routers.auth as auth_module
 from fastapi.testclient import TestClient
 from sqlviz_api.main import create_app
 from sqlviz_api.quack_server import QuackConnectionRouter
 from sqlviz_api.routers.auth import SESSION_LIFETIME_SECONDS
+from sqlviz_api.services.access import SessionStore
 from sqlviz_storage.auth import set_admin_password
 from sqlviz_storage.project_db import create_project
 from starlette.requests import Request as StarletteRequest
@@ -34,13 +33,6 @@ _PASSWORD = "quacktest"
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
-
-@pytest.fixture(autouse=True)
-def _reset_sessions() -> Generator[None, None, None]:
-    auth_module._sessions.clear()
-    yield
-    auth_module._sessions.clear()
-
 
 @pytest.fixture
 def admin_client(tmp_path: Path) -> Generator[TestClient, None, None]:
@@ -91,50 +83,46 @@ class TestIsAdmin:
 
     def test_is_admin_returns_false_without_cookie(self) -> None:
         import duckdb
-        sessions: dict[str, dict[str, float]] = {}
+        sessions = SessionStore()
         router = QuackConnectionRouter(duckdb.connect(), sessions, SESSION_LIFETIME_SECONDS)
         req = _mock_request()
         assert router.is_admin(req) is False
 
     def test_is_admin_returns_false_for_unknown_token(self) -> None:
         import duckdb
-        sessions: dict[str, dict[str, float]] = {}
+        sessions = SessionStore()
         router = QuackConnectionRouter(duckdb.connect(), sessions, SESSION_LIFETIME_SECONDS)
         req = _mock_request({"sqlviz_session": "nonexistent_token"})
         assert router.is_admin(req) is False
 
     def test_is_admin_returns_true_for_valid_session(self) -> None:
         import duckdb
-        now = time.time()
-        sessions: dict[str, dict[str, float]] = {
-            "my_token": {"created_at": now, "last_seen_at": now}
-        }
+        sessions = SessionStore()
+        token = sessions.issue()
         router = QuackConnectionRouter(duckdb.connect(), sessions, SESSION_LIFETIME_SECONDS)
-        req = _mock_request({"sqlviz_session": "my_token"})
+        req = _mock_request({"sqlviz_session": token})
         assert router.is_admin(req) is True
 
     def test_is_admin_returns_false_for_expired_session(self) -> None:
         import duckdb
-        old_time = time.time() - SESSION_LIFETIME_SECONDS - 1
-        sessions: dict[str, dict[str, float]] = {
-            "old_token": {"created_at": old_time, "last_seen_at": old_time}
-        }
+        now = [0.0]
+        sessions = SessionStore(clock=lambda: now[0])
+        token = sessions.issue()
+        now[0] = SESSION_LIFETIME_SECONDS + 1
         router = QuackConnectionRouter(duckdb.connect(), sessions, SESSION_LIFETIME_SECONDS)
-        req = _mock_request({"sqlviz_session": "old_token"})
+        req = _mock_request({"sqlviz_session": token})
         assert router.is_admin(req) is False
 
     def test_is_admin_reflects_live_session_state(self) -> None:
         """Router holds a reference — session deletions are reflected immediately."""
         import duckdb
-        now = time.time()
-        sessions: dict[str, dict[str, float]] = {
-            "live_token": {"created_at": now, "last_seen_at": now}
-        }
+        sessions = SessionStore()
+        token = sessions.issue()
         router = QuackConnectionRouter(duckdb.connect(), sessions, SESSION_LIFETIME_SECONDS)
-        req = _mock_request({"sqlviz_session": "live_token"})
+        req = _mock_request({"sqlviz_session": token})
 
         assert router.is_admin(req) is True
-        del sessions["live_token"]  # logout
+        sessions.revoke(token)
         assert router.is_admin(req) is False
 
 
@@ -145,12 +133,10 @@ class TestConnectionForRequest:
     def test_admin_request_returns_admin_connection(self) -> None:
         import duckdb
         conn = duckdb.connect()
-        now = time.time()
-        sessions: dict[str, dict[str, float]] = {
-            "tok": {"created_at": now, "last_seen_at": now}
-        }
+        sessions = SessionStore()
+        token = sessions.issue()
         router = QuackConnectionRouter(conn, sessions, SESSION_LIFETIME_SECONDS)
-        req = _mock_request({"sqlviz_session": "tok"})
+        req = _mock_request({"sqlviz_session": token})
         assert router.connection_for_request(req) is conn
 
     def test_viewer_request_returns_admin_connection_phase45(self) -> None:
@@ -158,7 +144,7 @@ class TestConnectionForRequest:
         read-only isolation is Phase 6 (quack_server.py module docstring)."""
         import duckdb
         conn = duckdb.connect()
-        sessions: dict[str, dict[str, float]] = {}
+        sessions = SessionStore()
         router = QuackConnectionRouter(conn, sessions, SESSION_LIFETIME_SECONDS)
         req = _mock_request()  # no cookie → viewer
         assert router.connection_for_request(req) is conn
@@ -176,11 +162,11 @@ class TestCreateAppWiresRouter:
         conn.close()
 
     def test_quack_router_shares_sessions_with_auth(self, tmp_path: Path) -> None:
-        """Router's sessions dict IS auth._sessions — not a copy."""
+        """The legacy router consults this application's session service."""
         conn = create_project(str(tmp_path / "t.sqlviz"))
         app = create_app(conn)
         router: QuackConnectionRouter = app.state.quack_router
-        assert router._sessions is auth_module._sessions
+        assert router._sessions is app.state.authorization.admin_sessions
         conn.close()
 
 

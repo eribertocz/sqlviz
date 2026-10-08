@@ -1,7 +1,7 @@
 """OverrideSystem — persists user corrections to the panels table.
 
 Invariant (DOC10 §6.14):
-  inferred_* fields are NEVER overwritten once set.
+  inferred_* stores the latest successful inference; overrides never modify it.
   selected_* holds the active value (= inferred until user overrides).
   *_user_override is NULL until the user explicitly corrects a field.
 
@@ -11,13 +11,17 @@ inference on the same SQL fingerprint returns the user-preferred chart.
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Callable
 from datetime import datetime, timezone
 
 import duckdb
+from sqlviz_core.models.panel_overrides import valid_dimension, validate_override
 
 from .brain_db import log_feedback_event, record_chart_override, record_layout_override
+from .transactions import project_transaction
 
-_VALID_FIELDS = frozenset({"chart_type", "col_span", "height_px"})
+_log = logging.getLogger(__name__)
 
 
 def _now() -> str:
@@ -115,8 +119,7 @@ def clear_override(
         ValueError: Unknown field_name.
         LookupError: Panel not found.
     """
-    if field_name not in _OVERRIDE_COLUMNS:
-        raise ValueError(f"Unknown override field: {field_name!r}")
+    validate_override(field_name, None)
     if conn.execute("SELECT 1 FROM panels WHERE id = ?", [panel_id]).fetchone() is None:
         raise LookupError(f"Panel not found: {panel_id!r}")
 
@@ -145,130 +148,70 @@ def apply_layout_overrides(
     and for a shared link. Without this the columns were written and then never
     read, so every re-run silently reverted to the inferred size.
     """
-    if col_span is not None:
+    if valid_dimension("col_span", col_span):
         inference_dict["col_span"] = col_span
-    if height_px is not None:
+    if valid_dimension("height_px", height_px):
         inference_dict["panel_height_px"] = height_px
     return inference_dict
 
 
 def apply_override(
     conn: duckdb.DuckDBPyConnection,
-    brain_conn: duckdb.DuckDBPyConnection,
+    brain_conn: duckdb.DuckDBPyConnection | Callable[[], duckdb.DuckDBPyConnection],
     panel_id: str,
     field_name: str,
     user_value: str,
 ) -> None:
-    """Apply a user override for a single field on a panel.
+    """Save the authoritative project override, then attempt optional learning.
 
-    Updates selected_* and *_user_override.  Never touches inferred_*.
-    Persists the pattern to brain.duckdb for future inference consultation.
-
-    Args:
-        conn:       Open .sqlviz project connection.
-        brain_conn: Open brain.duckdb connection.
-        panel_id:   The panel being corrected.
-        field_name: "chart_type" | "col_span" | "height_px"
-        user_value: The value the user wants (always passed as str; cast here).
-
-    Raises:
-        ValueError: Unknown field_name.
-        LookupError: Panel not found.
+    Validation precedes every side effect. The project update is one atomic
+    statement. Brain patterns and their event use a separate cursor/transaction;
+    failure there is logged without falsely reporting a failed project save.
+    There is no atomic transaction spanning the two database files.
     """
-    if field_name not in _VALID_FIELDS:
-        raise ValueError(f"Unknown override field: {field_name!r}")
-
+    value = validate_override(field_name, user_value)
     row = conn.execute(
-        """
-        SELECT fingerprint,
-               inferred_chart_type, inferred_col_span, inferred_height_px,
-               dashboard_id
-        FROM panels WHERE id = ?
-        """,
+        "SELECT fingerprint, inferred_chart_type, inferred_col_span, "
+        "inferred_height_px, dashboard_id FROM panels WHERE id = ?",
         [panel_id],
     ).fetchone()
     if row is None:
         raise LookupError(f"Panel not found: {panel_id!r}")
-
     fingerprint, inferred_chart, inferred_col, inferred_h, dashboard_id = row
-
-    now = _now()
-
-    if field_name == "chart_type":
-        conn.execute(
-            """
-            UPDATE panels SET
-                selected_chart_type = ?,
-                chart_user_override = ?,
-                updated_at          = ?
-            WHERE id = ?
-            """,
-            [user_value, user_value, now, panel_id],
-        )
-        if fingerprint:
-            record_chart_override(
-                brain_conn,
-                fingerprint,
-                inferred_chart or user_value,
-                user_value,
-            )
-            _log_event(
-                brain_conn,
-                fingerprint=fingerprint,
-                field_name="chart_type",
-                inferred_value=inferred_chart or user_value,
-                user_value=user_value,
-                panel_id=panel_id,
-                dashboard_id=dashboard_id,
-            )
-
-    elif field_name == "col_span":
-        v = int(user_value)
-        conn.execute(
-            """
-            UPDATE panels SET
-                selected_col_span      = ?,
-                col_span_user_override = ?,
-                updated_at             = ?
-            WHERE id = ?
-            """,
-            [v, v, now, panel_id],
-        )
-        if fingerprint:
-            record_layout_override(brain_conn, fingerprint, v, None)
-            _log_event(
-                brain_conn,
-                fingerprint=fingerprint,
-                field_name="col_span",
-                inferred_value=str(inferred_col) if inferred_col is not None else "",
-                user_value=str(v),
-                panel_id=panel_id,
-                dashboard_id=dashboard_id,
-            )
-
-    elif field_name == "height_px":
-        v = int(user_value)
-        conn.execute(
-            """
-            UPDATE panels SET
-                selected_height_px   = ?,
-                height_user_override = ?,
-                updated_at           = ?
-            WHERE id = ?
-            """,
-            [v, v, now, panel_id],
-        )
-        if fingerprint:
-            record_layout_override(brain_conn, fingerprint, None, v)
-            _log_event(
-                brain_conn,
-                fingerprint=fingerprint,
-                field_name="height_px",
-                inferred_value=str(inferred_h) if inferred_h is not None else "",
-                user_value=str(v),
-                panel_id=panel_id,
-                dashboard_id=dashboard_id,
-            )
+    _, selected_column, override_column = _OVERRIDE_COLUMNS[field_name]
+    conn.execute(
+        f"UPDATE panels SET {selected_column} = ?, {override_column} = ?, "
+        "updated_at = ? WHERE id = ?",
+        [value, value, _now(), panel_id],
+    )
+    if not fingerprint or fingerprint == "UNKNOWN":
+        return
+    inferred = {
+        "chart_type": inferred_chart, "col_span": inferred_col, "height_px": inferred_h,
+    }[field_name]
+    try:
+        brain = brain_conn() if callable(brain_conn) else brain_conn
+        with brain.cursor() as learning:
+            with project_transaction(learning):
+                if field_name == "chart_type":
+                    record_chart_override(
+                        learning, fingerprint, str(inferred or value), str(value),
+                    )
+                else:
+                    dimension = int(user_value)
+                    record_layout_override(
+                        learning, fingerprint,
+                        dimension if field_name == "col_span" else None,
+                        dimension if field_name == "height_px" else None,
+                    )
+                _log_event(
+                    learning, fingerprint=fingerprint, field_name=field_name,
+                    inferred_value=str(inferred) if inferred is not None else "",
+                    user_value=str(value), panel_id=panel_id, dashboard_id=dashboard_id,
+                )
+    except Exception:  # learning is optional; never hide a project write failure
+        # Avoid logging raw SQL, data or database paths from an exception.
+        _log.warning("Panel override saved; optional learning was not recorded")
 
 
 def _log_event(

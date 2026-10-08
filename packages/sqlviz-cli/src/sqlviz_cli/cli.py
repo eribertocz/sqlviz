@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import os
 import sys
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from sqlviz_core.version import __version__
 from sqlviz_storage.auth import set_admin_password
 from sqlviz_storage.project_db import create_project, is_sqlviz_project, open_project
 
+from sqlviz_cli.quack import QUACK_TOKEN_ENV, QuackStartupError, validate_quack_token
 from sqlviz_cli.server import serve
 
 _LINE = "-" * 42
@@ -60,8 +62,7 @@ def main() -> None:
         nargs="?",
         metavar="PROJECT",
         help=(
-            "Path to a .sqlviz project file.  "
-            "Omit to run in demo mode (in-memory, nothing saved)."
+            "Path to a .sqlviz project file.  Omit to run in demo mode (in-memory, nothing saved)."
         ),
     )
     parser.add_argument(
@@ -73,10 +74,17 @@ def main() -> None:
     )
     parser.add_argument(
         "--host",
-        default="0.0.0.0",
+        default="127.0.0.1",
         metavar="HOST",
-        help="Bind address (default: 0.0.0.0 — reachable on your LAN so share "
-             "links work from other machines). Use 127.0.0.1 for localhost-only.",
+        help="Bind address (default: 127.0.0.1 — local access only). "
+        "Use --host 0.0.0.0 explicitly to listen on your LAN.",
+    )
+    parser.add_argument(
+        "--quack",
+        action="store_true",
+        help="Start the optional local Quack database service on port 9494. "
+        f"Requires a preinstalled extension and {QUACK_TOKEN_ENV}; "
+        "its credential grants database access independently of HTTP login.",
     )
     parser.add_argument(
         "--no-browser",
@@ -85,6 +93,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    quack_token = None
+    if args.quack:
+        quack_token = os.environ.get(QUACK_TOKEN_ENV, "")
+        try:
+            validate_quack_token(quack_token)
+        except QuackStartupError as exc:
+            parser.error(str(exc))
+
     if args.project is None:
         # ── Demo mode ────────────────────────────────────────────────────────
         _banner("Demo Mode")
@@ -92,13 +108,7 @@ def main() -> None:
 
         conn = create_project(":memory:")
 
-        serve(
-            conn=conn,
-            db_path=None,
-            host=args.host,
-            port=args.port,
-            open_browser=not args.no_browser,
-        )
+        db_path = None
 
     else:
         # ── Persistent mode ──────────────────────────────────────────────────
@@ -126,13 +136,26 @@ def main() -> None:
             print(f"Creating project: {path}\n")
             path.parent.mkdir(parents=True, exist_ok=True)
             conn = create_project(str(path))
-            _setup_password(conn)
+            try:
+                _setup_password(conn)
+            except BaseException:
+                conn.close()
+                raise
             print("Project created.\n")
 
+        db_path = str(path)
+
+    try:
         serve(
             conn=conn,
-            db_path=str(path),
+            db_path=db_path,
             host=args.host,
             port=args.port,
             open_browser=not args.no_browser,
+            quack_token=quack_token,
         )
+    except QuackStartupError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        conn.close()

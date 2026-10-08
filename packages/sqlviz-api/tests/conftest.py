@@ -43,5 +43,8 @@ def client(tmp_path: Path) -> Generator[TestClient, None, None]:
     conn = create_project(str(tmp_path / "test.sqlviz"))
     app = create_app(conn)
     with TestClient(app) as c:
+        # CRUD fixtures represent an authenticated author. Anonymous access
+        # is exercised separately in the authorization matrix, without overrides.
+        c.cookies.set("sqlviz_session", app.state.authorization.admin_sessions.issue())
         yield c
     conn.close()

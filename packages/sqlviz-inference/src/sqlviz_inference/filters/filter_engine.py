@@ -6,10 +6,9 @@ from sqlviz_core.models import ColumnSchema
 
 from ..context import FilterControl, RuntimeContext
 from ..utils.sqlviz_logging import get_logger
+from .parameters import filter_parameter_names
 
 _log = get_logger("filter_engine")
-
-VARIABLE_PATTERN = re.compile(r"\$(\w+)")
 
 DATE_TYPES = {
     "DATE", "TIMESTAMP", "TIMESTAMP WITH TIME ZONE",
@@ -46,7 +45,7 @@ class FilterEngine:
         # set() here would randomize desde/hasta (or min/max) pairing order
         # per-process via Python's string hash randomization, silently
         # swapping which UI box writes to which range variable.
-        variables = dict.fromkeys(VARIABLE_PATTERN.findall(sql))
+        variables = filter_parameter_names(sql)
 
         if not variables:
             context.filter_controls = []
@@ -95,7 +94,7 @@ class FilterEngine:
         """Find the column compared against $var_name."""
         # Pattern: column_name [operator] $var_name
         pattern = re.compile(
-            r"(\w+)\s*(?:=|>=|<=|>|<|!=)\s*\$" + re.escape(var_name)
+            r"(\w+)\s*(?:=|>=|<=|>|<|!=)\s*\$" + re.escape(var_name), re.IGNORECASE,
         )
         match = pattern.search(sql)
         if match:
@@ -103,7 +102,7 @@ class FilterEngine:
 
         # Pattern: $var_name [operator] column_name (reversed)
         pattern_reversed = re.compile(
-            r"\$" + re.escape(var_name) + r"\s*(?:=|>=|<=|>|<|!=)\s*(\w+)"
+            r"\$" + re.escape(var_name) + r"\s*(?:=|>=|<=|>|<|!=)\s*(\w+)", re.IGNORECASE,
         )
         match = pattern_reversed.search(sql)
         if match:

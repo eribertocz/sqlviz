@@ -8,6 +8,12 @@ to replay on an already-initialised file (idempotent).
 
 from __future__ import annotations
 
+# Reserved catalog names: analytical adapters must never export these tables.
+APPLICATION_TABLES = frozenset({
+    "_sqlviz_meta", "_sqlviz_auth", "connections", "folders", "dashboards",
+    "shares", "filter_memory", "settings", "panels", "schema_migrations",
+})
+
 SCHEMA_STATEMENTS: list[str] = [
     # Project signature — validated by is_sqlviz_project()
     """

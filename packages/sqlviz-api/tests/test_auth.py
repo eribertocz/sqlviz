@@ -1,8 +1,6 @@
 """Tests for POST /api/v1/auth/{login,logout,change-password} (DOC7 Section 3).
 
-Session isolation: _sessions is module-level in routers/auth.py, so an
-autouse fixture resets it before and after each test to prevent cross-test
-contamination.
+Sessions are isolated by the application factory; tests never reset module globals.
 """
 
 from __future__ import annotations
@@ -11,7 +9,6 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-import sqlviz_api.routers.auth as auth_module
 from fastapi.testclient import TestClient
 from sqlviz_api.main import create_app
 from sqlviz_storage.auth import set_admin_password
@@ -21,13 +18,6 @@ _PASSWORD = "supersecret123"
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
-
-@pytest.fixture(autouse=True)
-def _reset_sessions() -> Generator[None, None, None]:
-    auth_module._sessions.clear()
-    yield
-    auth_module._sessions.clear()
-
 
 @pytest.fixture
 def auth_client(tmp_path: Path) -> Generator[TestClient, None, None]:
@@ -230,15 +220,20 @@ class TestChangePassword:
     def test_change_password_invalidates_all_sessions(
         self, auth_client: TestClient
     ) -> None:
-        # Log in twice to accumulate two session tokens
+        # Two independent browsers have active sessions in the same app.
         _login(auth_client)
-        _login(auth_client)
-        import sqlviz_api.routers.auth as am
-        assert len(am._sessions) >= 1
+        first_token = auth_client.cookies.get("sqlviz_session")
+        with TestClient(auth_client.app) as other_browser:
+            _login(other_browser)
+            second_token = other_browser.cookies.get("sqlviz_session")
+        sessions = auth_client.app.state.authorization.admin_sessions
+        assert sessions.validate(first_token)
+        assert sessions.validate(second_token)
 
         # Change password — ALL sessions must be cleared
         auth_client.post("/api/v1/auth/change-password", json={
             "current_password": _PASSWORD,
             "new_password": "new123",
         })
-        assert len(am._sessions) == 0
+        assert not sessions.validate(first_token)
+        assert not sessions.validate(second_token)

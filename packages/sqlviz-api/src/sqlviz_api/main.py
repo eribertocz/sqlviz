@@ -8,10 +8,13 @@ Usage:
 The DuckDB connection is stored in app.state.db_conn and injected into each
 request via the get_db dependency (dependencies.py).
 
-The QuackConnectionRouter (quack_server.py) is stored in app.state.quack_router
-and provides is_admin(request) / connection_for_request(request). In Phase 4.5
-all requests use the same read/write connection; Phase 6 wires in read-only
-viewer connections (see quack_server.py module docstring).
+AuthorizationService in app.state.authorization owns app-local admin and viewer
+sessions. Author routers require admin; panel reads/execution/composition validate
+scope on every request. get_db closes each request's cursor. Analytical database
+execution uses QueryService's separate catalog; metadata cursors never execute
+user SQL. Legacy physical data tables are projected without attaching the project.
+The legacy QuackConnectionRouter is retained in app.state for compatibility and
+is not the authorization boundary or the HTTP transport used by viewers.
 
 Frontend protection (FastAPI ≥ 0.139.0, DOC3 §8):
   router.frontend() is registered with dependencies=[Depends(require_admin)]
@@ -36,12 +39,21 @@ from pathlib import Path
 import duckdb
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.exceptions import HTTPException
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.exceptions import HTTPException, RequestValidationError
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from sqlviz_core.models.folders import FolderError
+from sqlviz_core.models.parameters import ParameterError, ParameterLimits
+from sqlviz_core.version import __version__
+from sqlviz_storage.dashboard_repository import DashboardNotFound, DashboardWriteConflict
+from sqlviz_storage.folder_repository import FolderWriteConflict
 
 from sqlviz_api.quack_server import QuackConnectionRouter
+from sqlviz_api.request_limits import RequestBodyLimitMiddleware
 from sqlviz_api.routers import auth, compose, dashboards, demo, folders, meta, panels, shares
 from sqlviz_api.routers.auth import require_admin
+from sqlviz_api.services.access import AuthorizationService
+from sqlviz_api.services.parameters import ParameterService
+from sqlviz_api.services.queries import QueryFailure, QueryLimits, QueryService
 
 
 def create_app(
@@ -49,40 +61,103 @@ def create_app(
     *,
     viewer_conn: duckdb.DuckDBPyConnection | None = None,
     demo_mode: bool = False,
+    query_limits: QueryLimits | None = None,
+    parameter_limits: ParameterLimits | None = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application.
 
     Args:
         db_conn: Open read/write DuckDB connection to the active project.
-                 Stored in app.state and used for all admin requests.
+                 Stored in app.state for metadata and trusted source snapshots.
         viewer_conn: Optional read-only DuckDB connection for viewer requests
                      (Phase 6). None in demo mode or when read-only isolation
                      is not needed.
         demo_mode: When True, all auth checks are bypassed — no password is
                    required. Used by `sqlviz` (no args) demo mode.
+        query_limits: App-local analytical budgets. None uses bounded defaults.
+        parameter_limits: App-local named-value budgets. None uses bounded defaults.
 
     Returns:
         Configured FastAPI application ready for uvicorn.
     """
-    app = FastAPI(title="SQLviz API", version="0.2.1")
+    app = FastAPI(title="SQLviz API", version=__version__)
 
     app.state.db_conn = db_conn
     app.state.demo_mode = demo_mode
+    app.state.authorization = AuthorizationService(demo_mode=demo_mode)
+    app.state.queries = QueryService(query_limits, parameter_limits=parameter_limits)
+    app.state.parameters = ParameterService(parameter_limits)
+
+    @app.exception_handler(FolderError)
+    async def _folder_error(request: Request, exc: FolderError) -> JSONResponse:
+        status = 404 if exc.code == "folder_not_found" else (
+            409 if exc.code == "folder_hierarchy_invalid" else 422
+        )
+        return JSONResponse(status_code=status, content={"detail": exc.detail, "code": exc.code})
+
+    @app.exception_handler(FolderWriteConflict)
+    async def _folder_conflict(request: Request, exc: FolderWriteConflict) -> JSONResponse:
+        return JSONResponse(status_code=409, content={
+            "detail": "Folder hierarchy changed concurrently or has a conflicting dependency. "
+                      "Refresh and retry.",
+            "code": "folder_write_conflict",
+        })
+
+    @app.exception_handler(DashboardNotFound)
+    async def _dashboard_missing(request: Request, exc: DashboardNotFound) -> JSONResponse:
+        return JSONResponse(status_code=404, content={
+            "detail": "Dashboard not found", "code": "dashboard_not_found",
+        })
+
+    @app.exception_handler(DashboardWriteConflict)
+    async def _dashboard_conflict(request: Request, exc: DashboardWriteConflict) -> JSONResponse:
+        return JSONResponse(status_code=409, content={
+            "detail": "Dashboard changed concurrently or has a conflicting dependency. "
+                      "Refresh and retry.",
+            "code": "dashboard_write_conflict",
+        })
+    app.add_middleware(RequestBodyLimitMiddleware)
+
+    @app.exception_handler(ParameterError)
+    async def _parameter_failure(request: Request, exc: ParameterError) -> JSONResponse:
+        return JSONResponse(status_code=413 if exc.code == "parameter_limit" else 422, content={
+            "detail": exc.detail, "code": exc.code, "variable": exc.variable,
+        })
+
+    @app.exception_handler(RequestValidationError)
+    async def _invalid_request(request: Request, exc: RequestValidationError) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": [
+            {key: error[key] for key in ("type", "loc", "msg")}
+            for error in exc.errors()
+        ]})
+
+    @app.exception_handler(QueryFailure)
+    async def _query_failure(request: Request, exc: QueryFailure) -> JSONResponse:
+        return JSONResponse(status_code=exc.status_code, content={
+            "detail": exc.detail, "code": exc.code,
+        })
     app.state.quack_router = QuackConnectionRouter(
         admin_conn=db_conn,
-        sessions=auth._sessions,
+        sessions=app.state.authorization.admin_sessions,
         session_lifetime=auth.SESSION_LIFETIME_SECONDS,
         viewer_conn=viewer_conn,
     )
 
     app.include_router(auth.router)
     app.include_router(compose.router)
-    app.include_router(dashboards.router)
-    app.include_router(demo.router)
-    app.include_router(folders.router)
+    app.include_router(dashboards.router, dependencies=[Depends(require_admin)])
+    app.include_router(demo.router, dependencies=[Depends(require_admin)])
+    app.include_router(folders.router, dependencies=[Depends(require_admin)])
     app.include_router(meta.router)
     app.include_router(panels.router)
     app.include_router(shares.router)
+
+    @app.middleware("http")
+    async def _private_data_cache(request: Request, call_next):  # type: ignore[no-untyped-def]
+        response = await call_next(request)
+        if request.url.path.startswith(("/api/v1/", "/view/")):
+            response.headers["Cache-Control"] = "no-store"
+        return response
 
     # SvelteKit SPA — only mounted when the production build exists.
     # Phase 4: dist/ is absent (frontend built in Phase 5). The if-guard

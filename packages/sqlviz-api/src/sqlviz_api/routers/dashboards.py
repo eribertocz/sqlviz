@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from sqlviz_api.dependencies import DbDep
+from sqlviz_api.dependencies import DashboardDeletionDep, DbDep, FoldersDep
 from sqlviz_api.models import DashboardCreate, DashboardResponse, DashboardUpdate
 
 router = APIRouter(prefix="/api/v1/dashboards", tags=["dashboards"])
@@ -55,21 +55,23 @@ def _fetch_one(db: DbDep, dashboard_id: str) -> DashboardResponse:
 
 
 @router.post("", response_model=DashboardResponse, status_code=201)
-def create_dashboard(body: DashboardCreate, db: DbDep) -> DashboardResponse:
+def create_dashboard(body: DashboardCreate, db: DbDep, folders: FoldersDep) -> DashboardResponse:
     dashboard_id = str(uuid.uuid4())
     now = _now()
-    db.execute(
-        "INSERT INTO dashboards "
-        "(id, name, folder_id, connection_id, sql_content, sort_order, "
-        "created_at, updated_at, description) "
-        "VALUES (?, ?, ?, ?, '', ?, ?, ?, ?)",
-        [dashboard_id, body.name, body.folder_id, body.connection_id,
-         body.sort_order, now, now, body.description],
-    )
+    folder_id = body.folder_id or None
+    with folders.dashboard_placement(folder_id):
+        db.execute(
+            "INSERT INTO dashboards "
+            "(id, name, folder_id, connection_id, sql_content, sort_order, "
+            "created_at, updated_at, description) "
+            "VALUES (?, ?, ?, ?, '', ?, ?, ?, ?)",
+            [dashboard_id, body.name, folder_id, body.connection_id,
+             body.sort_order, now, now, body.description],
+        )
     return DashboardResponse(
         id=dashboard_id,
         name=body.name,
-        folder_id=body.folder_id,
+        folder_id=folder_id,
         connection_id=body.connection_id,
         sort_order=body.sort_order,
         created_at=now,
@@ -93,15 +95,15 @@ def get_dashboard(dashboard_id: str, db: DbDep) -> DashboardResponse:
 
 @router.patch("/{dashboard_id}", response_model=DashboardResponse)
 def update_dashboard(
-    dashboard_id: str, body: DashboardUpdate, db: DbDep
+    dashboard_id: str, body: DashboardUpdate, db: DbDep, folders: FoldersDep,
 ) -> DashboardResponse:
     _fetch_one(db, dashboard_id)  # raises 404 if missing
 
     updates: dict[str, str | int | None] = {}
     if body.name is not None:
         updates["name"] = body.name
-    if body.folder_id is not None:
-        # Empty string means "move to root" → store NULL.
+    if "folder_id" in body.model_fields_set:
+        # Explicit null clears placement; "" remains compatible with old clients.
         updates["folder_id"] = body.folder_id or None
     if body.connection_id is not None:
         updates["connection_id"] = body.connection_id
@@ -120,14 +122,20 @@ def update_dashboard(
     updates["updated_at"] = _now()
 
     set_clause = ", ".join(f"{col} = ?" for col in updates)
+    if "folder_id" in updates:
+        with folders.dashboard_placement(body.folder_id or None):
+            db.execute(
+                f"UPDATE dashboards SET {set_clause} WHERE id = ?",
+                [*updates.values(), dashboard_id],
+            )
+            result = _fetch_one(db, dashboard_id)
+        return result
     db.execute(
-        f"UPDATE dashboards SET {set_clause} WHERE id = ?",
-        [*updates.values(), dashboard_id],
+        f"UPDATE dashboards SET {set_clause} WHERE id = ?", [*updates.values(), dashboard_id],
     )
     return _fetch_one(db, dashboard_id)
 
 
 @router.delete("/{dashboard_id}", status_code=204)
-def delete_dashboard(dashboard_id: str, db: DbDep) -> None:
-    _fetch_one(db, dashboard_id)  # raises 404 if missing
-    db.execute("DELETE FROM dashboards WHERE id = ?", [dashboard_id])
+def delete_dashboard(dashboard_id: str, deletion: DashboardDeletionDep) -> None:
+    deletion.delete(dashboard_id)
