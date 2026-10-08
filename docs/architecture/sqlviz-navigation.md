@@ -61,6 +61,10 @@ una transición breve de opacidad y sin animación si se solicita movimiento red
 Su nombre accesible Mostrar/Ocultar siempre describe la acción disponible.
 Ambos iconos usan siempre `--sqlviz-primary`, el mismo índigo del logo, tanto
 en reposo como con hover/foco y en ambos estados de navegación.
+Los items de búsqueda y comandos comparten el resaltado `bg-accent` cuando
+Bits UI selecciona una opción por mouse o teclado; `bg-muted` coincidía con el
+fondo del diálogo. El componente compartido conserva los items deshabilitados
+sin interacción y no añade un estado de hover separado de la selección de teclado.
 Ese botón mantiene la posición en escritorio y sirve para
 abrir/cerrar. La cabecera del workspace se encuentra por encima de sidebar y
 canvas; abrir el panel no desplaza el control hacia la derecha. El botón mide
@@ -158,6 +162,11 @@ El ajuste de color conserva el índigo exacto del logo (`#5B5BD6`) en ambos
 iconos. Check y build pasan; Chromium verifica el stroke en los dos temas,
 abierto/cerrado y con/sin hover, además de un dispositivo táctil. Evidencia en
 `build/navigation-hover-review/color-report.json`; sin errores de página.
+La corrección del resaltado de items pasa check sin diagnósticos, build y las
+25 pruebas existentes del selector y filtros. Chromium comprueba dashboards y
+acciones con mouse, selección por flechas, búsqueda/Enter y selector del viewer
+en temas claro y oscuro; sin errores de página. Evidencia en
+`build/command-hover-review`, ignorado por Git, con API de ensayo en memoria.
 Los registros siguientes
 corresponden a entregas anteriores, incluida la variante con flechas.
 
