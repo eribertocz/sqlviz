@@ -1,6 +1,6 @@
 # Navegación del workspace
 
-Actualizada: **2026-10-07**. Estado: implementada en el editor, Preview y viewer de
+Actualizada: **2026-10-08**. Estado: implementada en el editor, Preview y viewer de
 workspace; validación descrita abajo. Esta entrega no cierra E2 ni implementa
 los modos de página pantalla/scroll.
 
@@ -112,6 +112,27 @@ y la separación entre navegación y área de trabajo de
 [Figma](https://help.figma.com/hc/en-us/articles/360039831974-Explore-the-navigation-bar-and-left-sidebar).
 La identidad, dimensiones y comportamiento anteriores son decisiones de
 SQLviz; no se afirma que reproduzcan exactamente esas aplicaciones.
+
+## Tamaño del editor SQL
+
+El separador modifica la altura del panel mediante `uiStore`; el layout CSS
+distribuye ese espacio entre barra de acciones y área de escritura. Monaco usa
+`automaticLayout` para observar su contenedor, tanto en altura como en ancho.
+La adaptación pertenece a `SQLEditor`, sin suscripciones del shell ni recreación
+del editor durante un arrastre. Monaco libera su observador al disponer la instancia.
+
+Corrección del 2026-10-08: antes, ampliar el panel aumentaba el contenedor de
+252 a 352 px en el ensayo de escritorio, mientras Monaco permanecía en 252 px.
+Solo se recalculaba al abrirlo. La corrección permite que el área de escritura
+ocupe la altura disponible; barra, separador y margen inferior conservan su espacio.
+
+Revisión Chromium a 1600×1000: ampliación por teclado a 352 px y arrastre a
+522 px; reducción a 322 px; ancho de 1600 a 1340 px al abrir navegación y a
+940 px al cambiar el viewport. En todos esos casos el área interna coincide con
+el contenedor. El SQL escrito permanece durante el arrastre y al cerrar/reabrir;
+sin errores de página. Reporte y capturas en `build/editor-resize-review/`, con
+proyecto y aprendizaje en memoria. Svelte-check sin errores/advertencias,
+150 pruebas frontend pasan y build correcto. CI se verifica sobre el commit enviado.
 
 ## Responsabilidades de implementación
 

@@ -73,6 +73,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
+- El área de escritura SQL se ajusta al ampliar/reducir el panel y al cambiar
+  el ancho disponible; Monaco observa su contenedor sin recrear el editor.
 - Presentación de paneles valida título/etiquetas con valor obligatorio, hasta
   512 caracteres y sin coerción; null/vacío restaura automático. Guarda ajuste
   y fecha en una transacción, con rollback y coordinación frente a borrado.

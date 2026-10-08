@@ -97,6 +97,9 @@
                 value,
                 language: 'sql',
                 theme: theme === 'light' ? 'sqlviz-light' : 'sqlviz-dark',
+                // Monaco observes its own container, including drawer height
+                // and sidebar/inspector width changes, without recreating it.
+                automaticLayout: true,
                 minimap: { enabled: false },
                 fontSize: 13,
                 fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
