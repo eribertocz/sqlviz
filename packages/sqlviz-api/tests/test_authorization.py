@@ -142,10 +142,11 @@ def test_dashboard_grant_cannot_access_another_dashboard(workspace, operation) -
             path + "/filter-domain", headers=access, json={"column": "region", "kind": "distinct"}
         )
     else:
+        ir = admin.post(path + "/execute").json()["inference_result"]
         response = viewer.post(
             "/api/v1/compose",
             headers=access,
-            json=[{"panel_id": ids["panel_b"], "inference_result": {}}],
+            json=[{"panel_id": ids["panel_b"], "inference_result": ir}],
         )
     assert response.status_code == 404
 
