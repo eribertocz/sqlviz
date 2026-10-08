@@ -13,6 +13,7 @@ from sqlviz_storage.folder_repository import FolderRepository
 from sqlviz_api.services.dashboards import DashboardDeletionService
 from sqlviz_api.services.parameters import ParameterService
 from sqlviz_api.services.queries import QueryService
+from sqlviz_api.services.sql_scripts import SqlScriptService
 
 
 def get_db(request: Request) -> Iterator[duckdb.DuckDBPyConnection]:
@@ -61,3 +62,10 @@ def get_parameters(request: Request) -> ParameterService:
 
 
 ParametersDep = Annotated[ParameterService, Depends(get_parameters)]
+
+
+def get_sql_scripts(request: Request) -> SqlScriptService:
+    return request.app.state.sql_scripts  # type: ignore[no-any-return]
+
+
+SqlScriptsDep = Annotated[SqlScriptService, Depends(get_sql_scripts)]

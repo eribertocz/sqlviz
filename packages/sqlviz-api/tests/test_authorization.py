@@ -57,6 +57,7 @@ def headers(grant: dict[str, Any], session: str | None = None) -> dict[str, str]
 
 # Every project-data entrypoint must reject anonymous callers before doing work.
 _AUTHOR_ROUTES = [
+    ("POST", "/api/v1/sql/parse", {"sql": "SELECT 1"}),
     ("GET", "/api/v1/dashboards", None),
     ("POST", "/api/v1/dashboards", {"name": "attack"}),
     ("GET", "/api/v1/dashboards/{a}", None),

@@ -11,6 +11,7 @@ import { uiStore } from './uiStore.svelte';
 import { getPaletteById } from '$lib/charts/palettes';
 import { fetchFilterDomains } from '$lib/filters/filterDomains';
 import { createFilterRuntime, patchFilterResults } from '$lib/filters/filterRuntime.svelte';
+import { createSqlScriptAnalysis, joinSqlStatements } from '$lib/sql/sqlScript.svelte';
 
 export type { ExecResult };
 
@@ -126,12 +127,8 @@ export function createDashboardStore() {
         return null;
     });
 
-    /** Splits editor SQL into individual statements — one statement becomes one panel. */
-    function splitStatements(text: string): string[] {
-        return text.split(';').map(s => s.trim()).filter(s => s.length > 0);
-    }
-
-    const statementCount = $derived(splitStatements(sql).length);
+    const sqlAnalysis = createSqlScriptAnalysis();
+    const statementCount = $derived(sqlAnalysis.get(sql)?.length ?? 0);
 
     // "Restore last run" is offered while there is a prior successful run whose
     // SQL differs from the current draft.
@@ -168,6 +165,7 @@ export function createDashboardStore() {
 
     /** Called from the public `sql` setter on every editor change. */
     function onSqlChanged(v: string) {
+        executionStore.errorMsg = null;
         if (!dashboardId) return;
         // The cached view is only valid while the draft matches the SQL that
         // produced it. Any divergence makes those charts stale — drop the entry
@@ -182,7 +180,6 @@ export function createDashboardStore() {
             return;
         }
         // A real edit supersedes a prior error indicator.
-        executionStore.errorMsg = null;
         executionStore.saveStatus = 'draft';
         clearTimeout(saveDebounceTimer);
         // 2 seconds after the user stops typing.
@@ -239,7 +236,7 @@ export function createDashboardStore() {
         onSqlChanged(sql);
         queueMicrotask(() => {
             get(editorRef).setContent?.(lastRunSql);
-            get(editorRef).focusStatement?.(0);
+            get(editorRef).focusOffset?.(0);
         });
     }
 
@@ -277,7 +274,7 @@ export function createDashboardStore() {
 
             // Prefer the saved draft (exact editor text); fall back to the
             // committed panel SQL for dashboards created before draft auto-save.
-            const draft = active.sql_content || panelSQLs.join(';\n\n');
+            const draft = active.sql_content || joinSqlStatements(panelSQLs);
             sql = draft;
             markSqlSaved(draft);
             queueMicrotask(() => get(editorRef).setContent?.(draft));
@@ -292,27 +289,32 @@ export function createDashboardStore() {
     async function run() {
         if (executionStore.executing) return;
 
-        const statements = splitStatements(sql);
-
-        if (statements.length === 0) {
-            executionStore.errorMsg = 'No SQL statements found. Write at least one query separated by ";".';
-            return;
-        }
-
-        resetFilterUpdates();
         executionStore.executing = true;
         executionStore.errorMsg  = null;
+        executionStore.statusMsg = 'Checking SQL…';
 
         // Snapshot mutable state so mid-flight dashboard switches don't corrupt this run.
         let activeDashId = dashboardId;
         const activePanelIds = [...panelIds];
+        const ranSql = sql;
+        const generation = viewGeneration;
+        const isCurrent = () => generation === viewGeneration && dashboardId === activeDashId;
 
         try {
+            const statements = (await sqlAnalysis.analyze(ranSql)).map(statement => statement.sql);
+            if (!isCurrent() || sql !== ranSql) return;
+            if (statements.length === 0) {
+                executionStore.errorMsg = 'No SQL statements found. Write at least one query.';
+                return;
+            }
+            // Parsing must finish before writes or changes to the confirmed view.
+            resetFilterUpdates();
             if (!activeDashId) {
                 const dash = await apiPost<{ id: string }>('/api/v1/dashboards', {
                     name: 'My Dashboard',
                     sort_order: 0,
                 });
+                if (!isCurrent()) return;
                 activeDashId = dash.id;
                 dashboardId  = activeDashId;
             }
@@ -321,6 +323,7 @@ export function createDashboardStore() {
             const newPanelIds: string[] = [];
 
             for (let i = 0; i < statements.length; i++) {
+                if (!isCurrent()) return;
                 const stmt = statements[i];
                 executionStore.statusMsg = `Statement ${i + 1} / ${statements.length}…`;
 
@@ -349,24 +352,20 @@ export function createDashboardStore() {
             }
 
             // Only commit results if the dashboard hasn't changed mid-flight.
-            if (dashboardId !== activeDashId) {
-                executionStore.statusMsg = null;
-                return;
-            }
-
+            if (!isCurrent()) return;
+            executionStore.statusMsg = 'Composing layout…';
+            const composed = await recompose(results);
+            if (!isCurrent()) return;
             panelIds        = newPanelIds;
             panelSQLs       = statements;
             executedResults = results;
-
-            executionStore.statusMsg = 'Composing layout…';
-            layout = await recompose(results);
+            layout = composed;
             filterValues.reset();
             executionStore.statusMsg = null;
 
             // Successful run: persist the exact draft + a last-run timestamp so a
             // refresh can show "Last run X ago" (UX spec §"Run exitoso").
             const runAt = new Date().toISOString();
-            const ranSql = sql;
             lastRunAt = runAt;
             lastRunSql = ranSql;
             markSqlSaved(ranSql);
@@ -381,13 +380,14 @@ export function createDashboardStore() {
 
             // Refresh dashboard list to pick up updated hint/domain from classifier.
             try {
-                allDashboards = await fetch('/api/v1/dashboards')
+                const refreshed = await fetch('/api/v1/dashboards')
                     .then(r => r.json()) as DashboardInfo[];
+                if (isCurrent()) allDashboards = refreshed;
             } catch { /* non-critical */ }
         } catch (e: unknown) {
-            executionStore.errorMsg  = e instanceof Error ? e.message : String(e);
-            executionStore.statusMsg = null;
+            if (isCurrent()) executionStore.errorMsg = e instanceof Error ? e.message : String(e);
         } finally {
+            executionStore.statusMsg = null;
             executionStore.executing = false;
         }
     }
@@ -410,7 +410,7 @@ export function createDashboardStore() {
         executedResults = newResults;
         panelIds        = newPanelIds;
         panelSQLs       = newSQLs;
-        sql             = newSQLs.join(';\n\n');
+        sql             = joinSqlStatements(newSQLs);
 
         if (newResults.length === 0) {
             layout = null;
@@ -428,10 +428,22 @@ export function createDashboardStore() {
         }
     }
 
-    function handleEditSQL(panelId: string) {
+    async function handleEditSQL(panelId: string) {
         const idx = panelIds.indexOf(panelId);
         if (idx < 0) return;
-        get(editorRef).focusStatement?.(idx);
+        const source = sql;
+        const generation = viewGeneration;
+        const targetDashboard = dashboardId;
+        try {
+            const statements = await sqlAnalysis.analyze(source);
+            if (generation !== viewGeneration || targetDashboard !== dashboardId || source !== sql) return;
+            const statement = statements[idx];
+            if (statement) get(editorRef).focusOffset?.(statement.start_offset);
+        } catch (error: unknown) {
+            if (generation === viewGeneration && targetDashboard === dashboardId && source === sql) {
+                uiStore.showToast(error instanceof Error ? error.message : 'SQL check failed. Retry.');
+            }
+        }
     }
 
     function handleExplain(panelId: string) {
@@ -476,7 +488,7 @@ export function createDashboardStore() {
             // the previous dashboard's query — then place the cursor at the start.
             queueMicrotask(() => {
                 get(editorRef).setContent?.('');
-                get(editorRef).focusStatement?.(0);
+                get(editorRef).focusOffset?.(0);
             });
         } catch (e: unknown) {
             uiStore.showToast(e instanceof Error ? e.message : 'Could not create dashboard.');
@@ -542,12 +554,12 @@ export function createDashboardStore() {
             }
 
             // Prefer the saved draft; fall back to the committed panel SQL.
-            const draft = dash.sql_content || panelSQLs.join(';\n\n');
+            const draft = dash.sql_content || joinSqlStatements(panelSQLs);
             sql = draft;
             markSqlSaved(draft);
             queueMicrotask(() => {
                 get(editorRef).setContent?.(draft);
-                get(editorRef).focusStatement?.(0);
+                get(editorRef).focusOffset?.(0);
             });
         } catch (e: unknown) {
             if (generation === viewGeneration) uiStore.showToast(e instanceof Error ? e.message : 'Could not load dashboard.');
@@ -1053,6 +1065,13 @@ export function createDashboardStore() {
     // Cache only confirmed results and filters. Drafts belong to FilterContext.
     if (browser) {
         $effect.root(() => {
+            $effect(() => {
+                const source = sql;
+                const timer = window.setTimeout(() => {
+                    void sqlAnalysis.analyze(source).catch(() => { /* shown beside the count */ });
+                }, 300);
+                return () => window.clearTimeout(timer);
+            });
             // Auto-cache: whenever the active dashboard's executed view changes
             // (run, filter re-exec, chart/panel override, delete), mirror it into
             // the results cache. Reads dashboardId + executedResults + layout +
@@ -1099,6 +1118,8 @@ export function createDashboardStore() {
         get filterDomains() { return filterDomains; },
         get hasFilters() { return hasFilters; },
         get statementCount() { return statementCount; },
+        get sqlCheckError() { return sqlAnalysis.error(sql); },
+        get sqlCheckReady() { return sqlAnalysis.get(sql) !== null; },
 
         bootstrap,
         run,

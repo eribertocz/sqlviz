@@ -36,6 +36,9 @@ See the [accepted authoring decision](docs/architecture/sqlviz-visual-authoring-
 The [Studio delivery plan](docs/architecture/sqlviz-studio-delivery-plan.md)
 defines the current sequence and completion criteria; the
 [canvas contract](docs/architecture/sqlviz-canvas-contract.md) states what exists.
+The first S1 increment replaces delimiter splitting with backend DuckDB syntax
+analysis for Run, statement counts and editor focus. Stable panel reconciliation
+remains next; see the [script parsing contract](docs/architecture/sqlviz-sql-script-parsing.md).
 
 Start with the [documentation index](docs/README.md),
 [target architecture](docs/architecture/sqlviz-product-architecture.md), and

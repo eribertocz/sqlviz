@@ -43,6 +43,7 @@ from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlviz_core.models.folders import FolderError
 from sqlviz_core.models.parameters import ParameterError, ParameterLimits
+from sqlviz_core.models.sql_script import SqlScriptError
 from sqlviz_core.version import __version__
 from sqlviz_storage.dashboard_repository import DashboardNotFound, DashboardWriteConflict
 from sqlviz_storage.folder_repository import FolderWriteConflict
@@ -50,11 +51,22 @@ from sqlviz_storage.panel_repository import PanelNotFound, PanelWriteConflict
 
 from sqlviz_api.quack_server import QuackConnectionRouter
 from sqlviz_api.request_limits import RequestBodyLimitMiddleware
-from sqlviz_api.routers import auth, compose, dashboards, demo, folders, meta, panels, shares
+from sqlviz_api.routers import (
+    auth,
+    compose,
+    dashboards,
+    demo,
+    folders,
+    meta,
+    panels,
+    shares,
+    sql_scripts,
+)
 from sqlviz_api.routers.auth import require_admin
 from sqlviz_api.services.access import AuthorizationService
 from sqlviz_api.services.parameters import ParameterService
 from sqlviz_api.services.queries import QueryFailure, QueryLimits, QueryService
+from sqlviz_api.services.sql_scripts import SqlScriptService
 
 
 def create_app(
@@ -88,6 +100,13 @@ def create_app(
     app.state.authorization = AuthorizationService(demo_mode=demo_mode)
     app.state.queries = QueryService(query_limits, parameter_limits=parameter_limits)
     app.state.parameters = ParameterService(parameter_limits)
+    app.state.sql_scripts = SqlScriptService()
+
+    @app.exception_handler(SqlScriptError)
+    async def _sql_script_failure(request: Request, exc: SqlScriptError) -> JSONResponse:
+        return JSONResponse(status_code=413 if exc.code == "sql_script_limit" else 422, content={
+            "detail": exc.detail, "code": exc.code,
+        })
 
     @app.exception_handler(FolderError)
     async def _folder_error(request: Request, exc: FolderError) -> JSONResponse:
@@ -165,6 +184,7 @@ def create_app(
     app.include_router(meta.router)
     app.include_router(panels.router)
     app.include_router(shares.router)
+    app.include_router(sql_scripts.router, dependencies=[Depends(require_admin)])
 
     @app.middleware("http")
     async def _private_data_cache(request: Request, call_next):  # type: ignore[no-untyped-def]

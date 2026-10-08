@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Breaking
 
+- Run del workspace analiza todo el script antes de crear/editar paneles y ahora
+  rechaza sintaxis inválida sin escrituras de panel. Requiere el backend con
+  `POST /api/v1/sql/parse`; no vuelve al splitter por delimitadores si falla.
+
 - `PATCH /panels/{id}/override` para `chart_type` acepta únicamente los ocho
   identificadores soportados actualmente. Tipos desconocidos o con espacios/casing
   distinto ahora devuelven 422; `user_value: null` mantiene el retorno a automático.
@@ -18,6 +22,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   también se rechazan; los clientes deben corregir esas entradas.
 
 ### Added
+
+- S1.1a: análisis nativo DuckDB de scripts, slices de fuente y offsets UTF-16;
+  contrato HTTP estricto solo para autores, sin ejecución ni conexión de proyecto.
+  Presupuestos de bytes/sentencias y admisión por aplicación.
 
 - Núcleo interno de geometría manual del dashboard: doce columnas, posiciones y
   alturas exactas, operaciones inmutables, colisiones y evaluación de espacio
@@ -84,6 +92,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   ajustes expertos. Es diseño pendiente de implementación, no una función nueva.
 
 ### Fixed
+
+- Run, contador y foco respetan `;` dentro de strings, identificadores, dollar
+  quotes y comentarios. Comentarios/separadores vacíos no crean paneles;
+  sintaxis inválida y NUL se rechazan antes de mutar paneles. El contador no
+  publica resultados de otro draft y el foco usa posiciones confirmadas.
+- Reconstrucción de SQL desde paneles separa consultas en líneas independientes
+  para preservar comentarios `--` finales. `last_run_sql` conserva el snapshot
+  ejecutado y respuestas tardías del preflight no cambian otro dashboard.
 
 - Cambio manual de gráfico se guarda transaccionalmente antes del aprendizaje,
   con respuesta confirmada y conflictos de borrado/edición predecibles. La UI
@@ -192,6 +208,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   del worker provisional, evitando su rechazo `Canceled` al cerrar el editor.
 
 ### Documentation
+
+- S1 dividido en S1.1a–c y S1.2a–e; contratos y límites del parsing documentados.
+  Identidad/reconciliación es el siguiente incremento, antes del layout persistido.
 
 - Plan operativo único del Studio con entregas S0–S8, criterios de cierre,
   reglas de libertad/legibilidad y análisis del informe de producto. Contrato

@@ -30,8 +30,10 @@ secuencia de trabajo actual. Reemplaza el orden inmediato anterior, que dejaba
 el lienzo y el nivel experto demasiado lejos del recorrido central.
 
 **S0 entregado:** [geometría manual](sqlviz-canvas-contract.md), todavía sin UI,
-almacenamiento o endpoints. **Siguiente: S1**, identidad segura de paneles,
-documento de layout persistido y controles de posición/tamaño. Después S2 añade
+almacenamiento o endpoints. **S1 en curso:**
+[S1.1a parsing](sqlviz-sql-script-parsing.md) implementado; **siguiente S1.1b**,
+identidad segura de paneles. Después se integra reconciliación transaccional,
+documento de layout persistido y controles de posición/tamaño. S2 añade
 drag/resize sobre ese mismo contrato. La revisión de dimensiones de E1 se
 incorpora a S1; no es una línea independiente de mantenimiento.
 

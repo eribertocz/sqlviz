@@ -8,6 +8,10 @@ posición/tamaño, y S2 drag/resize. Después se completa el recorrido Automáti
 Visual Builder → ECharts nativo. Este es el orden operativo vigente, con criterios
 de cierre; los apartados E0–E5 conservan el mapa técnico e historial.
 
+**Primera parte de S1 implementada:** [S1.1a, parsing SQL](architecture/sqlviz-sql-script-parsing.md).
+Run, contador y foco usan análisis nativo en backend. El siguiente paso es S1.1b:
+identidad y reconciliación; no se atribuye todavía esa garantía al parsing.
+
 ## Orden de lectura
 
 1. [Auditoría del producto y del código](architecture/sqlviz-audit-2026-10-05.md): estado observado, evidencias, riesgos y validación ejecutada.

@@ -129,39 +129,15 @@
                 syncing = false;
             });
 
-            // Register focusStatement so +page.svelte can focus a specific SQL statement
+            // The backend supplies statement positions; Monaco does not parse SQL.
             editorRef.set({
-                focusStatement(idx: number) {
+                focusOffset(offset: number) {
                     if (!editor) return;
                     const model = editor.getModel();
                     if (!model) return;
 
-                    const content = editor.getValue();
-                    let charIdx = 0;
-
-                    if (idx > 0) {
-                        let count = 0;
-                        for (let c = 0; c < content.length; c++) {
-                            if (content[c] === ';') {
-                                count++;
-                                if (count === idx) {
-                                    charIdx = c + 1;
-                                    break;
-                                }
-                            }
-                        }
-                        // Skip leading whitespace/newlines after the semicolon
-                        while (
-                            charIdx < content.length &&
-                            (content[charIdx] === '\n' ||
-                             content[charIdx] === '\r' ||
-                             content[charIdx] === ' ')
-                        ) {
-                            charIdx++;
-                        }
-                    }
-
-                    const pos = model.getPositionAt(charIdx);
+                    if (!Number.isInteger(offset) || offset < 0 || offset > editor.getValue().length) return;
+                    const pos = model.getPositionAt(offset);
                     editor.revealLineInCenter(pos.lineNumber);
                     editor.setPosition(pos);
                     editor.focus();

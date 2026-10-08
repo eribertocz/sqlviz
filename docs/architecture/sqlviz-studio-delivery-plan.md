@@ -38,6 +38,10 @@ la UI, persistencia de este lienzo ni sus endpoints.** Tampoco están entregados
 el Visual Builder completo, datasets reutilizables o el editor experto.
 Ver el [contrato y sus límites](sqlviz-canvas-contract.md).
 
+**S1.1a implementado:** [parsing de scripts SQL](sqlviz-sql-script-parsing.md),
+integrado en Run, contador y foco. La identidad/reconciliación y el guardado del
+layout siguen pendientes; no se declara S1 completa.
+
 ## Libertad con límites que se pueden explicar
 
 | Decisión | Regla de producto |
@@ -89,7 +93,7 @@ cruzan las capas necesarias manteniendo sus responsabilidades separadas.
 | Etapa | Entrega | Evidencia necesaria para pasar a la siguiente |
 | --- | --- | --- |
 | **S0 — Entregado** | Núcleo de geometría manual | Doce columnas, posiciones y alturas exactas, colisiones, operaciones inmutables y diagnóstico de espacio; pruebas sin HTTP, SQL ni DOM |
-| **S1 — Siguiente** | Lienzo persistido, primero con controles de posición/tamaño | Contrato HTTP y revisión, referencias estables, escritura atómica, migración ensayada sobre copias, draft/reintento; mismo diseño tras reabrir y compartir |
+| **S1 — En curso** | Lienzo persistido, primero con controles de posición/tamaño | S1.1a parsing entregado; identidad/reconciliación, contrato HTTP de layout y revisión, escritura atómica, migración ensayada sobre copias, draft/reintento; mismo diseño tras reabrir y compartir |
 | **S2** | Drag/resize y edición reversible | Guías, preview, cancelación, undo/redo y bloqueo; teclado y alternativa por clic/tap; mover no ejecuta SQL ni roba gestos del gráfico |
 | **S3** | Dataset mínimo, visual y panel separados | Una definición alimenta dos visuales; esquema/bindings y revisiones explícitos; SQL reordenado no transfiere personalizaciones |
 | **S4** | Primer recorrido completo de los tres niveles | Automático → builder → JSON nativo → guardar → filtrar → reabrir → viewer → reset/undo, sobre la misma visualización |
@@ -99,6 +103,24 @@ cruzan las capas necesarias manteniendo sus responsabilidades separadas.
 | **S8** | Publicación y acabado | Revisión publicada estable, preview fiel, accesibilidad, rendimiento, estados y exportaciones autorizadas; tareas observadas con usuarios |
 
 ### S1: primera experiencia visible
+
+S1 es una etapa amplia. Se ejecuta por las siguientes partes pequeñas, cada una
+con un commit revisable y validación adecuada. Una parte técnica no cierra por
+sí sola la experiencia completa.
+
+| Parte | Estado | Alcance y cierre |
+| --- | --- | --- |
+| **S1.1a** | Implementado | Parsing nativo del script completo, source/offsets, contador y foco; sin escrituras ante sintaxis inválida |
+| **S1.1b** | Siguiente | Identidad y reconciliación: reordenar/insertar/editar conserva asociación correcta; ambigüedad explícita, sin emparejar solo por índice |
+| **S1.1c** | Pendiente | Integración transaccional de cambios y borrados; un fallo no confirma parte del conjunto |
+| **S1.2a** | Pendiente | Contrato persistido de layout y modo pantalla/scroll por dashboard; fuente única de geometría |
+| **S1.2b** | Pendiente | Migración, repositorio y revisión; ensayo sobre copias y rechazo de conflictos |
+| **S1.2c** | Pendiente | API tipada de layout, validación completa y permisos |
+| **S1.2d** | Pendiente | Controles de posición, ancho y alto; draft, confirmación y reintento |
+| **S1.2e** | Pendiente | Recorrido guardar → reabrir → compartir, mismo layout y configuración |
+
+Antes de iniciar S2 y las etapas posteriores, dividirlas con la misma disciplina.
+No se implementa una etapa amplia en un único cambio.
 
 1. Revisar cómo se asigna hoy la identidad de paneles al editar y ejecutar SQL.
    Establecer reconciliación segura antes de asociar geometría persistida. Un

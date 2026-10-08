@@ -28,6 +28,13 @@
                 </div>
             {:else if executionStore.executing && executionStore.statusMsg && dashboardStore.hasLayout}
                 <span class="exec-inline">{executionStore.statusMsg}</span>
+            {:else if dashboardStore.sqlCheckError}
+                <div class="error-chip" title={dashboardStore.sqlCheckError}>
+                    <X size={12} />
+                    <span class="error-text">SQL check failed</span>
+                </div>
+            {:else if dashboardStore.sql.trim() && !dashboardStore.sqlCheckReady}
+                <span class="exec-inline">Checking SQL…</span>
             {:else if dashboardStore.statementCount > 0}
                 <span class="statement-count">
                     {dashboardStore.statementCount} {dashboardStore.statementCount === 1 ? 'statement' : 'statements'}
