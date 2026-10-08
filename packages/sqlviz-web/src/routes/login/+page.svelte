@@ -53,7 +53,6 @@
                 placeholder="Admin password"
                 autocomplete="current-password"
                 disabled={submitting}
-                autofocus
             />
 
             {#if error}

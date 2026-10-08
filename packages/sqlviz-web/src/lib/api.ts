@@ -21,12 +21,16 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
 }
 
 /** Sends executed panel results to /compose and merges the row data back into the response. */
-export async function recompose(results: ExecResult[]): Promise<DashboardLayout> {
+export async function recompose(
+    results: ExecResult[],
+    post: <T>(path: string, body?: unknown) => Promise<T> = apiPost,
+): Promise<DashboardLayout> {
+    if (results.length === 0) return { rows: [] };
     const composeBody = results.map(r => ({
         panel_id: r.panel_id,
         inference_result: r.inference_result,
     }));
-    const layoutResponse = await apiPost<DashboardLayout>('/api/v1/compose', composeBody);
+    const layoutResponse = await post<DashboardLayout>('/api/v1/compose', composeBody);
     const dataMap = new Map(results.map(r => [r.panel_id, r.data]));
     return {
         ...layoutResponse,

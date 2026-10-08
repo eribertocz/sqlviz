@@ -9,10 +9,11 @@ on:
 jobs:
   test:
     name: Test (Python ${{ matrix.python-version }})
+    needs: frontend
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +27,13 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --all-packages
+        run: uv sync --all-packages --locked
+
+      - name: Download tested frontend build for HTTP tests
+        uses: actions/download-artifact@v5
+        with:
+          name: sqlviz-web-dist
+          path: packages/sqlviz-api/src/sqlviz_api/static/dist
 
       - name: Run pytest
         run: uv run pytest --tb=short -q
@@ -47,7 +54,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version-file: ".node-version"
 
       - name: Install dependencies
         working-directory: packages/sqlviz-web
@@ -64,3 +71,11 @@ jobs:
       - name: Build
         working-directory: packages/sqlviz-web
         run: npm run build
+
+      - name: Upload tested frontend build for HTTP tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: sqlviz-web-dist
+          path: packages/sqlviz-api/src/sqlviz_api/static/dist
+          if-no-files-found: error
+          retention-days: 3

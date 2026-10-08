@@ -1,9 +1,9 @@
 <script lang="ts">
+    import { hasFilterValue } from '$lib/filters/filterContext';
     import type { FilterControl, FilterDomain } from '$lib/types';
     import * as Popover from '$lib/components/ui/popover/index.js';
     import * as Command from '$lib/components/ui/command/index.js';
     import { Slider } from '$lib/components/ui/slider/index.js';
-    import { Switch } from '$lib/components/ui/switch/index.js';
     import { Input } from '$lib/components/ui/input/index.js';
     import { Calendar } from '$lib/components/ui/calendar/index.js';
     import { RangeCalendar } from '$lib/components/ui/range-calendar/index.js';
@@ -34,7 +34,7 @@
             || control.control_type === 'date_range_picker') {
             return rangeFrom !== '' || rangeTo !== '';
         }
-        if (control.control_type === 'toggle') return !!currentVal;
+        if (control.control_type === 'toggle') return hasFilterValue(currentVal);
         return currentVal !== '' && currentVal !== undefined && currentVal !== null;
     });
 
@@ -45,7 +45,7 @@
     const rangeTo    = $derived(vars.length > 1 ? filterVals[vars[1]] ?? '' : '');
 
     // ── Domain-driven options / bounds ───────────────────────────────────────
-    const options = $derived((domain?.values ?? []).map(v => String(v)));
+    const options = $derived((domain?.values ?? []).filter((v): v is string | number | boolean => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean'));
     const hasOptions = $derived(options.length > 0);
     const hasRange = $derived(
         domain != null
@@ -61,7 +61,7 @@
     );
 
     const selectedArray = $derived(
-        Array.isArray(filterVals[vars[0]]) ? (filterVals[vars[0]] as string[]) : []
+        Array.isArray(filterVals[vars[0]]) ? (filterVals[vars[0]] as Array<string | number | boolean>) : []
     );
 
     const sliderValue = $derived<[number, number]>([
@@ -97,7 +97,7 @@
             .split(',').map(v => v.trim()).filter(Boolean);
         onChange(vars[0], arr);
     }
-    function selectOption(opt: string) {
+    function selectOption(opt: string | number | boolean) {
         onChange(vars[0], opt);
         dropdownOpen = false;
     }
@@ -105,7 +105,7 @@
         onChange(vars[0], '');
         dropdownOpen = false;
     }
-    function toggleOption(opt: string) {
+    function toggleOption(opt: string | number | boolean) {
         const next = selectedArray.includes(opt)
             ? selectedArray.filter(v => v !== opt)
             : [...selectedArray, opt];
@@ -141,8 +141,8 @@
                  choice: filter domains routinely run to dozens of values, where
                  scrolling a plain list to find one is the slow way round. -->
             <Popover.Root bind:open={dropdownOpen}>
-                <Popover.Trigger class="inline-flex h-7 min-w-[120px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
-                    {#if currentVal}
+                <Popover.Trigger aria-label={control.label} class="inline-flex h-7 min-w-[120px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
+                    {#if hasFilterValue(currentVal)}
                         {String(currentVal)}
                     {:else}
                         <span class="filter-placeholder">Select…</span>
@@ -150,14 +150,14 @@
                     <ChevronsUpDownIcon class="ml-2 size-3 opacity-50" />
                 </Popover.Trigger>
                 <Popover.Content class="w-[220px] p-0" align="start">
-                    <Command.Root>
+                    <Command.Root label={`${control.label} options`}>
                         <Command.Input placeholder="Search…" class="h-8 text-xs" />
                         <Command.List>
                             <Command.Empty>No results.</Command.Empty>
                             <!-- Empty state = "no filter". The clear action lives
                                  inside the dropdown so the header pill stays
                                  clean (no × chip). -->
-                            {#if currentVal}
+                            {#if hasFilterValue(currentVal)}
                                 <Command.Group>
                                     <Command.Item value="Clear filter" onSelect={clearDropdown}>
                                         <XIcon class="mr-2 size-3.5" /> Clear filter
@@ -167,9 +167,9 @@
                             {/if}
                             <Command.Group>
                                 {#each options as opt}
-                                    <Command.Item value={opt} onSelect={() => selectOption(opt)}>
+                                    <Command.Item value={`${typeof opt}:${String(opt)}`} keywords={[String(opt)]} onSelect={() => selectOption(opt)}>
                                         <CheckIcon class={`mr-2 size-4 ${currentVal === opt ? 'opacity-100' : 'opacity-0'}`} />
-                                        {opt}
+                                        {String(opt)}
                                     </Command.Item>
                                 {/each}
                             </Command.Group>
@@ -177,34 +177,34 @@
                     </Command.Root>
                 </Popover.Content>
             </Popover.Root>
-            {#if currentVal && !pill}
+            {#if hasFilterValue(currentVal) && !pill}
                 <button type="button" class="filter-clear" title="Clear filter"
                     aria-label="Clear filter" onclick={() => onChange(vars[0], '')}>
                     <XIcon class="size-3" />
                 </button>
             {/if}
         {:else}
-            <Input type="text" class="h-7 w-[140px] text-xs {chip}" placeholder="value…"
+            <Input aria-label={control.label} type="text" class="h-7 w-[140px] text-xs {chip}" placeholder="value…"
                 value={currentVal as string} oninput={onSearch} />
         {/if}
 
     {:else if control.control_type === 'multiselect'}
         {#if hasOptions}
             <Popover.Root bind:open={comboOpen}>
-                <Popover.Trigger class="inline-flex h-7 min-w-[140px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
+                <Popover.Trigger aria-label={control.label} class="inline-flex h-7 min-w-[140px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
                     {comboLabel}
                     <ChevronsUpDownIcon class="ml-2 size-3 opacity-50" />
                 </Popover.Trigger>
                 <Popover.Content class="w-[220px] p-0" align="start">
-                    <Command.Root>
+                    <Command.Root label={`${control.label} options`}>
                         <Command.Input placeholder="Search…" class="h-8 text-xs" />
                         <Command.List>
                             <Command.Empty>No results.</Command.Empty>
                             <Command.Group>
                                 {#each options as opt}
-                                    <Command.Item value={opt} onSelect={() => toggleOption(opt)}>
+                                    <Command.Item value={`${typeof opt}:${String(opt)}`} keywords={[String(opt)]} onSelect={() => toggleOption(opt)}>
                                         <CheckIcon class={`mr-2 size-4 ${selectedArray.includes(opt) ? 'opacity-100' : 'opacity-0'}`} />
-                                        {opt}
+                                        {String(opt)}
                                     </Command.Item>
                                 {/each}
                             </Command.Group>
@@ -213,13 +213,13 @@
                 </Popover.Content>
             </Popover.Root>
         {:else}
-            <Input type="text" class="h-7 w-[160px] text-xs {chip}" placeholder="val1, val2…"
+            <Input aria-label={control.label} type="text" class="h-7 w-[160px] text-xs {chip}" placeholder="val1, val2…"
                 value={selectedArray.join(', ')} oninput={onMultiselectText} />
         {/if}
 
     {:else if control.control_type === 'date_picker'}
         <Popover.Root>
-            <Popover.Trigger class="inline-flex h-7 min-w-[140px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
+            <Popover.Trigger aria-label={control.label} class="inline-flex h-7 min-w-[140px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
                 {dateLabel}
                 <CalendarIcon class="ml-2 size-3 opacity-50" />
             </Popover.Trigger>
@@ -230,7 +230,7 @@
 
     {:else if control.control_type === 'date_range_picker'}
         <Popover.Root>
-            <Popover.Trigger class="inline-flex h-7 min-w-[170px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
+            <Popover.Trigger aria-label={control.label} class="inline-flex h-7 min-w-[170px] items-center justify-between rounded-md border border-input bg-transparent px-2.5 text-xs {chip}">
                 {rangeLabel}
                 <CalendarIcon class="ml-2 size-3 opacity-50" />
             </Popover.Trigger>
@@ -243,7 +243,7 @@
         </Popover.Root>
 
     {:else if control.control_type === 'numeric'}
-        <Input type="number" class="h-7 w-[90px] text-xs {chip}" placeholder="0"
+        <Input aria-label={control.label} type="number" class="h-7 w-[90px] text-xs {chip}" placeholder="0"
             value={currentVal as number} oninput={onNumber} />
 
     {:else if control.control_type === 'range_slider'}
@@ -256,20 +256,24 @@
             </div>
         {:else}
             <div class="slider-group">
-                <Input type="number" class="h-7 w-[72px] text-xs" placeholder="min"
+                <Input aria-label={`${control.label} minimum`} type="number" class="h-7 w-[72px] text-xs" placeholder="min"
                     value={rangeFrom as number} oninput={(e) => onRangeNum(0, e)} />
                 <span class="range-sep">–</span>
-                <Input type="number" class="h-7 w-[72px] text-xs" placeholder="max"
+                <Input aria-label={`${control.label} maximum`} type="number" class="h-7 w-[72px] text-xs" placeholder="max"
                     value={rangeTo as number} oninput={(e) => onRangeNum(1, e)} />
             </div>
         {/if}
 
     {:else if control.control_type === 'search'}
-        <Input type="text" class="h-7 w-[160px] text-xs {chip}" placeholder="%keyword%"
+        <Input aria-label={control.label} type="text" class="h-7 w-[160px] text-xs {chip}" placeholder="%keyword%"
             value={currentVal as string} oninput={onSearch} />
 
     {:else if control.control_type === 'toggle'}
-        <Switch checked={!!currentVal} onCheckedChange={(v) => onChange(vars[0], v)} />
+        <div class="boolean-choices" role="group" aria-label={control.label}>
+            <button type="button" aria-pressed={!hasFilterValue(currentVal)} onclick={() => onChange(vars[0], '')}>Any</button>
+            <button type="button" aria-pressed={currentVal === true} onclick={() => onChange(vars[0], true)}>Yes</button>
+            <button type="button" aria-pressed={currentVal === false} onclick={() => onChange(vars[0], false)}>No</button>
+        </div>
     {/if}
 </div>
 
@@ -288,6 +292,33 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
         white-space: nowrap;
+    }
+
+    .boolean-choices {
+        display: inline-flex;
+        padding: 2px;
+        border: 1px solid var(--sqlviz-border);
+        border-radius: 0.5rem;
+        gap: 2px;
+    }
+    .boolean-choices button {
+        min-height: 32px;
+        padding: 0 0.75rem;
+        border: 0;
+        border-radius: 0.375rem;
+        background: transparent;
+        color: var(--sqlviz-text-muted);
+        font-size: 0.75rem;
+        cursor: pointer;
+    }
+    .boolean-choices button[aria-pressed="true"] {
+        background: color-mix(in srgb, var(--sqlviz-primary) 12%, transparent);
+        color: var(--sqlviz-text);
+        font-weight: 600;
+    }
+    .boolean-choices button:focus-visible {
+        outline: 2px solid var(--sqlviz-primary);
+        outline-offset: 2px;
     }
 
     .slider-group {

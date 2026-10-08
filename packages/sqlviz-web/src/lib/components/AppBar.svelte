@@ -1,7 +1,9 @@
 <script lang="ts">
-    import { Code2, Eye, Loader2, RotateCcw, Share2 } from 'lucide-svelte';
-    import FilterControl from '$lib/components/FilterControl.svelte';
-    import FilterViews from '$lib/components/FilterViews.svelte';
+    import { ChevronDown, Code2, Eye, Loader2, Maximize2, RotateCcw, Search, Share2 } from 'lucide-svelte';
+    import NavigationToggle from '$lib/components/NavigationToggle.svelte';
+    import FilterContext from '$lib/components/FilterContext.svelte';
+    import ViewerDashboardSwitcher from '$lib/components/ViewerDashboardSwitcher.svelte';
+    import ViewerOptions from '$lib/components/ViewerOptions.svelte';
     import PalettePicker from '$lib/components/PalettePicker.svelte';
     import ShareModal from '$lib/components/ShareModal.svelte';
     import * as Tooltip from '$lib/components/ui/tooltip/index.js';
@@ -9,6 +11,12 @@
     import { editMode } from '$lib/stores/editMode';
     import { executionStore } from '$lib/stores/executionStore.svelte';
     import { filterValues } from '$lib/stores/filterValues.svelte';
+    import { uiStore } from '$lib/stores/uiStore.svelte';
+
+    let { onOpenCommands, readerSearchOpen = $bindable(false) }: { onOpenCommands: () => void; readerSearchOpen?: boolean } = $props();
+    const folderName = $derived(
+        dashboardStore.folders.find(f => f.id === dashboardStore.activeDashboard?.folder_id)?.name ?? 'Workspace'
+    );
 
     // Inline dashboard-name editing (UX spec §"Cambiar nombre").
     let editingName = $state(false);
@@ -48,9 +56,34 @@
     });
 </script>
 
+{#if !$editMode && dashboardStore.activeDashboard}
+    <header class="app-bar reader-bar">
+        <NavigationToggle expanded={!uiStore.sidebarCollapsed} onclick={uiStore.toggleSidebar} />
+        <ViewerDashboardSwitcher compact bind:open={readerSearchOpen} activeId={dashboardStore.dashboardId} loading={executionStore.executing || dashboardStore.viewLoading}
+            dashboards={dashboardStore.allDashboards.map(d => ({ id: d.id, name: d.name,
+                folderName: dashboardStore.folders.find(f => f.id === d.folder_id)?.name ?? '' }))}
+            onSelect={(id) => { void dashboardStore.loadDashboard(id); }} />
+        <div class="reader-actions">
+            {#if dashboardStore.hasFilters}
+                {#key dashboardStore.dashboardId}<FilterContext dashboardId={dashboardStore.dashboardId}
+                    controls={dashboardStore.allFilterControls} values={filterValues.current}
+                    domains={dashboardStore.filterDomains} busy={dashboardStore.filterBusy}
+                    error={dashboardStore.filterError} disabled={executionStore.executing || dashboardStore.viewLoading}
+                    onApply={dashboardStore.applyFilters} />{/key}
+            {/if}
+            <ViewerOptions paletteId={dashboardStore.dashboardPaletteId} onPalette={dashboardStore.setDashboardPalette}
+                onFocus={uiStore.toggleFocusMode} onEdit={() => editMode.set(true)} />
+        </div>
+    </header>
+{:else}
 <header class="app-bar">
     <div class="bar-left">
+        <NavigationToggle expanded={!uiStore.sidebarCollapsed} onclick={uiStore.toggleSidebar} />
+        <button class="workspace-context" onclick={onOpenCommands} aria-label="Switch dashboard" title="Switch dashboard">
+            <span>{folderName}</span><ChevronDown size={12} />
+        </button>
         {#if dashboardStore.activeDashboard}
+            <span class="breadcrumb-separator" aria-hidden="true">/</span>
             {#if editingName}
                 <input
                     class="dash-name-input"
@@ -88,32 +121,26 @@
                     <RotateCcw size={12} /> Restore last run
                 </button>
             {/if}
-
-            {#if dashboardStore.hasFilters}
-                <span class="bar-sep" aria-hidden="true"></span>
-                <div class="filters" role="group" aria-label="Dashboard filters">
-                    {#each dashboardStore.allFilterControls as control (control.variable)}
-                        <FilterControl
-                            {control}
-                            pill
-                            filterVals={filterValues.current}
-                            domain={dashboardStore.filterDomains[control.variable]}
-                            onChange={dashboardStore.handleFilterChange}
-                        />
-                    {/each}
-                    <FilterViews
-                        dashboardId={dashboardStore.dashboardId}
-                        currentValues={filterValues.current}
-                        onApply={(vals) => {
-                            for (const [k, v] of Object.entries(vals)) dashboardStore.handleFilterChange(k, v);
-                        }}
-                    />
-                </div>
-            {/if}
         {/if}
     </div>
 
+    {#if dashboardStore.activeDashboard && dashboardStore.hasFilters}
+        {#key dashboardStore.dashboardId}<FilterContext dashboardId={dashboardStore.dashboardId}
+            controls={dashboardStore.allFilterControls} values={filterValues.current}
+            domains={dashboardStore.filterDomains} busy={dashboardStore.filterBusy}
+            error={dashboardStore.filterError} disabled={executionStore.executing || dashboardStore.viewLoading}
+            onApply={dashboardStore.applyFilters} />{/key}
+    {/if}
+
     <div class="bar-right">
+        <button class="command-search" onclick={onOpenCommands} aria-label="Search dashboards and commands" title="Search dashboards and commands (Ctrl or Cmd + K)">
+            <Search size={15} />
+            <span>Search dashboards & commands</span>
+            <kbd>⌘ / Ctrl K</kbd>
+        </button>
+        <button class="focus-button" onclick={uiStore.toggleFocusMode} aria-label="Enter focus mode" title="Focus mode">
+            <Maximize2 size={16} />
+        </button>
         {#if dashboardStore.activeDashboard}
             <!-- Dashboard chart palette -->
             <PalettePicker
@@ -163,6 +190,7 @@
         {/if}
     </div>
 </header>
+{/if}
 
 <ShareModal
     bind:open={shareOpen}
@@ -171,12 +199,15 @@
 />
 
 <style>
+    .reader-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .reader-bar { padding-block: 8px; }
+
     .app-bar {
-        height: 44px;
+        min-height: 52px;
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 0.75rem;
+        gap: 0.5rem;
         padding: 0 0.875rem;
         background: var(--sqlviz-bg-surface);
         border-bottom: 1px solid var(--sqlviz-hairline);
@@ -190,6 +221,62 @@
         min-width: 0;
         flex: 1;
         overflow: hidden;
+    }
+
+
+    .workspace-context {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        min-width: 0;
+        max-width: 140px;
+        height: 30px;
+        padding: 0 0.375rem;
+        border: none;
+        border-radius: 6px;
+        background: none;
+        color: var(--sqlviz-text-muted);
+        font-size: 0.8125rem;
+        cursor: pointer;
+    }
+    .workspace-context span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .workspace-context:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
+    .breadcrumb-separator { color: var(--sqlviz-text-muted); opacity: 0.4; }
+    .command-search {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: 30px;
+        padding: 0 0.625rem;
+        border: 1px solid var(--sqlviz-hairline);
+        border-radius: 7px;
+        background: var(--sqlviz-bg-base);
+        color: var(--sqlviz-text-muted);
+        font-size: 0.75rem;
+        cursor: pointer;
+    }
+    .command-search:hover { border-color: var(--sqlviz-border); color: var(--sqlviz-text); }
+    .command-search kbd { margin-left: 1rem; font-family: inherit; font-size: 0.625rem; opacity: 0.6; }
+    .focus-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 6px;
+        background: none;
+        color: var(--sqlviz-text-muted);
+        cursor: pointer;
+    }
+    .focus-button:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
+    .workspace-context:focus-visible, .command-search:focus-visible, .focus-button:focus-visible {
+        outline: 2px solid var(--sqlviz-primary);
+        outline-offset: 2px;
+    }
+    @media (max-width: 1100px) {
+        .command-search span, .command-search kbd { display: none; }
+        .command-search { width: 30px; justify-content: center; padding: 0; }
     }
 
     /* Active dashboard name */
@@ -263,23 +350,7 @@
     }
 
     /* Subtle vertical separator between the name and the filter chips */
-    .bar-sep {
-        width: 1px;
-        height: 20px;
-        background: var(--sqlviz-border);
-        flex-shrink: 0;
-    }
 
-    .filters {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        min-width: 0;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scrollbar-width: none;
-    }
-    .filters::-webkit-scrollbar { display: none; }
 
     .bar-right {
         display: flex;
@@ -336,5 +407,13 @@
     :global(.seg-btn.active) {
         background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent);
         color: var(--sqlviz-primary);
+    }
+    @media (max-width: 600px) {
+        .workspace-context, .breadcrumb-separator { display: none; }
+        .app-bar { padding: 0.375rem 0.5rem; flex-wrap: wrap; }
+        .bar-left { gap: 0.25rem; }
+        .dash-name { max-width: 140px; flex-shrink: 1; }
+        .dash-name-input { min-width: 0; width: 100%; }
+        .save-status, .restore-btn { display: none; }
     }
 </style>

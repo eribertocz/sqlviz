@@ -9,29 +9,25 @@ import { executionStore } from './executionStore.svelte';
 import { filterValues } from './filterValues.svelte';
 import { uiStore } from './uiStore.svelte';
 import { getPaletteById } from '$lib/charts/palettes';
+import { fetchFilterDomains } from '$lib/filters/filterDomains';
+import { createFilterRuntime, patchFilterResults } from '$lib/filters/filterRuntime.svelte';
 
 export type { ExecResult };
 
-/** Compare two filter values (scalars, or arrays for multiselect). */
-function sameFilterValue(a: unknown, b: unknown): boolean {
-    if (Array.isArray(a) && Array.isArray(b)) {
-        return a.length === b.length && a.every((x, i) => x === b[i]);
-    }
-    return a === b;
-}
-
 /**
- * Owns the dashboard/panel state cluster that used to live directly in
- * routes/+page.svelte: which dashboard is active, its panels, their SQL,
- * the last executed results, and the composed layout. Methods here are
- * ported 1:1 from the pre-v0.2.5 +page.svelte — behavior is unchanged,
- * only where the state/logic lives.
+ * Owns the author workspace: active dashboard, SQL drafts, panel execution,
+ * confirmed results, layout and cache. Preview adapts the shared filter runtime
+ * to this state; scoped viewers keep their own state and transport.
  */
-function createDashboardStore() {
+export function createDashboardStore() {
+    let viewGeneration = 0;
+    let domainGeneration = 0;
+    let sizeWrites: Promise<void> = Promise.resolve();
     let dashboardId      = $state<string | null>(null);
     let allDashboards    = $state<DashboardInfo[]>([]);
     let folders          = $state<FolderInfo[]>([]);
     let dashboardsLoading = $state(true);
+    let viewLoading = $state(false);
     let panelIds         = $state<string[]>([]);
     let panelSQLs        = $state<string[]>([]);
     let executedResults  = $state<ExecResult[]>([]);
@@ -74,15 +70,8 @@ function createDashboardStore() {
     // edit apart from a programmatic load (which must not mark the draft dirty).
     let lastSavedSql     = '';
 
-    let filterDebounceTimer = 0;
     let saveDebounceTimer   = 0;
     const ACTIVE_KEY = 'sqlviz-active-dashboard';
-
-    // Filter change-detection state (declared up here so dashboard-switch logic
-    // can reset it in lockstep with a cache restore, suppressing a spurious
-    // re-execution). The reactive $effect that consumes them lives near the end.
-    let prevFilterSnapshot: Record<string, unknown> = {};
-    const pendingChangedVars = new Set<string>();
 
     const hasLayout = $derived(layout !== null && layout.rows.length > 0);
     const activeDashboard = $derived(allDashboards.find(d => d.id === dashboardId) ?? null);
@@ -109,6 +98,18 @@ function createDashboardStore() {
     });
 
     const hasFilters = $derived(allFilterControls.length > 0);
+    const filterRuntime = createFilterRuntime({
+        getScope: () => viewGeneration,
+        getResults: () => executedResults,
+        getValues: () => filterValues.current,
+        execute: (id, variables) => apiPost(`/api/v1/panels/${id}/execute`, { variables }),
+        commit: (results, values) => {
+            if (layout) layout = patchFilterResults(layout, results);
+            executedResults = results;
+            filterValues.replace(values);
+        },
+    });
+
 
     // The panel whose Properties panel is currently open (looked up in layout).
     const selectedPanel = $derived.by(() => {
@@ -294,6 +295,7 @@ function createDashboardStore() {
             return;
         }
 
+        resetFilterUpdates();
         executionStore.executing = true;
         executionStore.errorMsg  = null;
 
@@ -354,6 +356,7 @@ function createDashboardStore() {
 
             executionStore.statusMsg = 'Composing layout…';
             layout = await recompose(results);
+            filterValues.reset();
             executionStore.statusMsg = null;
 
             // Successful run: persist the exact draft + a last-run timestamp so a
@@ -451,6 +454,7 @@ function createDashboardStore() {
                 sort_order: allDashboards.length,
             });
             await refreshExplorer();
+            resetFilterUpdates();
             // Switch to the empty new dashboard without running anything.
             dashboardId     = dash.id;
             persistActive(dash.id);
@@ -464,7 +468,6 @@ function createDashboardStore() {
             layout          = null;
             filterDomains   = {};
             filterValues.reset();
-            prevFilterSnapshot = {};
             // Force the Monaco editor empty — a new dashboard must never inherit
             // the previous dashboard's query — then place the cursor at the start.
             queueMicrotask(() => {
@@ -489,12 +492,13 @@ function createDashboardStore() {
     async function loadDashboard(id: string) {
         if (id === dashboardId || executionStore.executing) return;
 
+        const generation = ++viewGeneration;
+        viewLoading = true;
         // Silently persist the current dashboard's draft before leaving it.
         saveDraft();
 
         // Drop any pending filter re-execution meant for the dashboard we leave.
-        clearTimeout(filterDebounceTimer);
-        pendingChangedVars.clear();
+        resetFilterUpdates();
 
         try {
             const [dash, panels] = await Promise.all([
@@ -503,6 +507,7 @@ function createDashboardStore() {
                     Array<{ id: string; sql_content: string; sort_order: number }>
                 >,
             ]);
+            if (generation !== viewGeneration) return;
             panels.sort((a, b) => a.sort_order - b.sort_order);
 
             dashboardId = id;
@@ -522,7 +527,6 @@ function createDashboardStore() {
                 // Restore the filter selection; sync the change-detection
                 // snapshot so this does NOT trigger a filter re-execution.
                 filterValues.replace(cached.filterValues);
-                prevFilterSnapshot = { ...cached.filterValues };
             } else {
                 // Cache miss — empty view; results appear only on a manual re-run.
                 panelIds        = panels.map(p => p.id);
@@ -531,7 +535,6 @@ function createDashboardStore() {
                 layout          = null;
                 filterDomains   = {};
                 filterValues.reset();
-                prevFilterSnapshot = {};
             }
 
             // Prefer the saved draft; fall back to the committed panel SQL.
@@ -543,7 +546,9 @@ function createDashboardStore() {
                 get(editorRef).focusStatement?.(0);
             });
         } catch (e: unknown) {
-            uiStore.showToast(e instanceof Error ? e.message : 'Could not load dashboard.');
+            if (generation === viewGeneration) uiStore.showToast(e instanceof Error ? e.message : 'Could not load dashboard.');
+        } finally {
+            if (generation === viewGeneration) viewLoading = false;
         }
     }
 
@@ -573,7 +578,7 @@ function createDashboardStore() {
     async function moveDashboardToFolder(id: string, folderId: string | null) {
         try {
             // Backend treats "" as "move to root".
-            await apiPatch(`/api/v1/dashboards/${id}`, { folder_id: folderId ?? '' });
+            await apiPatch(`/api/v1/dashboards/${id}`, { folder_id: folderId });
             await refreshExplorer();
         } catch (e: unknown) {
             uiStore.showToast(e instanceof Error ? e.message : 'Move failed.');
@@ -595,7 +600,6 @@ function createDashboardStore() {
                 layout = null;
                 filterDomains = {};
                 filterValues.reset();
-                prevFilterSnapshot = {};
             }
             await refreshExplorer();
         } catch (e: unknown) {
@@ -684,7 +688,7 @@ function createDashboardStore() {
             await Promise.all(dest.map((d, i) => {
                 const body: Record<string, unknown> = {};
                 if (d.sort_order !== i) body.sort_order = i;
-                if (d.id === dragId && folderChanged) body.folder_id = targetFolderId ?? '';
+                if (d.id === dragId && folderChanged) body.folder_id = targetFolderId;
                 return Object.keys(body).length
                     ? apiPatch(`/api/v1/dashboards/${d.id}`, body)
                     : Promise.resolve();
@@ -730,59 +734,61 @@ function createDashboardStore() {
         layout = await recompose(executedResults);
     }
 
-    /**
-     * Persist a panel size override. Not session-only: the size has to survive a
-     * re-run and reach shared links, and the only way it gets there is by riding
-     * on the inference_result the API returns for every execute.
-     *
-     * Setting a value needs no round trip to display — we know the exact result.
-     * Clearing one does, because only the engine knows the size it would infer.
-     */
-    async function persistSizeOverride(
+    /** Serialize size saves; reflect only values confirmed by the project. */
+    function persistSizeOverride(
         panelId: string,
         field: 'col_span' | 'height_px',
         value: number | null,
-    ) {
-        try {
-            await apiPatch(`/api/v1/panels/${panelId}/override`, {
-                field_name: field,
-                user_value: value === null ? null : String(value),
-            });
-            if (value === null) await refreshPanel(panelId);
-        } catch (e: unknown) {
-            uiStore.showToast(e instanceof Error ? e.message : 'Could not save the panel size.');
-        }
+    ): Promise<void> {
+        if (!layout) return Promise.resolve();
+        const generation = viewGeneration;
+        const targetDashboard = dashboardId;
+        const task = sizeWrites.then(async () => {
+            let saved: { selected_col_span: number | null; selected_height_px: number | null };
+            try {
+                saved = await apiPatch(`/api/v1/panels/${panelId}/override`, {
+                    field_name: field,
+                    user_value: value === null ? null : String(value),
+                });
+            } catch (e: unknown) {
+                uiStore.showToast(e instanceof Error ? e.message : 'Could not save the panel size.');
+                return;
+            }
+            if (targetDashboard) dashboardCache.invalidate(targetDashboard);
+            if (generation !== viewGeneration || targetDashboard !== dashboardId) return;
+            const effective = field === 'col_span' ? saved.selected_col_span : saved.selected_height_px;
+            if (effective === null) return;
+            const patch = field === 'col_span' ? { col_span: effective } : { panel_height_px: effective };
+            patchPanelResult(panelId, patch);
+            patchExecutedResult(panelId, patch);
+            if (field === 'col_span' && layout) {
+                layout = {
+                    ...layout,
+                    rows: layout.rows.map(row => ({
+                        ...row,
+                        panels: row.panels.map(p => p.panel_id === panelId
+                            ? { ...p, final_col_span: effective } : p),
+                    })),
+                };
+            }
+            const snapshot = executedResults;
+            try {
+                const composed = await recompose(snapshot);
+                if (generation === viewGeneration && snapshot === executedResults) layout = composed;
+            } catch {
+                uiStore.showToast('Size saved. Could not refresh the dashboard layout; run it again.');
+            }
+        });
+        sizeWrites = task.catch(() => {});
+        return task;
     }
 
-    /** col_span override — applied locally, then persisted. */
-    async function handleWidthOverride(panelId: string, cols: number | null) {
-        if (!layout) return;
-        if (cols !== null) {
-            layout = {
-                ...layout,
-                rows: layout.rows.map(row => ({
-                    panels: row.panels.map(p =>
-                        p.panel_id === panelId ? { ...p, final_col_span: cols } : p
-                    ),
-                })),
-            };
-            // Keep the executed results in step: a later recompose (filter
-            // change, chart override) builds the layout from them, and would
-            // otherwise snap the panel back to its inferred width.
-            patchPanelResult(panelId, { col_span: cols });
-            patchExecutedResult(panelId, { col_span: cols });
-        }
-        await persistSizeOverride(panelId, 'col_span', cols);
+    function handleWidthOverride(panelId: string, cols: number | null) {
+        return persistSizeOverride(panelId, 'col_span', cols);
     }
 
-    /** panel_height_px override — applied locally, then persisted. */
-    async function handleHeightOverride(panelId: string, px: number | null) {
-        if (!layout) return;
-        if (px !== null) {
-            patchPanelResult(panelId, { panel_height_px: px });
-            patchExecutedResult(panelId, { panel_height_px: px });
-        }
-        await persistSizeOverride(panelId, 'height_px', px);
+    function handleHeightOverride(panelId: string, px: number | null) {
+        return persistSizeOverride(panelId, 'height_px', px);
     }
 
     // ── Panel Properties panel (v0.2.9) ──────────────────────────────────────
@@ -893,7 +899,7 @@ function createDashboardStore() {
 
     /**
      * Fetch the domain (distinct values / numeric bounds) for every filter
-     * control that renders a rich widget, so the FilterBar can show a real
+     * control that renders a rich widget, so the filter editor can show a real
      * dropdown / multiselect / slider. Best-effort: failures leave the entry
      * absent and the control falls back to a text/number input.
      *
@@ -901,32 +907,20 @@ function createDashboardStore() {
      * stripped, so they do not depend on the current filter selection and
      * only need to be loaded once per execution.
      */
-    async function loadFilterDomains() {
-        const domains: Record<string, FilterDomain> = {};
-        await Promise.all(
-            executedResults.flatMap((r, i) =>
-                r.inference_result.filter_controls.map(async (fc) => {
-                    const kind =
-                        fc.control_type === 'dropdown' || fc.control_type === 'multiselect'
-                            ? 'distinct'
-                            : fc.control_type === 'range_slider'
-                                ? 'range'
-                                : null;
-                    if (kind === null || domains[fc.variable]) return;
+    function resetFilterUpdates() {
+        domainGeneration++;
+        filterRuntime.reset();
+    }
 
-                    try {
-                        const dom = await apiPost<FilterDomain>(
-                            `/api/v1/panels/${panelIds[i]}/filter-domain`,
-                            { column: fc.column_name, kind },
-                        );
-                        domains[fc.variable] = dom;
-                    } catch {
-                        // leave absent → control falls back to text/number input
-                    }
-                })
-            )
-        );
-        filterDomains = domains;
+    async function loadFilterDomains() {
+        const request = ++domainGeneration;
+        const generation = viewGeneration;
+        const isCurrent = () => request === domainGeneration && generation === viewGeneration;
+        const domains = await fetchFilterDomains({
+            results: executedResults, isCurrent,
+            fetch: (id, column, kind) => apiPost(`/api/v1/panels/${id}/filter-domain`, { column, kind }),
+        });
+        if (isCurrent()) filterDomains = domains;
     }
 
     /**
@@ -953,64 +947,6 @@ function createDashboardStore() {
         };
     }
 
-    async function executeFilteredPanels(
-        changedVars: Set<string>,
-        currentFV: Record<string, unknown>,
-    ) {
-        const updatedResults = [...executedResults];
-        let anyChanged = false;
-
-        for (let i = 0; i < executedResults.length; i++) {
-            const controls = executedResults[i].inference_result.filter_controls;
-            const panelVars = controls.flatMap(fc =>
-                fc.variable.split(',').map(v => v.trim())
-            );
-
-            // Re-run a panel once if any of its variables changed.
-            if (!panelVars.some(v => changedVars.has(v))) continue;
-
-            // Send every variable, including empty ones. An empty value means
-            // "All": the backend neutralizes that predicate and returns all
-            // rows for the dimension. Skipping empties here is what previously
-            // made the dropdown's "All" option render nothing.
-            const variables = Object.fromEntries(
-                panelVars.map(v => [v, currentFV[v] ?? '']),
-            );
-            const panelId = panelIds[i];
-
-            try {
-                const exec = await apiPost<{
-                    inference_result: InferenceResult;
-                    data: Record<string, unknown>[];
-                }>(`/api/v1/panels/${panelId}/execute`, { variables });
-                updatedResults[i] = { panel_id: panelId, ...exec };
-                anyChanged = true;
-            } catch {
-                // Keep existing result
-            }
-        }
-
-        if (!anyChanged) return;
-        executedResults = updatedResults;
-        // Update the charts in place — never re-run the optimizer here, or the
-        // panels would reorder on every filter change. Fall back to a full
-        // compose only if there is somehow no layout to patch yet.
-        if (layout) {
-            layout = applyResultsToLayout(layout, updatedResults);
-        } else {
-            try {
-                layout = await recompose(updatedResults);
-            } catch {
-                // Layout stays as-is if recompose fails
-            }
-        }
-    }
-
-    // A filter change is now purely a state write; the $effect below reacts.
-    function handleFilterChange(varName: string, value: unknown) {
-        filterValues.set(varName, value);
-    }
-
     /**
      * Snapshot the current dashboard's executed view into the in-memory cache,
      * keyed by dashboard_id, so navigating back restores it instantly. `sql` is
@@ -1030,12 +966,7 @@ function createDashboardStore() {
         });
     }
 
-    // ── Reactive filter re-execution (Svelte 5 runes) ─────────────────────────
-    // Re-run the affected panels whenever a filter value changes. The effect
-    // tracks filterValues.current (read synchronously below) and nothing else;
-    // the actual query runs inside a debounced callback whose reads
-    // (executedResults, panelIds) are NOT tracked, so writing executedResults
-    // there cannot retrigger the effect — no feedback loop.
+    // Cache only confirmed results and filters. Drafts belong to FilterContext.
     if (browser) {
         $effect.root(() => {
             // Auto-cache: whenever the active dashboard's executed view changes
@@ -1052,29 +983,6 @@ function createDashboardStore() {
                 cacheCurrentView();
             });
 
-            $effect(() => {
-                const snapshot = { ...filterValues.current }; // tracked dependency
-                const keys = new Set([
-                    ...Object.keys(snapshot),
-                    ...Object.keys(prevFilterSnapshot),
-                ]);
-                for (const key of keys) {
-                    if (!sameFilterValue(snapshot[key], prevFilterSnapshot[key])) {
-                        pendingChangedVars.add(key);
-                    }
-                }
-                prevFilterSnapshot = snapshot;
-                if (pendingChangedVars.size === 0) return;
-
-                // Debounce: coalesce rapid changes (e.g. dragging a range slider),
-                // accumulating every changed variable until the timer fires.
-                clearTimeout(filterDebounceTimer);
-                filterDebounceTimer = window.setTimeout(() => {
-                    const changed = new Set(pendingChangedVars);
-                    pendingChangedVars.clear();
-                    void executeFilteredPanels(changed, snapshot);
-                }, 350);
-            });
         });
     }
 
@@ -1083,6 +991,7 @@ function createDashboardStore() {
         get allDashboards() { return allDashboards; },
         get folders() { return folders; },
         get dashboardsLoading() { return dashboardsLoading; },
+        get viewLoading() { return viewLoading; },
         get panelIds() { return panelIds; },
         get panelSQLs() { return panelSQLs; },
         get executedResults() { return executedResults; },
@@ -1128,7 +1037,10 @@ function createDashboardStore() {
         handleChartOverride,
         handleWidthOverride,
         handleHeightOverride,
-        handleFilterChange,
+        applyFilters: filterRuntime.apply,
+        resetFilterUpdates,
+        get filterBusy() { return filterRuntime.busy; },
+        get filterError() { return filterRuntime.error; },
         openPanelProperties,
         closePanelProperties,
         handleTitleOverride,

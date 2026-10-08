@@ -54,20 +54,40 @@
     let heightValue = $state(0);
     $effect(() => { colsValue = panel.final_col_span; });
     $effect(() => { heightValue = result.panel_height_px; });
-    function commitCols(v: number) {
-        const c = Math.max(1, Math.min(12, Math.round(v)));
-        colsValue = c;
-        dashboardStore.handleWidthOverride(panel.panel_id, c);
+    let savingDimensions = $state(false);
+    async function commitCols(v: number) {
+        if (savingDimensions || !Number.isFinite(v)) return;
+        savingDimensions = true;
+        try {
+            await dashboardStore.handleWidthOverride(panel.panel_id, Math.max(1, Math.min(12, Math.round(v))));
+        } finally {
+            colsValue = panel.final_col_span;
+            savingDimensions = false;
+        }
     }
-    function commitHeight(v: number) {
-        const h = Math.max(120, Math.min(900, Math.round(v)));
-        heightValue = h;
-        dashboardStore.handleHeightOverride(panel.panel_id, h);
+    async function commitHeight(v: number) {
+        if (savingDimensions || !Number.isFinite(v)) return;
+        savingDimensions = true;
+        try {
+            await dashboardStore.handleHeightOverride(panel.panel_id, Math.max(120, Math.min(900, Math.round(v))));
+        } finally {
+            heightValue = result.panel_height_px;
+            savingDimensions = false;
+        }
     }
-    function resetDimensions() {
-        dashboardStore.handleWidthOverride(panel.panel_id, null);
-        dashboardStore.handleHeightOverride(panel.panel_id, null);
+    async function resetDimensions() {
+        if (savingDimensions) return;
+        savingDimensions = true;
+        try {
+            await dashboardStore.handleWidthOverride(panel.panel_id, null);
+            await dashboardStore.handleHeightOverride(panel.panel_id, null);
+        } finally {
+            colsValue = panel.final_col_span;
+            heightValue = result.panel_height_px;
+            savingDimensions = false;
+        }
     }
+
 
     // ── Axes ──────────────────────────────────────────────────────────────────
     function setX(field: string) {
@@ -160,17 +180,17 @@
             <h3 class="section-title">Dimensions</h3>
             <div class="dim-row">
                 <label class="field-label" for="dim-cols">Width (columns)</label>
-                <input id="dim-cols" type="range" min="1" max="12" step="1" value={colsValue}
-                    oninput={(e) => commitCols(Number((e.currentTarget as HTMLInputElement).value))} />
+                <input id="dim-cols" type="range" min="1" max="12" step="1" bind:value={colsValue} disabled={savingDimensions}
+                    onchange={(e) => commitCols(Number((e.currentTarget as HTMLInputElement).value))} />
                 <span class="dim-value">{colsValue}</span>
             </div>
             <div class="dim-row">
                 <label class="field-label" for="dim-h">Height (px)</label>
-                <input id="dim-h" type="number" min="120" max="900" step="20" value={heightValue}
+                <input id="dim-h" type="number" min="120" max="900" step="20" bind:value={heightValue} disabled={savingDimensions}
                     onchange={(e) => commitHeight(Number((e.currentTarget as HTMLInputElement).value))}
                     class="native-num" />
             </div>
-            <Button variant="ghost" size="sm" class="gap-2" onclick={resetDimensions}>
+            <Button variant="ghost" size="sm" class="gap-2" disabled={savingDimensions} onclick={resetDimensions}>
                 <RotateCcwIcon class="size-3.5" /> Reset to auto
             </Button>
         </section>

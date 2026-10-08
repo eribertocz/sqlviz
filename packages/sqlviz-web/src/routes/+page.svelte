@@ -1,10 +1,11 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
-    import { onDestroy, onMount } from 'svelte';
+    import { onDestroy, onMount, tick } from 'svelte';
     import AppBar from '$lib/components/AppBar.svelte';
     import DashboardArea from '$lib/components/DashboardArea.svelte';
     import DashboardScorePanel from '$lib/components/DashboardScorePanel.svelte';
     import DashboardExplorer from '$lib/components/DashboardExplorer.svelte';
+    import NavigationPanel from '$lib/components/NavigationPanel.svelte';
     import PanelPropertiesPanel from '$lib/components/PanelPropertiesPanel.svelte';
     import EditorSection from '$lib/components/EditorSection.svelte';
     import ExplainPanel from '$lib/components/ExplainPanel.svelte';
@@ -20,16 +21,33 @@
     import MinimizeIcon from '@lucide/svelte/icons/minimize-2';
 
     let paletteOpen = $state(false);
+    let readerSearchOpen = $state(false);
+    let previousFocusMode = false;
+    $effect(() => {
+        const focused = uiStore.focusMode;
+        if (focused === previousFocusMode) return;
+        previousFocusMode = focused;
+        void tick().then(() => {
+            document.querySelector<HTMLButtonElement>(focused ? '.focus-exit' : '[data-focus-recovery], [aria-label="Enter focus mode"]')?.focus();
+        });
+    });
 
     // Global keyboard shortcuts (Linear/Superhuman-style speed).
     function onKeydown(e: KeyboardEvent) {
+        if (e.defaultPrevented) return;
         const mod = e.metaKey || e.ctrlKey;
         if (!mod) {
             if (e.key === 'Escape' && uiStore.focusMode) { uiStore.focusMode = false; }
             return;
         }
+        // Preserve typing and Monaco's own shortcuts, including Ctrl+K chords.
+        if (e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable="true"], .monaco-editor')) return;
         switch (e.key.toLowerCase()) {
-            case 'k': e.preventDefault(); paletteOpen = !paletteOpen; break;
+            case 'k':
+                e.preventDefault();
+                if (get(editMode)) paletteOpen = !paletteOpen;
+                else readerSearchOpen = !readerSearchOpen;
+                break;
             case '\\': e.preventDefault(); uiStore.toggleFocusMode(); break;
             case 'b': e.preventDefault(); uiStore.toggleSidebar(); break;
             case 'e':
@@ -71,6 +89,7 @@
     });
 
     onDestroy(() => {
+        dashboardStore.resetFilterUpdates();
         if (typeof window === 'undefined') return;
         window.removeEventListener('beforeunload', onBeforeUnload);
         window.removeEventListener('blur', onBlur);
@@ -80,15 +99,22 @@
 
 <div class="app-shell" class:focus={uiStore.focusMode}>
     {#if !uiStore.focusMode}
-        <AppBar />
+        <AppBar bind:readerSearchOpen onOpenCommands={() => (paletteOpen = true)} />
     {/if}
 
     <!-- Body: sidebar + main content + optional score panel -->
     <div class="app-body">
 
-        <!-- Dashboard Explorer — rail-by-default left sidebar, hidden in focus -->
+        <!-- Navigation has no footprint when hidden; narrow screens use a modal. -->
         {#if !uiStore.focusMode}
-            <DashboardExplorer />
+            <NavigationPanel
+                open={!uiStore.sidebarCollapsed}
+                onOpenChange={(open) => uiStore.setSidebarCollapsed(!open)}
+            >
+                {#snippet children(onNavigate, onClose, modal)}
+                    <DashboardExplorer {onNavigate} {onClose} showClose={modal} />
+                {/snippet}
+            </NavigationPanel>
         {/if}
 
         <!-- Main content column -->
@@ -101,12 +127,12 @@
                 <DashboardArea />
 
                 <!-- Editor drawer — floats at the bottom in Edit mode -->
-                {#if $editMode && uiStore.editorOpen}
+                {#if $editMode && uiStore.editorOpen && !uiStore.focusMode}
                     <div class="editor-drawer" style="height: {uiStore.editorHeightPx}px">
                         <VerticalResizer onDrag={(dy) => uiStore.setEditorHeight(uiStore.editorHeightPx - dy)} />
                         <EditorSection />
                     </div>
-                {:else if $editMode}
+                {:else if $editMode && !uiStore.focusMode}
                     <button class="editor-reopen" onclick={uiStore.toggleEditor} title="Open editor (Ctrl+E)">
                         <Code2Icon size={14} /> Editor
                     </button>
@@ -122,7 +148,7 @@
         </div>
 
         <!-- Panel Properties panel — right sidebar, opens on panel click (v0.2.9) -->
-        {#if $editMode && dashboardStore.selectedPanel}
+        {#if $editMode && dashboardStore.selectedPanel && !uiStore.focusMode}
             <!-- Key by panel id so the whole properties panel (and its
                  sub-components) re-initialise when the selection changes. -->
             {#key dashboardStore.selectedPanel.panel_id}
@@ -131,7 +157,7 @@
         {/if}
 
         <!-- Dashboard Score Panel slide-in (DOC6 §12.3, edit mode only) -->
-        {#if $editMode && uiStore.showScorePanel && dashboardStore.layout}
+        {#if $editMode && uiStore.showScorePanel && dashboardStore.layout && !uiStore.focusMode}
             <DashboardScorePanel
                 layout={dashboardStore.layout}
                 onClose={() => uiStore.showScorePanel = false}
@@ -151,7 +177,7 @@
 
 <style>
     .app-shell {
-        height: 100vh;
+        height: 100dvh;
         display: flex;
         flex-direction: column;
         background: var(--sqlviz-bg-base);

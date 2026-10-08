@@ -39,7 +39,8 @@
             {#each dashboardStore.allDashboards as d (d.id)}
                 {@const Icon = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
                 <Command.Item
-                    value={`${d.name} ${folderName(d.folder_id)}`}
+                    value={d.id}
+                    keywords={[d.name, folderName(d.folder_id)]}
                     onSelect={() => jump(d.id)}
                 >
                     <Icon class="size-4 opacity-70" />
@@ -69,12 +70,12 @@
                     <Code2Icon class="size-4 opacity-70" /> Switch to Edit
                 </Command.Item>
             {/if}
-            <Command.Item value="focus zen mode fullscreen" onSelect={() => run(uiStore.toggleFocusMode)}>
+            <Command.Item value="focus concentration mode" onSelect={() => run(uiStore.toggleFocusMode)}>
                 <Maximize2Icon class="size-4 opacity-70" /> Toggle focus mode
                 <Command.Shortcut>⌘\</Command.Shortcut>
             </Command.Item>
-            <Command.Item value="toggle sidebar rail" onSelect={() => run(uiStore.toggleSidebar)}>
-                <PanelLeftIcon class="size-4 opacity-70" /> Toggle sidebar
+            <Command.Item value="toggle sidebar navigation explorer" onSelect={() => run(uiStore.toggleSidebar)}>
+                <PanelLeftIcon class="size-4 opacity-70" /> {uiStore.sidebarCollapsed ? 'Show navigation' : 'Hide navigation'}
                 <Command.Shortcut>⌘B</Command.Shortcut>
             </Command.Item>
             <Command.Item value="theme dark light appearance" onSelect={() => run(uiStore.toggleTheme)}>

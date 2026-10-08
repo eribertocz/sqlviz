@@ -1,5 +1,6 @@
 import type { ExecResult } from '$lib/api';
 import type { DashboardLayout, FilterDomain } from '$lib/types';
+import { untrack } from 'svelte';
 
 /**
  * A single dashboard's last-executed view, kept in memory so navigating back
@@ -47,7 +48,8 @@ class DashboardCache {
 
     /** Store (or replace) the cached view for a dashboard. */
     set(id: string, entry: CachedDashboard): void {
-        const next = new Map(this.#entries);
+        // A cache write from an effect must not subscribe that effect to itself.
+        const next = new Map(untrack(() => this.#entries));
         next.set(id, entry);
         this.#entries = next;
     }

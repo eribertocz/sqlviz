@@ -18,6 +18,8 @@
     let editor: any = null;
     let monacoInstance: any = null;
     let monacoReady = $state(false);
+    let destroyed = false;
+    let focusFrame = 0;
     // Guard against setValue triggering onDidChangeModelContent
     let syncing = false;
 
@@ -39,6 +41,9 @@
 
         try {
             const monaco = await import('monaco-editor');
+            // Navigation or focus changes may remove this editor while its
+            // lazy import is still pending. Never create an orphan instance.
+            if (destroyed) return;
 
             monaco.editor.defineTheme('sqlviz-dark', {
                 base: 'vs-dark',
@@ -102,6 +107,10 @@
                 renderLineHighlight: 'line',
                 padding: { top: 12, bottom: 12 },
                 folding: false,
+                // Disable worker-backed word occurrences until the SQL worker
+                // is implemented. Pending highlighter tasks can reject with
+                // "Canceled" when this editor is disposed.
+                occurrencesHighlight: 'off',
                 lineNumbersMinChars: 3,
                 glyphMargin: false,
                 overviewRulerLanes: 0,
@@ -167,11 +176,12 @@
             monacoReady = true;
             // Force Monaco to measure its container after it becomes visible,
             // then hand focus so the user can type immediately.
-            requestAnimationFrame(() => {
+            focusFrame = requestAnimationFrame(() => {
                 editor?.layout();
                 editor?.focus();
             });
         } catch (err) {
+            if (destroyed) return;
             console.error('[SQLEditor] Monaco init failed:', err);
             // Make container visible even if Monaco failed — shows empty dark area
             // rather than an infinite "Loading editor…" spinner.
@@ -181,6 +191,8 @@
 
     // Async onMount cannot return a cleanup fn — use onDestroy instead
     onDestroy(() => {
+        destroyed = true;
+        if (focusFrame) cancelAnimationFrame(focusFrame);
         editorRef.set({});
         editor?.dispose();
         editor = null;

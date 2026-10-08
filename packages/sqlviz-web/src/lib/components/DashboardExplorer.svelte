@@ -1,7 +1,6 @@
 <script lang="ts">
     import { resolveDashboardIcon } from '$lib/dashboardIcons';
     import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-    import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import { uiStore } from '$lib/stores/uiStore.svelte';
     import { editMode } from '$lib/stores/editMode';
@@ -9,7 +8,6 @@
     import { draggable, droppable, type DragDropState } from '@thisux/sveltednd';
     import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
     import * as Dialog from '$lib/components/ui/dialog/index.js';
-    import * as Tooltip from '$lib/components/ui/tooltip/index.js';
     import { Skeleton } from '$lib/components/ui/skeleton/index.js';
     import { Input } from '$lib/components/ui/input/index.js';
     import { Button } from '$lib/components/ui/button/index.js';
@@ -23,7 +21,18 @@
     import Trash2Icon from '@lucide/svelte/icons/trash-2';
     import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
     import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
-    import SettingsIcon from '@lucide/svelte/icons/settings';
+    import SearchIcon from '@lucide/svelte/icons/search';
+
+    let { onNavigate = () => {}, onClose = () => uiStore.setSidebarCollapsed(true), showClose = false }: {
+        onNavigate?: () => void;
+        onClose?: () => void;
+        showClose?: boolean;
+    } = $props();
+    let search = $state('');
+    function navigateDashboard(id: string) {
+        void dashboardStore.loadDashboard(id);
+        onNavigate();
+    }
 
     let folderCollapsed = $state<Record<string, boolean>>({});
     let openMenuId = $state<string | null>(null);
@@ -51,12 +60,12 @@
     let creatingValue = $state('');
     let creatingError = $state('');
 
-    const collapsed = $derived(uiStore.sidebarCollapsed);
-    // Collapse/expand is manual only (the header button). No hover behavior.
-    const expanded = $derived(!collapsed);
-
     const folders = $derived(dashboardStore.folders);
     const dashboards = $derived(dashboardStore.allDashboards);
+    const searchResults = $derived(dashboards.filter(d => {
+        const folder = folders.find(f => f.id === d.folder_id)?.name ?? '';
+        return `${d.name} ${folder}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
+    }));
     const nonEmptyFolders = $derived(folders.filter(f => inFolder(f.id).length > 0));
 
     function inFolder(folderId: string): DashboardInfo[] {
@@ -137,6 +146,7 @@
     function newGroup() { startCreate('folder', null); }
 
     function startCreate(kind: 'dash' | 'folder', folderId: string | null) {
+        search = '';
         inline = null;
         creating = { kind, folderId };
         creatingValue = '';
@@ -219,7 +229,8 @@
             <span class="drag-handle" aria-hidden="true" title="Drag to reorder or move"><GripVerticalIcon size={12} /></span>
             <button
                 class="row-main"
-                onclick={() => { selectedFolderId = d.folder_id ?? null; dashboardStore.loadDashboard(d.id); }}
+                aria-current={d.id === dashboardStore.dashboardId ? 'page' : undefined}
+                onclick={() => { selectedFolderId = d.folder_id ?? null; navigateDashboard(d.id); }}
                 ondblclick={() => startInline('dash', d.id, d.name)}
                 onkeydown={(e) => rowKeydown(e, d)}
                 oncontextmenu={(e) => { e.preventDefault(); openMenuId = d.id; }}
@@ -281,27 +292,13 @@
     <button
         class="row-main preview-row"
         class:active={d.id === dashboardStore.dashboardId}
-        onclick={() => dashboardStore.loadDashboard(d.id)}
+        aria-current={d.id === dashboardStore.dashboardId ? 'page' : undefined}
+        onclick={() => navigateDashboard(d.id)}
         title={d.description || d.name}
     >
         <span class="row-icon"><IconCmp size={14} /></span>
         <span class="row-name">{d.name}</span>
     </button>
-{/snippet}
-
-<!-- ── Collapsed rail icon ─────────────────────────────────────────────────── -->
-{#snippet railIcon(d: DashboardInfo)}
-    {@const IconCmp = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
-    <Tooltip.Root>
-        <Tooltip.Trigger
-            class="rail-icon {d.id === dashboardStore.dashboardId ? 'active' : ''}"
-            onclick={() => dashboardStore.loadDashboard(d.id)}
-            aria-label={d.name}
-        >
-            <IconCmp size={16} />
-        </Tooltip.Trigger>
-        <Tooltip.Content side="right">{d.name}</Tooltip.Content>
-    </Tooltip.Root>
 {/snippet}
 
 <!-- ── Inline creation input (folder or dashboard) ─────────────────────────── -->
@@ -326,26 +323,22 @@
     </div>
 {/snippet}
 
-<nav class="explorer" class:collapsed aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}>
-    <!-- ── Sidebar header (44px) — logo + wordmark + collapse toggle ───────── -->
-    <div class="sidebar-header" class:collapsed={!expanded}>
-        {#if expanded}
-            <div class="brand">
-                <img class="brand-icon" src={sqlvizIcon} alt="" width="28" height="28" />
-                <span class="brand-name"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
-            </div>
-            <button class="hbtn" onclick={uiStore.toggleSidebar} title="Collapse sidebar" aria-label="Collapse sidebar">
+<nav class="explorer" aria-label={$editMode ? 'Dashboard explorer' : 'Dashboard navigation'}>
+    <div class="sidebar-header">
+        <span class="library-title">Dashboards</span>
+        {#if showClose}
+            <button class="hbtn" onclick={onClose} title="Hide navigation" aria-label="Hide navigation">
                 <PanelLeftCloseIcon size={16} />
-            </button>
-        {:else}
-            <button class="brand-btn" onclick={uiStore.toggleSidebar} title="Expand sidebar" aria-label="Expand sidebar">
-                <img class="brand-icon" src={sqlvizIcon} alt="SQLviz" width="28" height="28" />
             </button>
         {/if}
     </div>
+    <label class="explorer-search">
+        <SearchIcon size={14} />
+        <input type="search" bind:value={search} placeholder="Find a dashboard..." aria-label="Find a dashboard" />
+    </label>
 
-    <!-- ── EXPLORER toolbar (32px) — edit mode, expanded only ──────────────── -->
-    {#if $editMode && expanded}
+<!-- ── EXPLORER toolbar (32px) — edit mode ──────────────── -->
+    {#if $editMode}
         <div class="explorer-toolbar">
             <span class="explorer-title">Explorer</span>
             <div class="explorer-actions">
@@ -363,33 +356,22 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
         class="explorer-body"
-        class:fill={$editMode && expanded}
+        class:fill={$editMode}
         onclick={(e) => { if ($editMode && e.target === e.currentTarget) selectRoot(); }}
     >
         {#if dashboardStore.dashboardsLoading}
             {#each Array(5) as _, i (i)}
-                {#if !expanded}
-                    <div class="skeleton-rail"><Skeleton class="size-7 rounded-md" /></div>
-                {:else}
-                    <div class="skeleton-row">
-                        <Skeleton class="size-4 rounded" />
-                        <Skeleton class="h-3.5 flex-1 rounded" />
-                    </div>
-                {/if}
+                <div class="skeleton-row">
+                    <Skeleton class="size-4 rounded" />
+                    <Skeleton class="h-3.5 flex-1 rounded" />
+                </div>
             {/each}
 
-        {:else if !expanded}
-            <Tooltip.Provider delayDuration={200}>
-                {#each nonEmptyFolders as f (f.id)}
-                    {#each inFolder(f.id) as d (d.id)}
-                        {@render railIcon(d)}
-                    {/each}
-                    <div class="rail-sep"></div>
-                {/each}
-                {#each ungrouped as d (d.id)}
-                    {@render railIcon(d)}
-                {/each}
-            </Tooltip.Provider>
+        {:else if search.trim()}
+            {#each searchResults as d (d.id)}
+                {#if $editMode}{@render editRow(d, false)}{:else}{@render previewRow(d)}{/if}
+            {/each}
+            {#if searchResults.length === 0}<p class="empty" role="status">No matching dashboards.</p>{/if}
 
         {:else if $editMode}
             <!-- New folder input (always at root — folders don't nest) -->
@@ -488,27 +470,11 @@
         {/if}
     </div>
 
-    <!-- ── Sidebar footer — Settings (admin) + theme toggle, both modes ─────── -->
-    <div class="sidebar-footer" class:collapsed={!expanded}>
-        {#if !expanded}
-            <Tooltip.Provider delayDuration={200}>
-                <Tooltip.Root>
-                    <Tooltip.Trigger class="foot-btn" onclick={() => uiStore.showToast('Settings coming soon')} aria-label="Settings">
-                        <SettingsIcon size={16} />
-                    </Tooltip.Trigger>
-                    <Tooltip.Content side="right">Settings</Tooltip.Content>
-                </Tooltip.Root>
-            </Tooltip.Provider>
-            <ThemeToggle compact />
-        {:else}
-            <button class="foot-btn wide" onclick={() => uiStore.showToast('Settings coming soon')} aria-label="Settings">
-                <SettingsIcon size={16} /> <span>Settings</span>
-            </button>
-            <div class="foot-theme">
-                <span class="foot-theme-label">Theme</span>
-                <ThemeToggle />
-            </div>
-        {/if}
+    <div class="sidebar-footer">
+        <div class="foot-theme">
+            <span class="foot-theme-label">Appearance</span>
+            <ThemeToggle />
+        </div>
     </div>
 </nav>
 
@@ -537,7 +503,7 @@
         <Dialog.Header>
             <Dialog.Title>Delete dashboard</Dialog.Title>
             <Dialog.Description>
-                "{deleteTarget?.name}" and its panels will be permanently deleted. This cannot be undone.
+                "{deleteTarget?.name}", its panels, saved filters and dashboard share links will be permanently deleted. This cannot be undone.
             </Dialog.Description>
         </Dialog.Header>
         <Dialog.Footer>
@@ -565,60 +531,30 @@
 
 <style>
     .explorer {
-        width: 240px;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
         flex-shrink: 0;
         background: var(--sqlviz-bg-surface);
-        border-right: 1px solid var(--sqlviz-hairline);
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        transition: width 0.2s ease;
     }
-    .explorer.collapsed { width: 44px; }
 
-    /* ── Sidebar header (44px, fixed) ─────────────────────────── */
+    /* ── Sidebar header (52px, fixed) ─────────────────────────── */
     .sidebar-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 0.25rem;
-        height: 44px;
+        height: 52px;
         padding: 0 0.5rem 0 0.875rem;
         flex-shrink: 0;
         border-bottom: 1px solid var(--sqlviz-hairline);
     }
-    .sidebar-header.collapsed { justify-content: center; padding: 0; }
 
-    .brand { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-    .brand-icon { display: block; flex-shrink: 0; }
+    .library-title { font-size: 0.8125rem; font-weight: 600; color: var(--sqlviz-text); }
 
-    .brand-name {
-        font-family: 'Geist Sans', var(--sqlviz-font-sans);
-        font-weight: 600;
-        font-size: 0.9375rem;
-        letter-spacing: -0.025em;
-        white-space: nowrap;
-        overflow: hidden;
-    }
-    .brand-sql { color: var(--sqlviz-text-primary); font-weight: 600; }
-    .brand-viz { color: var(--sqlviz-primary); font-weight: 600; }
-
-    /* Collapsed: the logo doubles as the expand control */
-    .brand-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 34px;
-        height: 34px;
-        border: none;
-        background: none;
-        border-radius: var(--sqlviz-radius);
-        cursor: pointer;
-        transition: background 0.12s;
-    }
-    .brand-btn:hover { background: var(--sqlviz-bg-base); }
-
-    /* ── EXPLORER toolbar (32px) ──────────────────────────────── */
     .explorer-toolbar {
         display: flex;
         align-items: center;
@@ -672,36 +608,20 @@
         flex-direction: column;
     }
     .explorer-body.fill > * { flex-shrink: 0; }
-    .explorer.collapsed .explorer-body {
-        padding: 0.25rem 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.125rem;
-    }
-
     .skeleton-row { display: flex; align-items: center; gap: 0.5rem; padding: 0.4375rem 0.5rem; }
-    .skeleton-rail { padding: 0.25rem 0; }
-
-    :global(.rail-icon) {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 34px;
-        height: 34px;
-        border: none;
-        background: none;
-        color: var(--sqlviz-text-muted);
-        border-radius: var(--sqlviz-radius);
-        cursor: pointer;
-        transition: background 0.12s, color 0.12s;
+    .explorer-search {
+        display: flex; align-items: center; gap: 0.5rem;
+        margin: 0.75rem 0.75rem 0.5rem; padding: 0.5rem;
+        border: 1px solid var(--sqlviz-hairline); border-radius: 8px;
+        color: var(--sqlviz-text-muted); background: var(--sqlviz-bg-base);
     }
-    :global(.rail-icon:hover) { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
-    :global(.rail-icon.active) {
-        background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent);
-        color: var(--sqlviz-primary);
+    .explorer-search:focus-within { border-color: var(--sqlviz-primary); box-shadow: var(--sqlviz-focus-ring); }
+    .explorer-search input:focus-visible { box-shadow: none; }
+    .explorer-search input {
+        width: 100%; min-width: 0; background: none; border: 0; outline: none;
+        font: inherit; font-size: 0.75rem; color: var(--sqlviz-text);
     }
-    .rail-sep { width: 24px; height: 1px; margin: 0.25rem 0; background: var(--sqlviz-hairline); }
+    .hbtn:focus-visible { outline: 2px solid var(--sqlviz-primary); outline-offset: 2px; }
 
     .folder-header-wrap {
         position: relative;
@@ -888,27 +808,6 @@
         border-top: 1px solid var(--sqlviz-hairline);
         flex-shrink: 0;
     }
-    .sidebar-footer.collapsed { align-items: center; gap: 0.25rem; padding-left: 0; padding-right: 0; }
-
-    :global(.foot-btn) {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.625rem;
-        width: 32px;
-        height: 32px;
-        border: none;
-        background: none;
-        color: var(--sqlviz-text-muted);
-        border-radius: var(--sqlviz-radius);
-        cursor: pointer;
-        font-size: 0.8125rem;
-        transition: background 0.12s, color 0.12s;
-    }
-    :global(.foot-btn.wide) { width: 100%; justify-content: flex-start; padding: 0 0.5rem; }
-    :global(.foot-btn:hover) { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
-
-    /* Theme row — settings-style label + switch */
     .foot-theme {
         display: flex;
         align-items: center;

@@ -1,16 +1,22 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
     import DashboardGrid from '$lib/components/DashboardGrid.svelte';
-    import FilterControlComponent from '$lib/components/FilterControl.svelte';
-    import FilterViews from '$lib/components/FilterViews.svelte';
+    import FilterContext from '$lib/components/FilterContext.svelte';
+    import ViewerOptions from '$lib/components/ViewerOptions.svelte';
+    import { fetchFilterDomains } from '$lib/filters/filterDomains';
+    import { createFilterRuntime, patchFilterResults } from '$lib/filters/filterRuntime.svelte';
+    import NavigationPanel from '$lib/components/NavigationPanel.svelte';
+    import NavigationToggle from '$lib/components/NavigationToggle.svelte';
+    import ViewerDashboardSwitcher from '$lib/components/ViewerDashboardSwitcher.svelte';
+    import SearchIcon from '@lucide/svelte/icons/search';
     import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-    import PalettePicker from '$lib/components/PalettePicker.svelte';
     import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
     import { resolveDashboardIcon } from '$lib/dashboardIcons';
     import { getPaletteById } from '$lib/charts/palettes';
     import { editMode } from '$lib/stores/editMode';
     import { uiStore } from '$lib/stores/uiStore.svelte';
-    import { apiPost, recompose, type ExecResult } from '$lib/api';
+    import type { ExecResult } from '$lib/api';
+    import { createViewerClient, ViewerAccessError } from '$lib/viewerApi';
     import PanelLeftCloseIcon from '@lucide/svelte/icons/panel-left-close';
     import type { DashboardLayout, FilterControl, FilterDomain, InferenceResult } from '$lib/types';
 
@@ -20,7 +26,7 @@
         id: string; name: string; folder_id: string | null; sort_order: number;
         dashboard_hint: string | null; dashboard_domain: string | null; description: string | null;
     };
-    type WorkspaceData = { folders: WsFolder[]; dashboards: WsDashboard[] };
+    type WorkspaceData = { folders: WsFolder[]; dashboards: WsDashboard[]; viewer_session?: string };
     type PanelInfo = { id: string; sql_content: string };
 
     let viewerState: ViewerState = $state('loading');
@@ -32,7 +38,34 @@
     let folders: WsFolder[] = $state([]);
     let dashboards: WsDashboard[] = $state([]);
     let activeId: string | null = $state(null);
-    let sidebarCollapsed = $state(false);
+    let dashboardLoading = $state(false);
+    let dashboardGeneration = 0;
+    let switcherOpen = $state(false);
+    const orderedDashboards = $derived(dashboards.slice().sort((a, b) => a.sort_order - b.sort_order));
+    const destinations = $derived(orderedDashboards.map(d => ({
+        id: d.id, name: d.name,
+        folderName: folders.find(f => f.id === d.folder_id)?.name ?? '',
+    })));
+    let sidebarCollapsed = $state(true);
+    let navigationSearch = $state('');
+    const matchingDashboards = $derived(dashboards.filter(d => {
+        const folder = folders.find(f => f.id === d.folder_id)?.name ?? '';
+        return `${d.name} ${folder}`.toLocaleLowerCase().includes(navigationSearch.trim().toLocaleLowerCase());
+    }));
+    function setNavigationOpen(open: boolean) {
+        sidebarCollapsed = !open;
+        try { localStorage.setItem('sqlviz-viewer-navigation-hidden', open ? '0' : '1'); } catch { /* optional preference */ }
+    }
+    function openNavigationSearch() {
+        if (dashboards.length < 2) return;
+        switcherOpen = true;
+    }
+    function onNavigationKeydown(event: KeyboardEvent) {
+        if (event.defaultPrevented || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+        if (event.target instanceof Element && event.target.closest('input, textarea, [contenteditable="true"]')) return;
+        if (event.key.toLowerCase() === 'k') { event.preventDefault(); void openNavigationSearch(); }
+        else if (event.key.toLowerCase() === 'b') { event.preventDefault(); setNavigationOpen(sidebarCollapsed); }
+    }
 
     // Viewer-local chart palette (per-visitor, persisted per dashboard).
     let paletteId = $state('brand');
@@ -49,13 +82,45 @@
 
     // Active-dashboard render state
     let layout: DashboardLayout | null = $state(null);
-    let panelIds: string[] = $state([]);
     let executedResults: ExecResult[] = $state([]);
     let viewerFilterValues: Record<string, unknown> = $state({});
     let viewerDomains: Record<string, FilterDomain> = $state({});
-    let filterDebounceTimer = 0;
 
     const token = () => window.location.pathname.split('/').at(-1) ?? '';
+    const viewer = createViewerClient(token);
+    const apiPost = viewer.post;
+    const recompose = viewer.recompose;
+    const filterRuntime = createFilterRuntime({
+        getScope: () => dashboardGeneration,
+        getResults: () => executedResults,
+        getValues: () => viewerFilterValues,
+        execute: (id, variables) => apiPost(`/api/v1/panels/${id}/execute`, { variables }),
+        commit: (results, values) => {
+            if (layout) layout = patchFilterResults(layout, results);
+            executedResults = results;
+            viewerFilterValues = values;
+        },
+        onAccessFailure: handleAccessFailure,
+    });
+    onDestroy(() => filterRuntime.reset());
+
+
+    function handleAccessFailure(error: unknown): boolean {
+        if (!(error instanceof ViewerAccessError)) return false;
+        dashboardGeneration += 1;
+        dashboardLoading = false;
+        switcherOpen = false;
+        filterRuntime.reset();
+        layout = null;
+        executedResults = [];
+        viewerDomains = {};
+        viewerFilterValues = {};
+        folders = [];
+        dashboards = [];
+        loadError = 'Workspace access has expired or was revoked. Open the link again.';
+        viewerState = 'error';
+        return true;
+    }
     const activeName = $derived(dashboards.find(d => d.id === activeId)?.name ?? 'Dashboard');
 
     const nonEmptyFolders = $derived(
@@ -82,7 +147,10 @@
 
     // ── Navigation → execute the selected dashboard ────────────────────────────
     async function selectDashboard(id: string) {
-        if (id === activeId) return;
+        if (id === activeId || !dashboards.some(d => d.id === id)) return;
+        const generation = ++dashboardGeneration;
+        filterRuntime.reset();
+        dashboardLoading = true;
         activeId = id;
         loadPalette(id);
         layout = null;
@@ -91,105 +159,54 @@
         executedResults = [];
         try {
             const panels = await apiGetJson<PanelInfo[]>(`/api/v1/panels?dashboard_id=${id}`);
-            await executeAllPanels(panels);
+            if (generation !== dashboardGeneration) return;
+            await executeAllPanels(panels, generation);
         } catch (e) {
+            if (handleAccessFailure(e)) return;
+            if (generation !== dashboardGeneration) return;
             loadError = e instanceof Error ? e.message : 'Failed to load the dashboard.';
             viewerState = 'error';
+        } finally {
+            if (generation === dashboardGeneration) dashboardLoading = false;
         }
     }
 
     async function apiGetJson<T>(path: string): Promise<T> {
-        const r = await fetch(path, { headers: { Accept: 'application/json' } });
-        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
-        return r.json() as Promise<T>;
+        return viewer.get<T>(path);
     }
 
-    async function executeAllPanels(panels: PanelInfo[]): Promise<void> {
-        panelIds = panels.map(p => p.id);
+    async function executeAllPanels(panels: PanelInfo[], generation: number): Promise<void> {
         const results: ExecResult[] = [];
         for (const panel of panels) {
             const exec = await apiPost<{ inference_result: InferenceResult; data: Record<string, unknown>[] }>(
                 `/api/v1/panels/${panel.id}/execute`,
             );
+            if (generation !== dashboardGeneration) return;
             results.push({ panel_id: panel.id, ...exec });
         }
         executedResults = results;
-        layout = await recompose(results);
-        await loadDomains();
+        const composed = await recompose(results);
+        if (generation !== dashboardGeneration) return;
+        layout = composed;
+        await loadDomains(generation);
     }
 
-    async function loadDomains(): Promise<void> {
-        const domains: Record<string, FilterDomain> = {};
-        await Promise.all(
-            executedResults.flatMap((r, i) =>
-                r.inference_result.filter_controls.map(async (fc) => {
-                    const kind = fc.control_type === 'dropdown' || fc.control_type === 'multiselect'
-                        ? 'distinct'
-                        : fc.control_type === 'range_slider' ? 'range' : null;
-                    if (kind === null || domains[fc.variable]) return;
-                    try {
-                        domains[fc.variable] = await apiPost<FilterDomain>(
-                            `/api/v1/panels/${panelIds[i]}/filter-domain`,
-                            { column: fc.column_name, kind },
-                        );
-                    } catch { /* fall back to text input */ }
-                })
-            )
-        );
-        viewerDomains = domains;
+    async function loadDomains(generation: number): Promise<void> {
+        const isCurrent = () => generation === dashboardGeneration && viewerState === 'unlocked';
+        const domains = await fetchFilterDomains({
+            results: executedResults, isCurrent,
+            fetch: (id, column, kind) => apiPost(`/api/v1/panels/${id}/filter-domain`, { column, kind }),
+            onAccessFailure: handleAccessFailure,
+        });
+        if (isCurrent()) viewerDomains = domains;
     }
 
-    function applyResultsToLayout(current: DashboardLayout, results: ExecResult[]): DashboardLayout {
-        const byId = new Map(results.map(r => [r.panel_id, r]));
-        return {
-            ...current,
-            rows: current.rows.map(row => ({
-                panels: row.panels.map(p => {
-                    const r = byId.get(p.panel_id);
-                    return r ? { ...p, inference_result: r.inference_result, data: r.data } : p;
-                }),
-            })),
-        };
-    }
-
-    async function executeFilteredPanels(changedVar: string, currentFV: Record<string, unknown>) {
-        const updated = [...executedResults];
-        let anyChanged = false;
-        for (let i = 0; i < executedResults.length; i++) {
-            const panelVars = executedResults[i].inference_result.filter_controls.flatMap(
-                (fc: FilterControl) => fc.variable.split(',').map((v: string) => v.trim())
-            );
-            if (!panelVars.includes(changedVar)) continue;
-            const variables = Object.fromEntries(panelVars.map((v: string) => [v, currentFV[v] ?? '']));
-            try {
-                const exec = await apiPost<{ inference_result: InferenceResult; data: Record<string, unknown>[] }>(
-                    `/api/v1/panels/${panelIds[i]}/execute`, { variables },
-                );
-                updated[i] = { panel_id: panelIds[i], ...exec };
-                anyChanged = true;
-            } catch { /* keep existing */ }
-        }
-        if (!anyChanged) return;
-        executedResults = updated;
-        if (layout) layout = applyResultsToLayout(layout, updated);
-        else { try { layout = await recompose(updated); } catch { /* keep */ } }
-    }
-
-    function handleFilterChange(varName: string, value: unknown) {
-        viewerFilterValues = { ...viewerFilterValues, [varName]: value };
-        clearTimeout(filterDebounceTimer);
-        filterDebounceTimer = window.setTimeout(
-            () => executeFilteredPanels(varName, { ...viewerFilterValues, [varName]: value }), 350,
-        );
-    }
-
-    // ── Load workspace + unlock ────────────────────────────────────────────────
     function applyWorkspace(data: WorkspaceData) {
         folders = data.folders;
         dashboards = data.dashboards;
         viewerState = 'unlocked';
         if (dashboards.length > 0) {
-            void selectDashboard(dashboards.slice().sort((a, b) => a.sort_order - b.sort_order)[0].id);
+            void selectDashboard(orderedDashboards[0].id);
         }
     }
 
@@ -205,7 +222,10 @@
                 body: JSON.stringify({ password: unlockPassword }),
             });
             if (!resp.ok) { lockError = 'Invalid password'; unlockPassword = ''; return; }
-            applyWorkspace(await resp.json() as WorkspaceData);
+            const data = await resp.json() as WorkspaceData;
+            viewer.setSession(data.viewer_session ?? '');
+            unlockPassword = '';
+            applyWorkspace(data);
         } catch {
             lockError = 'Could not reach the server.';
         } finally {
@@ -216,6 +236,7 @@
     onMount(async () => {
         editMode.set(false);
         uiStore.initTheme();
+        try { sidebarCollapsed = localStorage.getItem('sqlviz-viewer-navigation-hidden') !== '0'; } catch { /* optional preference */ }
         try {
             const resp = await fetch(`/view/workspace/${token()}`, {
                 headers: { Accept: 'application/json' }, cache: 'no-store',
@@ -230,6 +251,16 @@
         }
     });
 </script>
+
+{#snippet dashboardRow(d: WsDashboard, onNavigate: () => void)}
+    {@const Icon = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
+    <button class="ws-item" class:active={d.id === activeId} aria-current={d.id === activeId ? 'page' : undefined}
+        onclick={() => { void selectDashboard(d.id); onNavigate(); }} title={d.description || d.name}>
+        <Icon size={14} /><span class="ws-name">{d.name}</span>
+    </button>
+{/snippet}
+
+<svelte:window onkeydown={onNavigationKeydown} />
 
 <svelte:head><title>{activeName} — SQLviz</title></svelte:head>
 
@@ -269,97 +300,75 @@
 
 {:else}
     <div class="ws-shell">
-        <!-- Navigable sidebar -->
-        <nav class="ws-sidebar" class:collapsed={sidebarCollapsed} aria-label="Dashboard navigation">
-            <div class="ws-head" class:collapsed={sidebarCollapsed}>
-                {#if !sidebarCollapsed}
-                    <div class="brand">
-                        <img class="brand-icon" src={sqlvizIcon} alt="" width="26" height="26" />
-                        <span class="brand-name"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
-                    </div>
-                    <button class="hbtn" onclick={() => (sidebarCollapsed = true)} title="Collapse sidebar" aria-label="Collapse sidebar">
-                        <PanelLeftCloseIcon size={16} />
-                    </button>
-                {:else}
-                    <button class="brand-btn" onclick={() => (sidebarCollapsed = false)} title="Expand sidebar" aria-label="Expand sidebar">
-                        <img class="brand-icon" src={sqlvizIcon} alt="SQLviz" width="26" height="26" />
-                    </button>
-                {/if}
-            </div>
-
-            <div class="ws-body">
-                {#if !sidebarCollapsed}
-                    {#each nonEmptyFolders as f (f.id)}
-                        <div class="ws-group"><span>{f.name}</span><span class="ws-group-line"></span></div>
-                        {#each inFolder(f.id) as d (d.id)}
-                            {@const Icon = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
-                            <button class="ws-item" class:active={d.id === activeId} onclick={() => selectDashboard(d.id)} title={d.name}>
-                                <Icon size={14} /><span class="ws-name">{d.name}</span>
-                            </button>
-                        {/each}
-                    {/each}
-                    {#if ungrouped.length > 0 && nonEmptyFolders.length > 0}<div class="ws-group-gap"></div>{/if}
-                    {#each ungrouped as d (d.id)}
-                        {@const Icon = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
-                        <button class="ws-item" class:active={d.id === activeId} onclick={() => selectDashboard(d.id)} title={d.name}>
-                            <Icon size={14} /><span class="ws-name">{d.name}</span>
-                        </button>
-                    {/each}
-                    {#if dashboards.length === 0}<p class="ws-empty">No dashboards.</p>{/if}
-                {:else}
-                    {#each nonEmptyFolders as f (f.id)}
-                        {#each inFolder(f.id) as d (d.id)}
-                            {@const Icon = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
-                            <button class="ws-rail {d.id === activeId ? 'active' : ''}" onclick={() => selectDashboard(d.id)} title={d.name} aria-label={d.name}>
-                                <Icon size={16} />
-                            </button>
-                        {/each}
-                        <div class="ws-rail-sep"></div>
-                    {/each}
-                    {#each ungrouped as d (d.id)}
-                        {@const Icon = resolveDashboardIcon(d.dashboard_hint, d.dashboard_domain)}
-                        <button class="ws-rail {d.id === activeId ? 'active' : ''}" onclick={() => selectDashboard(d.id)} title={d.name} aria-label={d.name}>
-                            <Icon size={16} />
-                        </button>
-                    {/each}
-                {/if}
-            </div>
-
-            <div class="ws-foot" class:collapsed={sidebarCollapsed}>
-                {#if !sidebarCollapsed}<span class="foot-theme-label">Theme</span><ThemeToggle />{:else}<ThemeToggle compact />{/if}
-            </div>
-        </nav>
-
-        <!-- Main column -->
-        <div class="ws-main">
-            <header class="viewer-bar">
-                <span class="viewer-title">{activeName}</span>
+        <header class="viewer-bar">
+            <NavigationToggle expanded={!sidebarCollapsed} onclick={() => setNavigationOpen(sidebarCollapsed)} />
+            <ViewerDashboardSwitcher dashboards={destinations} {activeId} loading={dashboardLoading} compact
+                bind:open={switcherOpen} onSelect={(id) => { void selectDashboard(id); }} />
+            <div class="viewer-context-actions">
                 {#if hasFilters}
-                    <span class="viewer-sep" aria-hidden="true"></span>
-                    <div class="viewer-filters" role="group" aria-label="Dashboard filters">
-                        {#each allFilterControls as control (control.variable)}
-                            <FilterControlComponent {control} pill filterVals={viewerFilterValues}
-                                domain={viewerDomains[control.variable]} onChange={handleFilterChange} />
-                        {/each}
-                        <FilterViews dashboardId={activeId} currentValues={viewerFilterValues}
-                            onApply={(vals) => { for (const [k, v] of Object.entries(vals)) handleFilterChange(k, v); }} />
-                    </div>
+                    {#key activeId}<FilterContext dashboardId={activeId} controls={allFilterControls}
+                        values={viewerFilterValues} domains={viewerDomains} busy={filterRuntime.busy}
+                        error={filterRuntime.error} disabled={dashboardLoading} onApply={filterRuntime.apply} />{/key}
                 {/if}
-                <div class="ws-bar-right"><PalettePicker value={paletteId} onSelect={setPalette} /></div>
-            </header>
+                <ViewerOptions {paletteId} onPalette={setPalette} />
+            </div>
+        </header>
+        <div class="ws-body-layout">
+            <!-- Navigable sidebar -->
+            <NavigationPanel open={!sidebarCollapsed} onOpenChange={setNavigationOpen}>
+                {#snippet children(onNavigate, onClose, modal)}
+                    <nav class="ws-sidebar" aria-label="Dashboard navigation">
+                        <div class="ws-head">
+                            <span class="library-title">Dashboards</span>
+                            {#if modal}
+                                <button class="hbtn" onclick={onClose} title="Hide navigation" aria-label="Hide navigation">
+                                    <PanelLeftCloseIcon size={16} />
+                                </button>
+                            {/if}
+                        </div>
+                        <label class="ws-search">
+                            <SearchIcon size={14} />
+                            <input type="search" bind:value={navigationSearch} data-viewer-navigation-search
+                                placeholder="Find a dashboard..." aria-label="Find a dashboard" />
+                        </label>
+                        <div class="ws-body">
+                            {#if navigationSearch.trim()}
+                                {#each matchingDashboards as d (d.id)}{@render dashboardRow(d, onNavigate)}{/each}
+                                {#if matchingDashboards.length === 0}<p class="ws-empty" role="status">No matching dashboards.</p>{/if}
+                            {:else}
+                                {#each nonEmptyFolders as f (f.id)}
+                                    <div class="ws-group"><span>{f.name}</span><span class="ws-group-line"></span></div>
+                                    {#each inFolder(f.id) as d (d.id)}{@render dashboardRow(d, onNavigate)}{/each}
+                                {/each}
+                                {#if ungrouped.length > 0 && nonEmptyFolders.length > 0}<div class="ws-group-gap"></div>{/if}
+                                {#each ungrouped as d (d.id)}{@render dashboardRow(d, onNavigate)}{/each}
+                                {#if dashboards.length === 0}<p class="ws-empty">No dashboards.</p>{/if}
+                            {/if}
+                        </div>
+                        <div class="ws-foot"><span class="foot-theme-label">Appearance</span><ThemeToggle /></div>
+                    </nav>
+                {/snippet}
+            </NavigationPanel>
 
-            <div class="ws-content">
-                {#if layout}
-                    <DashboardGrid {layout} palette={paletteColors} />
-                {:else}
-                    <div class="viewer-center-inner"><span class="viewer-spinner">⟳</span><span class="viewer-msg">Building dashboard…</span></div>
-                {/if}
+            <!-- Main column -->
+            <div class="ws-main">
+                <div class="ws-content" aria-busy={filterRuntime.busy}>
+                    {#if dashboards.length === 0}
+                        <div class="viewer-center-inner"><span class="viewer-msg">No dashboards have been shared.</span></div>
+                    {:else if layout}
+                        <DashboardGrid {layout} palette={paletteColors} />
+                    {:else}
+                        <div class="viewer-center-inner"><span class="viewer-spinner">⟳</span><span class="viewer-msg">Building dashboard…</span></div>
+                    {/if}
+                </div>
             </div>
         </div>
     </div>
 {/if}
 
 <style>
+    .viewer-context-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
     .viewer-center {
         min-height: 100vh; display: flex; flex-direction: column; align-items: center;
         justify-content: center; background: var(--sqlviz-bg); gap: 0.75rem; padding: 1.5rem;
@@ -398,39 +407,33 @@
     .auth-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
     /* Shell */
-    .ws-shell { height: 100vh; display: flex; flex-direction: row; background: var(--sqlviz-bg); overflow: hidden; }
+    .ws-shell { height: 100dvh; display: flex; flex-direction: column; background: var(--sqlviz-bg); overflow: hidden; }
+
+    .ws-body-layout { flex: 1; display: flex; min-width: 0; min-height: 0; overflow: hidden; }
 
     .ws-sidebar {
-        width: 240px; flex-shrink: 0; display: flex; flex-direction: column;
-        background: var(--sqlviz-bg-surface); border-right: 1px solid var(--sqlviz-hairline);
-        overflow: hidden; transition: width 0.2s ease;
+        width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column;
+        background: var(--sqlviz-bg-surface); overflow: hidden;
     }
-    .ws-sidebar.collapsed { width: 44px; }
 
     .ws-head {
         display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
-        height: 44px; padding: 0 0.5rem 0 0.875rem; flex-shrink: 0; border-bottom: 1px solid var(--sqlviz-hairline);
+        height: 52px; padding: 0 0.5rem 0 0.875rem; flex-shrink: 0; border-bottom: 1px solid var(--sqlviz-hairline);
     }
-    .ws-head.collapsed { justify-content: center; padding: 0; }
 
-    .brand { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
-    .brand-icon { display: block; flex-shrink: 0; }
-    .brand-name { font-family: 'Geist Sans', var(--sqlviz-font-sans); font-weight: 600; font-size: 0.9375rem; letter-spacing: -0.025em; white-space: nowrap; overflow: hidden; }
+    .library-title { font-size: 0.8125rem; font-weight: 600; color: var(--sqlviz-text); }
     .brand-sql { color: var(--sqlviz-text-primary); font-weight: 600; }
     .brand-viz { color: var(--sqlviz-primary); font-weight: 600; }
 
-    .hbtn, .brand-btn {
+    .hbtn {
         display: flex; align-items: center; justify-content: center; border: none; background: none;
         color: var(--sqlviz-text-muted); border-radius: var(--sqlviz-radius); cursor: pointer;
         transition: background 0.12s, color 0.12s;
     }
-    .hbtn { width: 24px; height: 24px; }
-    .brand-btn { width: 34px; height: 34px; }
-    .hbtn:hover, .brand-btn:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
+    .hbtn { width: 32px; height: 32px; }
+    .hbtn:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
 
     .ws-body { flex: 1; overflow-y: auto; padding: 0.5rem 0.375rem; }
-    .ws-sidebar.collapsed .ws-body { display: flex; flex-direction: column; align-items: center; gap: 0.125rem; padding: 0.375rem 0; }
-
     .ws-group { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0.5rem 0.375rem; }
     .ws-group span:first-child {
         font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
@@ -447,46 +450,35 @@
     .ws-item.active { background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent); color: var(--sqlviz-primary); }
     .ws-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    .ws-rail {
-        display: flex; align-items: center; justify-content: center; width: 34px; height: 34px;
-        border: none; background: none; color: var(--sqlviz-text-muted); border-radius: var(--sqlviz-radius);
-        cursor: pointer; transition: background 0.12s, color 0.12s;
-    }
-    .ws-rail:hover { background: var(--sqlviz-bg-base); color: var(--sqlviz-text); }
-    .ws-rail.active { background: color-mix(in srgb, var(--sqlviz-primary) 15%, transparent); color: var(--sqlviz-primary); }
-    .ws-rail-sep { width: 24px; height: 1px; margin: 0.25rem 0; background: var(--sqlviz-hairline); }
-
     .ws-empty { padding: 0.75rem 0.5rem; font-size: 0.75rem; color: var(--sqlviz-text-muted); }
 
     .ws-foot {
         display: flex; align-items: center; justify-content: space-between; height: 44px;
         padding: 0 0.75rem; border-top: 1px solid var(--sqlviz-hairline); flex-shrink: 0;
     }
-    .ws-foot.collapsed { justify-content: center; padding: 0; }
     .foot-theme-label { font-size: 0.8125rem; color: var(--sqlviz-text-muted); }
 
     /* Main */
     .ws-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 
     .viewer-bar {
-        height: 44px; display: flex; align-items: center; gap: 0.625rem; padding: 0 0.875rem;
+        min-height: 52px; display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem 0.875rem;
         background: var(--sqlviz-bg-surface); border-bottom: 1px solid var(--sqlviz-hairline); flex-shrink: 0;
     }
-    .viewer-title {
-        font-size: 0.875rem; font-weight: 600; color: var(--sqlviz-text);
-        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;
-    }
-    .viewer-sep { width: 1px; height: 20px; background: var(--sqlviz-border); flex-shrink: 0; }
-    .viewer-filters {
-        display: flex; align-items: center; gap: 1rem; min-width: 0;
-        overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
-    }
-    .viewer-filters::-webkit-scrollbar { display: none; }
-    .ws-bar-right { margin-left: auto; flex-shrink: 0; display: flex; align-items: center; }
 
     .ws-content { flex: 1; overflow-y: auto; }
     .viewer-center-inner {
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         min-height: 200px; gap: 0.75rem;
     }
+    .ws-search {
+        display: flex; align-items: center; gap: 0.5rem; margin: 0.75rem 0.75rem 0;
+        padding: 0.5rem; border: 1px solid var(--sqlviz-hairline); border-radius: 8px;
+        color: var(--sqlviz-text-muted); background: var(--sqlviz-bg-base);
+    }
+    .ws-search:focus-within { border-color: var(--sqlviz-primary); box-shadow: var(--sqlviz-focus-ring); }
+    .ws-search input:focus-visible { box-shadow: none; }
+    .ws-search input { width: 100%; min-width: 0; border: 0; outline: none; background: none; color: var(--sqlviz-text); font: inherit; font-size: 0.75rem; }
+    .hbtn:focus-visible, .ws-item:focus-visible { outline: 2px solid var(--sqlviz-primary); outline-offset: 2px; }
+    @media (max-width: 600px) { .viewer-bar { padding-inline: 8px; gap: 6px; } }
 </style>

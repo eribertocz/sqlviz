@@ -80,18 +80,22 @@ describe('FilterControl — fallback shadcn Input controls emit correct values',
     });
 });
 
-// The shadcn Switch (bits-ui) renders a real button[role="switch"].
-describe('FilterControl — toggle uses shadcn Switch', () => {
-    it('renders a switch and emits boolean on toggle', async () => {
+describe('FilterControl — boolean filters distinguish unset from false', () => {
+    it.each([
+        { values: {}, selected: 'Any', pick: 'Yes', value: true },
+        { values: { active: true }, selected: 'Yes', pick: 'No', value: false },
+        { values: { active: false }, selected: 'No', pick: 'Any', value: '' },
+    ])('shows $selected and selecting $pick emits the correct value', async ({ values, selected, pick, value }) => {
         const onChange = vi.fn();
         const { container } = render(FilterControl, {
             control: base({ variable: 'active', control_type: 'toggle', column_type: 'BOOLEAN' }),
-            filterVals: {}, onChange,
+            filterVals: values, onChange,
         });
-        const sw = container.querySelector('[role="switch"]')!;
-        expect(sw).toBeTruthy();
-        await fireEvent.click(sw);
-        expect(onChange).toHaveBeenCalledWith('active', true);
+        const group = container.querySelector('[role="group"][aria-label="Test"]') ?? container.querySelector('[role="group"]')!;
+        const buttons = Array.from(group.querySelectorAll('button'));
+        expect(buttons.filter(button => button.getAttribute('aria-pressed') === 'true').map(button => button.textContent)).toEqual([selected]);
+        await fireEvent.click(buttons.find(button => button.textContent === pick)!);
+        expect(onChange).toHaveBeenCalledWith('active', value);
     });
 });
 
@@ -237,4 +241,16 @@ describe('FilterControl — dropdown is a searchable combobox', () => {
         expect(list.className).toContain('overflow-y-auto');
         expect(optionLabels()).toHaveLength(manyOptions.length);
     });
+    it.each([0, false])('preserves the type of a domain option: %s', async value => {
+        const onChange = vi.fn();
+        const { container } = render(FilterControl, { control: base({ variable: 'typed', control_type: 'dropdown' }),
+            filterVals: { typed: value }, domain: { values: [value] }, onChange });
+        await openDropdown(container);
+        const option = Array.from(document.querySelectorAll('[data-slot="command-item"]'))
+            .find(item => item.textContent!.trim() === String(value))!;
+        expect(optionLabels()).toContain('Clear filter');
+        await fireEvent.click(option);
+        expect(onChange).toHaveBeenCalledWith('typed', value);
+    });
+
 });

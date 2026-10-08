@@ -34,12 +34,11 @@
         embedded?: boolean;
     } = $props();
 
-    // Engine's pure winner (stable across re-executes for same SQL/data).
-    const engineWinner = result.chart_engine_winner ?? result.chart_winner;
+    const engineWinner = $derived(result.chart_engine_winner ?? result.chart_winner);
 
-    // Build stable list from ALL 8 chart types. Computed once at init, never recomputed.
+    // Recompute when the selected panel or its inference changes.
     type ListItem = { chart: string; pct: number; isWinner: boolean };
-    const allItems: ListItem[] = (() => {
+    const allItems: ListItem[] = $derived.by(() => {
         const alts = result.chart_alternatives ?? [];
         if (alts.length === 0) {
             return [{ chart: engineWinner, pct: 100, isWinner: true }];
@@ -51,22 +50,19 @@
                 isWinner: a.chart === engineWinner,
             }))
             .sort((a, b) => b.pct - a.pct);
-    })();
+    });
 
-    const recommended = allItems.filter(a => a.pct >= 50);
-    const available    = allItems.filter(a => a.pct < 50);
+    const recommended = $derived(allItems.filter(a => a.pct >= 50));
+    const available    = $derived(allItems.filter(a => a.pct < 50));
 
     let showBreakdown = $state(false);
-    // _override tracks in-session selection. Initialise from chart_winner so
-    // a panel-level override (chart_user_override) is visible on first open.
-    let _override = $state<string | null>(
-        result.chart_winner !== engineWinner ? result.chart_winner : null
-    );
-    const selected    = $derived(_override ?? engineWinner);
+    // The persisted winner is authoritative. A click provides immediate feedback
+    // until the next result arrives from the server.
+    let selected = $derived(result.chart_winner);
     const isOverridden = $derived(selected !== engineWinner);
 
     function handleSelect(chartType: string) {
-        _override = chartType === engineWinner ? null : chartType;
+        selected = chartType;
         onSelect(chartType);
     }
 
@@ -146,7 +142,7 @@
 
     {#if isOverridden}
         <button class="reset-btn" onclick={() => {
-            _override = null;
+            selected = engineWinner;
             onSelect(engineWinner);
         }}>
             Reset to auto
