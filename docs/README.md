@@ -46,6 +46,11 @@ manual puede integrarse antes sobre referencias de panel estables. El
 [núcleo del canvas](architecture/sqlviz-canvas-contract.md) ya está implementado
 y probado; no habilita todavía UI de arrastre ni guardado del nuevo lienzo.
 
+La [experiencia de paneles y áreas](architecture/sqlviz-panel-experience-spec.md)
+define el acabado de cabecera, contenido, acciones y estados desde S1/S2, con
+partes P1a–c y evidencia visual. Distingue CSS Grid como adaptador web de las áreas
+de composición S6; sigue siendo diseño pendiente de implementación.
+
 El [recorrido de editor multiconsulta](architecture/sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables)
 precisa la evolución prevista: sentencias con identidad → datasets/esquema →
 preview y catálogo de campos → varios gráficos o matrices. Guardar SQL como

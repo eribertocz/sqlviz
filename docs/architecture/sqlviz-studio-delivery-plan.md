@@ -135,8 +135,8 @@ sí sola la experiencia completa.
 | **S1.2a** | Pendiente | Contrato persistido de layout y modo pantalla/scroll por dashboard; fuente única de geometría |
 | **S1.2b** | Pendiente | Migración, repositorio y revisión; ensayo sobre copias y rechazo de conflictos |
 | **S1.2c** | Pendiente | API tipada de layout, validación completa y permisos |
-| **S1.2d** | Pendiente | Controles de posición, ancho y alto; draft, confirmación y reintento |
-| **S1.2e** | Pendiente | Recorrido guardar → reabrir → compartir, mismo layout y configuración |
+| **S1.2d** | Pendiente | Controles de posición, ancho y alto; draft, confirmación y reintento; P1a/P1b de estructura, selección y acciones del panel |
+| **S1.2e** | Pendiente | Recorrido guardar → reabrir → compartir, mismo layout y configuración; P1c de estados y revisión visual del panel |
 
 Antes de iniciar S2 y las etapas posteriores, dividirlas con la misma disciplina.
 No se implementa una etapa amplia en un único cambio.
@@ -159,6 +159,11 @@ La revisión pendiente de dimensiones de E1 se incorpora aquí. Migraciones y
 correcciones de dependencias requeridas por este flujo son parte de su alcance;
 no se abre una refactorización ilimitada de toda la plataforma antes de la UI.
 Los cambios no alterarán proyectos reales durante los ensayos.
+
+El [acabado de paneles](sqlviz-panel-experience-spec.md) comienza aquí con P1a–c,
+acompaña los gestos S2 y la autoría S4. No se reserva toda la calidad visual para
+S8: cabecera, contenido, acciones, foco y estados deben quedar resueltos antes de
+dar por cerrado el primer lienzo persistido.
 
 ### S2: mover con confianza
 
@@ -303,6 +308,20 @@ de un solo nivel: resumen, tendencias y detalle, por ejemplo. Permitir selecció
 y ajuste de grupo antes de introducir contenedores recursivos. Las áreas del
 dashboard y `grid` de ECharts —sus coordenadas cartesianas internas— son conceptos
 distintos. El autor no tendrá que escribir CSS grid para componer una página.
+
+CSS Grid/`grid-area` pertenece al adaptador web desde S1.2d; las áreas del producto
+son objetos de composición que entran en S6. No sustituir la geometría persistida
+por strings CSS ni transformar alturas exactas en filas automáticas.
+
+| Parte | Cierre previsto |
+| --- | --- |
+| S6.1a | Medir espacio real disponible y mínimos por renderer, incluyendo cabecera/filtros y zoom |
+| S6.1b | Distribución en modo pantalla con preview, diagnóstico cuando no cabe y fallback explícito; no ocultar overflow |
+| S6.1c | Modo scroll y cambio entre modos conservando diseño/identidad; guardar → reabrir → viewer |
+| S6.2a | Contrato de áreas con IDs, miembros/orden/título y un nivel de grupos; conversión del layout plano con preview/revisión |
+| S6.2b | Crear/renombrar/agrupar/mover área validando geometría global de doce columnas; undo y sin cambios silenciosos de vecinos |
+| S6.2c | Plantillas de composición compiladas al adaptador web, persistencia y viewer; el usuario organiza sin escribir CSS |
+| S6.3 | Lectura responsive, orden/foco coherentes y prueba de viewport/zoom; adaptación sin sobrescribir geometría desktop |
 
 ## Arquitectura y disciplina de entrega
 

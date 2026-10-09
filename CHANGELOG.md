@@ -82,6 +82,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Experiencia de paneles y áreas documentada: acabado de estructura/acciones/estados
+  desde S1/S2, gestos del gráfico preservados y revisión visual obligatoria para
+  cerrar ese flujo. CSS Grid se separa de áreas del producto; S6 se desglosa en
+  medición, modos pantalla/scroll, grupos, plantillas y responsive. Diseño pendiente,
+  sin cambios de UI ni formato `.sqlviz` en este incremento.
+
 - Política de actualización de consultas compartidas documentada: conservar
   paneles y ajustes, diagnosticar impacto por consumidor, reparar y adoptar
   revisiones explícitamente; incluye variante de un panel, conflictos y resultados
