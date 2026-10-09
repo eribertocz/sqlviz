@@ -9,7 +9,8 @@ actual. No son compromisos de calendario.
 **Bibliotecas elegidas por el usuario — 2026-10-08:** GridStack para el lienzo y
 Drawflow para el mapa. El [incremento de adaptación](sqlviz-interaction-adapters.md)
 fija dependencias y entrega adaptadores internos probados, sin UI activa ni
-cambios de formato. S1.1b sigue siendo el próximo incremento del producto.
+cambios de formato. S1.1b.1 entrega ahora el núcleo de reconciliación;
+S1.1b.2 es el siguiente incremento, todavía sin cambiar Run.
 
 ## Dirección del producto
 
@@ -44,8 +45,10 @@ el Visual Builder completo, datasets reutilizables o el editor experto.
 Ver el [contrato y sus límites](sqlviz-canvas-contract.md).
 
 **S1.1a implementado:** [parsing de scripts SQL](sqlviz-sql-script-parsing.md),
-integrado en Run, contador y foco. La identidad/reconciliación y el guardado del
-layout siguen pendientes; no se declara S1 completa.
+integrado en Run, contador y foco. **S1.1b.1 implementado:**
+[núcleo de identidad y reconciliación](sqlviz-sql-identity-reconciliation.md),
+con decisiones explícitas y propuestas pendientes ante ambigüedad. Su integración
+en editor/Run y el guardado del layout siguen pendientes; no se declara S1 completa.
 
 **Matriz analítica incorporada al alcance central:** la tabla actual es plana.
 El [módulo de matriz](sqlviz-analytical-matrix-spec.md) tiene entregas M1–M9,
@@ -106,7 +109,7 @@ dependencias y verificación propias. La [matriz de capacidades](sqlviz-visual-c
 separa representabilidad, builder e inferencia; la
 [arquitectura semántica](sqlviz-semantic-inference-architecture.md) describe AST,
 ámbitos, linaje, evidencia y abstención. Son diseños pendientes: no amplían los
-ocho identificadores legacy entregados ni cambian el siguiente paso S1.1b.
+ocho identificadores legacy entregados ni cambian el siguiente paso S1.1b.2.
 
 ## Orden de construcción
 
@@ -135,7 +138,7 @@ sí sola la experiencia completa.
 | Parte | Estado | Alcance y cierre |
 | --- | --- | --- |
 | **S1.1a** | Implementado | Parsing nativo del script completo, source/offsets, contador y foco; sin escrituras ante sintaxis inválida |
-| **S1.1b** | Siguiente | Identidad y reconciliación: reordenar/insertar/editar conserva asociación correcta; ambigüedad explícita, sin emparejar solo por índice |
+| **S1.1b** | En curso | Identidad y reconciliación: núcleo entregado, integración pendiente; reordenar/insertar/editar conserva asociación correcta, sin emparejar solo por índice |
 | **S1.1c** | Pendiente | Integración transaccional de cambios y borrados; un fallo no confirma parte del conjunto |
 | **S1.2a** | Pendiente | Layout persistido y modo pantalla/scroll; ancho/X por columnas, alto/Y por píxeles, referencias visual/texto y mínimos por tipo; fuente única de geometría |
 | **S1.2b** | Pendiente | Migración, repositorio y revisión; ensayo sobre copias y rechazo de conflictos |
@@ -148,6 +151,17 @@ sí sola la experiencia completa.
 
 Antes de iniciar S2 y las etapas posteriores, dividirlas con la misma disciplina.
 No se implementa una etapa amplia en un único cambio.
+
+**Desglose inmediato de S1.1b:**
+
+| Incremento | Estado | Cierre |
+| --- | --- | --- |
+| **S1.1b.1** | Implementado | Contrato y política pura: conservar/crear/eliminar explícitamente, ambigüedad pendiente, IDs y fuente validados; pruebas de política y parser real. Todavía no integrado en Run |
+| **S1.1b.2** | Siguiente | Asociaciones del borrador y procedencia de ediciones; conservar identidad solo cuando esté demostrada, invalidar decisiones obsoletas y aislar cambios de dashboard |
+| **S1.1b.3** | Pendiente | Resolución accesible de asociaciones ambiguas y preflight de Run por ID; nunca escribir una propuesta pendiente. Recorrido de inserción/reordenación/duplicados/borrado y preservación de ajustes |
+
+S1.1c sigue a esas partes: la validación previa no sustituye la escritura
+transaccional ni la comprobación del estado esperado en almacenamiento.
 
 1. Revisar cómo se asigna hoy la identidad de paneles al editar y ejecutar SQL.
    Establecer reconciliación segura antes de asociar geometría persistida. Un

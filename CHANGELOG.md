@@ -23,6 +23,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- S1.1b.1: núcleo interno de reconciliación SQL/panel con decisiones explícitas
+  para conservar, crear o eliminar. Propuestas inmutables, fuente/IDs validados
+  y ambigüedad pendiente, sin inferir identidad por índice o igualdad de SQL.
+  Cincuenta y tres casos nuevos de política y parser real; aún no conectado a
+  editor/Run ni a persistencia. El plan divide la integración en S1.1b.2/b.3.
+
 - Dependencias web fijadas: GridStack 14.0.0, Drawflow 0.0.60 y tipos Drawflow
   0.0.12. Adaptadores internos con dieciséis pruebas sobre las bibliotecas reales:
   geometría por IDs/píxeles, colisiones sin empuje y mapa de lectura con inputs

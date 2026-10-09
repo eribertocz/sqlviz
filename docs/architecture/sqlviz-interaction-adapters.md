@@ -111,7 +111,9 @@ entradas para GridStack, Drawflow o sus tipos en esa corrida. No se actualizan e
 dependencias fuera de alcance. Persisten las advertencias conocidas de teardown
 Svelte y tamaño de chunks. CI se comprueba sobre el commit enviado.
 
-S1.1b sigue siendo el próximo incremento del producto. S1.2d integra el contenedor
+S1.1b.1 entrega el [núcleo de reconciliación](sqlviz-sql-identity-reconciliation.md);
+S1.1b.2 integra asociaciones en el borrador como próximo incremento del producto.
+S1.2d integra el contenedor
 GridStack con referencias estables; S2 incorpora gestos/guías y guardado sobre ese
 contrato. F1 precede el mapa visible Drawflow F2/S4.6a. La elección de bibliotecas
 no salta reconciliación, revisiones ni autorización.
