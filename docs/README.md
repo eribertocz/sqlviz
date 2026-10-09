@@ -1,6 +1,6 @@
 # Documentación de SQLviz
 
-Actualizada: **2026-10-08**.
+Actualizada: **2026-10-09**.
 
 **Qué trabajamos ahora:** [plan operativo del Dashboard Studio](architecture/sqlviz-studio-delivery-plan.md).
 S0 entrega el núcleo de geometría; S1 incorporará persistencia y controles de
@@ -11,17 +11,19 @@ de cierre; los apartados E0–E5 conservan el mapa técnico e historial.
 **Primera parte de S1 implementada:** [S1.1a, parsing SQL](architecture/sqlviz-sql-script-parsing.md).
 Run, contador y foco usan análisis nativo en backend. **S1.1b.1 implementado:**
 [núcleo de identidad y reconciliación](architecture/sqlviz-sql-identity-reconciliation.md)
-con decisiones explícitas, validación y propuestas pendientes. Todavía no cambia
-Run. **S1.1b.2 implementado:**
+con decisiones explícitas, validación y propuestas pendientes. **S1.1b.2 implementado:**
 [asociaciones del borrador](architecture/sqlviz-sql-draft-identity.md), captura
-Monaco y validación nativa de rangos; S1.1b.3 conecta resolución en UI y Run por ID.
+Monaco y validación nativa de rangos. **S1.1b.3 implementado:**
+[resolución y Run por ID](architecture/sqlviz-sql-run-reconciliation.md), diálogo
+bajo demanda y preflight autorizado sin escrituras. Guardado atómico e identidad
+persistida siguen pendientes en S1.1c; no se declara S1 completa.
 
 **Alcance de inferencia ampliado, pendiente de implementar:**
 [AST, ámbitos, linaje y evidencias](architecture/sqlviz-semantic-inference-architecture.md)
 y [matriz de familias ECharts](architecture/sqlviz-visual-capability-matrix.md).
 Documentan los tres niveles, inputs SQL múltiples, adaptación de jerarquías/redes,
 23 familias core y dependencias GL/custom. El plan desglosa S3–S5 en partes pequeñas;
-el siguiente incremento de código continúa siendo S1.1b.3.
+el siguiente incremento de código es S1.1c.1: snapshot y escritor transaccional.
 
 ## Orden de lectura
 
@@ -58,7 +60,7 @@ de composición S6; sigue siendo diseño pendiente de implementación.
 [GridStack y Drawflow](architecture/sqlviz-interaction-adapters.md) son las
 bibliotecas elegidas para lienzo y mapa. Dependencias fijadas y adaptadores internos
 con pruebas ya están entregados; conectar UI/persistencia sigue pendiente en
-S1/S2 y F2, respectivamente. No cambia el próximo paso S1.1b.3.
+S1/S2 y F2, respectivamente. No cambia el próximo paso S1.1c.1.
 
 El [recorrido de editor multiconsulta](architecture/sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables)
 precisa la evolución prevista: sentencias con identidad → datasets/esquema →

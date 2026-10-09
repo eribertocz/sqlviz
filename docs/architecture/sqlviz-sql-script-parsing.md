@@ -72,11 +72,11 @@ El timestamp y `last_run_sql` corresponden al texto realmente ejecutado, aunque
 el draft cambie después de empezar la ejecución.
 
 El foco de edición solicita los offsets del mismo análisis y verifica el contexto
-antes de mover Monaco. La asociación del panel a una sentencia sigue siendo
-posicional: S1.1b debe reemplazarla. S1.1b.1 ya entrega un
+antes de mover Monaco. Este primer parsing no establece identidad. S1.1b.1 entrega un
 [núcleo de decisiones explícitas](sqlviz-sql-identity-reconciliation.md) y S1.1b.2
-[asociaciones del borrador](sqlviz-sql-draft-identity.md). Todavía no son preflight
-de Run por ID. No se atribuye identidad estable a este cambio.
+[asociaciones del borrador](sqlviz-sql-draft-identity.md). La continuación
+[S1.1b.3](sqlviz-sql-run-reconciliation.md) reemplaza la asociación posicional
+con resolución explícita, Run y foco por ID. Persistencia y atomicidad quedan en S1.1c.
 
 Al reconstruir texto desde paneles, el separador se coloca en una línea propia
 (`\n;\n\n`), para que un comentario final `-- …` no lo absorba. Separadores

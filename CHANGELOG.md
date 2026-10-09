@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Breaking
 
+- Run por ID requiere también `POST /api/v1/sql/reconcile`. Una asociación ambigua
+  solicita confirmación; quitar SQL no elimina paneles desde el script. El
+  guardado del conjunto y las asociaciones persistidas siguen pendientes en S1.1c.
+
 - Run del workspace analiza todo el script antes de crear/editar paneles y ahora
   rechaza sintaxis inválida sin escrituras de panel. Requiere el backend con
   `POST /api/v1/sql/parse`; no vuelve al splitter por delimitadores si falla.
@@ -22,6 +26,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   también se rechazan; los clientes deben corregir esas entradas.
 
 ### Added
+
+- S1.1b.3: diálogo bajo demanda para asociar consultas con paneles existentes o
+  nuevos, con comparación de SQL, teclado/foco y elecciones uno a uno. Preflight
+  estricto y autorizado de servidor, sin escrituras; Run y foco por ID, guardas
+  ante cambios del borrador y preservación de ajustes. El preflight no sustituye
+  una transacción: las escrituras posteriores de Run todavía son secuenciales.
 
 - S1.1b.2: asociaciones del borrador por rangos UTF-16 y procedencia de ediciones
   Monaco, comprobadas con el parser nativo. Inserciones desplazan bloques sin

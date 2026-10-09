@@ -2,13 +2,13 @@
 
 **Implementado — 2026-10-08: S1.1b.1.** Política pura y contrato interno de
 decisiones explícitas. El editor captura [asociaciones del borrador en S1.1b.2](sqlviz-sql-draft-identity.md);
-editor y Run **todavía no consumen este núcleo como preflight de escritura**.
-La asociación posicional actual sigue pendiente de reemplazo en S1.1b.3.
-No hay nuevos endpoints, migraciones ni escrituras de proyectos en esta entrega.
+El [preflight de S1.1b.3](sqlviz-sql-run-reconciliation.md) ya consume este núcleo
+y conecta resolución y Run por ID. Este primer núcleo sigue sin HTTP ni
+almacenamiento; el guardado transaccional corresponde a S1.1c.
 
 ## Problema y regla de identidad
 
-Run actual recorre las sentencias y usa `activePanelIds[i]`. Si se inserta una
+Run anterior recorría las sentencias y usaba `activePanelIds[i]`. Si se inserta una
 consulta antes de otra, se puede editar el SQL del panel equivocado y conservar
 allí sus ajustes. El [parser nativo](sqlviz-sql-script-parsing.md) resuelve límites
 de sentencias, pero sus offsets e índices no establecen identidad.
@@ -87,7 +87,7 @@ El parser real alimenta cuatro formas con comentarios, CTEs y literales con `;`.
 
 El conjunto de reconciliación y parsing ejecutado da **82 pruebas correctas**;
 Ruff y mypy pasan. No se declara roundtrip de UI o persistencia a partir de estas
-pruebas: el núcleo aún no está conectado a esos flujos.
+pruebas del primer núcleo: la integración posterior se describe en S1.1b.3.
 
 Continuación en el [plan operativo](sqlviz-studio-delivery-plan.md): S1.1b.2 ya
 mantiene asociaciones en el borrador y registra ediciones con procedencia;

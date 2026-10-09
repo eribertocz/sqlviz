@@ -1,6 +1,6 @@
 # Dashboard Studio: plan operativo
 
-**Actualizado:** 2026-10-08. **Prioridad acordada:** composición libre sobre doce
+**Actualizado:** 2026-10-09. **Prioridad acordada:** composición libre sobre doce
 columnas y tres niveles de autoría sobre una misma visualización. Este documento
 reemplaza el orden inmediato anterior del [roadmap](sqlviz-product-roadmap.md).
 E0–E5 conservan su función de mapa técnico e historial; S0–S8 definen el trabajo
@@ -10,8 +10,8 @@ actual. No son compromisos de calendario.
 Drawflow para el mapa. El [incremento de adaptación](sqlviz-interaction-adapters.md)
 fija dependencias y entrega adaptadores internos probados, sin UI activa ni
 cambios de formato. S1.1b.1 entrega ahora el núcleo de reconciliación;
-S1.1b.2 entrega asociaciones del borrador; S1.1b.3 es el siguiente incremento,
-todavía sin cambiar la asociación posicional de Run.
+S1.1b.2 entrega asociaciones del borrador; S1.1b.3 entrega resolución accesible
+y Run por ID. S1.1c es el siguiente incremento: guardado transaccional.
 
 ## Dirección del producto
 
@@ -50,8 +50,10 @@ integrado en Run, contador y foco. **S1.1b.1 implementado:**
 [núcleo de identidad y reconciliación](sqlviz-sql-identity-reconciliation.md),
 con decisiones explícitas y propuestas pendientes ante ambigüedad.
 **S1.1b.2 implementado:** [asociaciones del borrador](sqlviz-sql-draft-identity.md),
-captura de ediciones Monaco y validación nativa de rangos. La resolución en UI,
-Run por ID y el guardado del layout siguen pendientes; no se declara S1 completa.
+captura de ediciones Monaco y validación nativa de rangos. **S1.1b.3 implementado:**
+[resolución y Run por ID](sqlviz-sql-run-reconciliation.md), preflight de servidor
+sin escrituras y foco por identidad. Guardado atómico, asociaciones persistidas
+y layout siguen pendientes; no se declara S1 completa.
 
 **Matriz analítica incorporada al alcance central:** la tabla actual es plana.
 El [módulo de matriz](sqlviz-analytical-matrix-spec.md) tiene entregas M1–M9,
@@ -112,7 +114,7 @@ dependencias y verificación propias. La [matriz de capacidades](sqlviz-visual-c
 separa representabilidad, builder e inferencia; la
 [arquitectura semántica](sqlviz-semantic-inference-architecture.md) describe AST,
 ámbitos, linaje, evidencia y abstención. Son diseños pendientes: no amplían los
-ocho identificadores legacy entregados ni cambian el siguiente paso S1.1b.3.
+ocho identificadores legacy entregados ni cambian el siguiente paso S1.1c.
 
 ## Orden de construcción
 
@@ -141,7 +143,7 @@ sí sola la experiencia completa.
 | Parte | Estado | Alcance y cierre |
 | --- | --- | --- |
 | **S1.1a** | Implementado | Parsing nativo del script completo, source/offsets, contador y foco; sin escrituras ante sintaxis inválida |
-| **S1.1b** | En curso | Núcleo y asociaciones del borrador entregados; resolución en UI y Run por ID pendientes. Identidad sin emparejar solo por índice |
+| **S1.1b** | Implementado | Núcleo, asociaciones del borrador, resolución en UI y Run por ID. Identidad sin emparejar por índice; persistencia y atomicidad pendientes en S1.1c |
 | **S1.1c** | Pendiente | Integración transaccional de cambios y borrados; un fallo no confirma parte del conjunto |
 | **S1.2a** | Pendiente | Layout persistido y modo pantalla/scroll; ancho/X por columnas, alto/Y por píxeles, referencias visual/texto y mínimos por tipo; fuente única de geometría |
 | **S1.2b** | Pendiente | Migración, repositorio y revisión; ensayo sobre copias y rechazo de conflictos |
@@ -161,10 +163,17 @@ No se implementa una etapa amplia en un único cambio.
 | --- | --- | --- |
 | **S1.1b.1** | Implementado | Contrato y política pura: conservar/crear/eliminar explícitamente, ambigüedad pendiente, IDs y fuente validados; pruebas de política y parser real. Todavía no integrado en Run |
 | **S1.1b.2** | Implementado | Asociaciones del borrador y procedencia de ediciones; validación nativa, snapshots y guardas de fuente/vista. Reemplazos opacos y límites ambiguos quedan pendientes; sin persistencia ni Run por ID |
-| **S1.1b.3** | Siguiente | Resolución accesible de asociaciones ambiguas y preflight de Run por ID; nunca escribir una propuesta pendiente. Recorrido de inserción/reordenación/duplicados/borrado y preservación de ajustes |
+| **S1.1b.3** | Implementado | Resolución accesible de asociaciones ambiguas, preflight de Run por ID y foco por identidad; nunca escribir una propuesta pendiente. Inserción/reordenación probadas; borrado desde script bloqueado hasta S1.1c |
 
 S1.1c sigue a esas partes: la validación previa no sustituye la escritura
 transaccional ni la comprobación del estado esperado en almacenamiento.
+
+**Desglose inmediato de S1.1c:**
+
+| Incremento | Estado | Cierre |
+| --- | --- | --- |
+| **S1.1c.1** | Siguiente | Snapshot esperado y escritor transaccional: validar fuente, IDs y estado persistido, aplicar cambios/creaciones/borrados y asociaciones juntos; conflicto y fallo inducido no dejan escrituras parciales |
+| **S1.1c.2** | Pendiente | API e integración Run sobre ese escritor; eliminación explícita, identidad durable, recarga, reintento y resultados separados del commit de definiciones; sin volver a PATCH secuencial |
 
 1. Revisar cómo se asigna hoy la identidad de paneles al editar y ejecutar SQL.
    Establecer reconciliación segura antes de asociar geometría persistida. Un

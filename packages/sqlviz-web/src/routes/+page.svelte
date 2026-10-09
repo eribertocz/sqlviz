@@ -8,6 +8,8 @@
     import NavigationPanel from '$lib/components/NavigationPanel.svelte';
     import PanelPropertiesPanel from '$lib/components/PanelPropertiesPanel.svelte';
     import EditorSection from '$lib/components/EditorSection.svelte';
+    import SqlRunResolutionDialog from '$lib/components/SqlRunResolutionDialog.svelte';
+    import { executionStore } from '$lib/stores/executionStore.svelte';
     import ExplainPanel from '$lib/components/ExplainPanel.svelte';
     import CommandPalette from '$lib/components/CommandPalette.svelte';
     import ToastHost from '$lib/components/ToastHost.svelte';
@@ -53,7 +55,7 @@
             return;
         }
         // Preserve typing and Monaco's own shortcuts, including Ctrl+K chords.
-        if (e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable="true"], .monaco-editor')) return;
+        if (e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable="true"], .monaco-editor, [role="dialog"]')) return;
         switch (e.key.toLowerCase()) {
             case 'k':
                 e.preventDefault();
@@ -178,6 +180,10 @@
 
     </div>
 </div>
+
+<SqlRunResolutionDialog resolution={dashboardStore.sqlRunResolution}
+    onChoose={dashboardStore.chooseSqlRunPanel} onConfirm={dashboardStore.confirmSqlRunResolution}
+    onCancel={dashboardStore.cancelSqlRunResolution} error={executionStore.errorMsg} />
 
 <ToastHost />
 

@@ -113,7 +113,8 @@ Svelte y tamaño de chunks. CI se comprueba sobre el commit enviado.
 
 S1.1b.1 entrega el [núcleo de reconciliación](sqlviz-sql-identity-reconciliation.md);
 S1.1b.2 entrega [asociaciones del borrador](sqlviz-sql-draft-identity.md);
-S1.1b.3 integra resolución y Run por ID como próximo incremento del producto.
+[S1.1b.3](sqlviz-sql-run-reconciliation.md) entrega resolución y Run por ID.
+S1.1c sigue con snapshot esperado y guardado transaccional.
 S1.2d integra el contenedor
 GridStack con referencias estables; S2 incorpora gestos/guías y guardado sobre ese
 contrato. F1 precede el mapa visible Drawflow F2/S4.6a. La elección de bibliotecas

@@ -39,13 +39,22 @@ function deferred() {
 
 function transport() {
     let panels = 0;
-    vi.mocked(apiPost).mockImplementation(async path => {
+    vi.mocked(apiPost).mockImplementation(async (path, body) => {
         if (path === '/api/v1/sql/parse') return parsed;
+        if (path === '/api/v1/sql/reconcile') return fakePreflight(body);
         if (path === '/api/v1/dashboards') return { id: 'd' };
         if (path === '/api/v1/panels') return { id: `p${++panels}` };
         if (path.endsWith('/execute')) return result;
         throw new Error(`Unexpected request: ${path}`);
     });
+}
+
+function fakePreflight(body: unknown, statements = parsed.statements) {
+    const input = body as { sql: string; decisions: { kind: string; statement_index: number; panel_id?: string; creation_key?: string }[] };
+    return { version: 1, source: input.sql, complete: true, removed_panel_ids: [], unresolved_panel_ids: [], unresolved_statement_indexes: [],
+        statements: [...input.decisions].sort((a, b) => a.statement_index - b.statement_index).map(choice => ({
+            ...statements[choice.statement_index], ...choice, panel_id: choice.panel_id ?? null, creation_key: choice.creation_key ?? null,
+        })) };
 }
 
 it('uses native slices for panel SQL, count and exact last-run source', async () => {
@@ -204,4 +213,91 @@ it.each([true, false])('load distinguishes saved arbitrary SQL from directly con
     ] });
     const store = createDashboardStore(); await store.loadDashboard('loaded'); await store.handleEditSQL('p1');
     expect(store.sqlIdentity?.statements.map(item => item.panel_id)).toEqual(saved ? [null, null] : ['p1', 'p2']);
+});
+
+it('opaque reordering requires explicit IDs, then patches and focuses the selected panels', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    const reversed = `${second}\n;\n\n${first}`;
+    const reordered = [
+        { sql: second, start_offset: 0, end_offset: second.length },
+        { sql: first, start_offset: second.length + 4, end_offset: reversed.length },
+    ];
+    const regular = vi.mocked(apiPost).getMockImplementation()!;
+    vi.mocked(apiPost).mockImplementation((path, body) => path === '/api/v1/sql/parse'
+        ? Promise.resolve({ ...parsed, statements: reordered }) : path === '/api/v1/sql/reconcile'
+            ? Promise.resolve(fakePreflight(body, reordered)) : regular(path, body));
+    vi.mocked(apiPost).mockClear(); vi.mocked(apiPatch).mockClear();
+    store.sql = reversed; await store.run();
+    expect(store.sqlRunResolution?.choices).toEqual([]);
+    expect(apiPost).toHaveBeenCalledTimes(1); expect(apiPatch).not.toHaveBeenCalled();
+    store.chooseSqlRunPanel(0, 'p2'); store.chooseSqlRunPanel(1, 'p1');
+    await store.confirmSqlRunResolution();
+    expect(apiPatch).toHaveBeenCalledWith('/api/v1/panels/p2', { sql_content: second, sort_order: 0 });
+    expect(apiPatch).toHaveBeenCalledWith('/api/v1/panels/p1', { sql_content: first, sort_order: 1 });
+    expect(vi.mocked(apiPost).mock.calls.some(([path]) => path === '/api/v1/panels')).toBe(false);
+    expect(store.panelIds).toEqual(['p2', 'p1']); expect(store.sqlRunResolution).toBeNull();
+    const focusOffset = vi.fn(); editorRef.set({ focusOffset }); await store.handleEditSQL('p1');
+    expect(focusOffset).toHaveBeenCalledWith(second.length + 4);
+});
+
+it('removing a query cannot silently discard an existing panel; cancel performs no writes', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    store.sql = first;
+    vi.mocked(apiPost).mockResolvedValueOnce({ ...parsed, statements: [parsed.statements[0]] });
+    vi.mocked(apiPost).mockClear(); vi.mocked(apiPatch).mockClear();
+    await store.run(); store.chooseSqlRunPanel(0, 'p1'); await store.confirmSqlRunResolution();
+    expect(store.sqlRunResolution).not.toBeNull(); expect(apiPost).toHaveBeenCalledTimes(1);
+    expect(apiPatch).not.toHaveBeenCalled(); expect(store.panelIds).toEqual(['p1', 'p2']);
+    store.cancelSqlRunResolution(); expect(store.sqlRunResolution).toBeNull();
+    expect(store.panelIds).toEqual(['p1', 'p2']);
+});
+
+it('a tracked insertion creates a new panel without transferring existing settings to it', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    const prefix = 'SELECT 3;\n'; const changed = prefix + source;
+    store.applySqlEditorChange({ before: source, after: changed, changes: [{ rangeOffset: 0, rangeLength: 0, text: prefix }], isFlush: false });
+    const statements = [{ sql: 'SELECT 3', start_offset: 0, end_offset: 8 },
+        ...parsed.statements.map(item => ({ ...item, start_offset: item.start_offset + prefix.length, end_offset: item.end_offset + prefix.length }))];
+    const regular = vi.mocked(apiPost).getMockImplementation()!;
+    vi.mocked(apiPost).mockImplementation((path, body) => path === '/api/v1/sql/parse'
+        ? Promise.resolve({ ...parsed, statements }) : path === '/api/v1/sql/reconcile'
+            ? Promise.resolve(fakePreflight(body, statements)) : regular(path, body));
+    vi.mocked(apiPost).mockClear(); vi.mocked(apiPatch).mockClear(); await store.run();
+    expect(store.sqlRunResolution).toBeNull(); expect(store.panelIds).toEqual(['p3', 'p1', 'p2']);
+    expect(apiPatch).toHaveBeenCalledWith('/api/v1/panels/p1', { sql_content: first, sort_order: 1 });
+    expect(apiPatch).toHaveBeenCalledWith('/api/v1/panels/p2', { sql_content: second, sort_order: 2 });
+});
+
+it('a failed preflight writes nothing and keeps explicit choices for retry', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source;
+    const regular = vi.mocked(apiPost).getMockImplementation()!;
+    vi.mocked(apiPost).mockImplementation((path, body) => path === '/api/v1/sql/reconcile'
+        ? Promise.reject(new Error('Panel snapshot changed')) : regular(path, body));
+    await store.run();
+    expect(apiPatch).not.toHaveBeenCalled(); expect(store.dashboardId).toBeNull();
+    expect(vi.mocked(apiPost).mock.calls.map(([path]) => path)).toEqual(['/api/v1/sql/parse', '/api/v1/sql/reconcile']);
+    const choices = store.sqlRunResolution?.choices; expect(choices).toHaveLength(2);
+    vi.mocked(apiPost).mockImplementation(regular); await store.confirmSqlRunResolution();
+    expect(vi.mocked(apiPost).mock.calls.filter(([path]) => path === '/api/v1/sql/reconcile')[1][1]).toEqual(
+        expect.objectContaining({ decisions: choices }));
+    expect(store.panelIds).toEqual(['p1', 'p2']);
+});
+
+it.each([false, true])('a changed draft invalidates an in-flight preflight even if its text is restored (restore=%s)', async restore => {
+    transport(); const response = deferred(); const regular = vi.mocked(apiPost).getMockImplementation()!;
+    vi.mocked(apiPost).mockImplementation((path, body) => path === '/api/v1/sql/reconcile' ? response.promise : regular(path, body));
+    const store = createDashboardStore(); store.sql = source; const operation = store.run();
+    await vi.waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/v1/sql/reconcile', expect.anything()));
+    const body = vi.mocked(apiPost).mock.calls.find(([path]) => path === '/api/v1/sql/reconcile')![1];
+    store.sql = 'SELECT 99'; if (restore) store.sql = source;
+    response.resolve(fakePreflight(body)); await operation;
+    expect(apiPatch).not.toHaveBeenCalled(); expect(store.dashboardId).toBeNull();
+    expect(store.sqlRunResolution).toBeNull(); expect(store.sql).toBe(restore ? source : 'SELECT 99');
+});
+
+it('editing an unresolved draft cancels old choices without changing confirmed IDs', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    store.sql = source + ' '; await store.run(); expect(store.sqlRunResolution).not.toBeNull();
+    store.chooseSqlRunPanel(0, 'p1'); store.sql = source;
+    expect(store.sqlRunResolution).toBeNull(); expect(store.panelIds).toEqual(['p1', 'p2']);
 });

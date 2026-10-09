@@ -2,9 +2,9 @@
 
 **Implementado — 2026-10-08: S1.1b.2.** El editor registra procedencia de
 ediciones y mantiene asociaciones tentativas con IDs de panel. La proyección
-queda disponible en `dashboardStore.sqlIdentity`; todavía no hay UI de resolución
-ni Run por ID. **Run y el foco de «Editar SQL» siguen usando posición** hasta
-S1.1b.3. La persistencia de asociaciones pertenece a S1.1c.
+queda disponible en `dashboardStore.sqlIdentity`. La continuación
+[S1.1b.3](sqlviz-sql-run-reconciliation.md) ya integra resolución y Run/foco por ID.
+La persistencia de asociaciones pertenece a S1.1c.
 
 ## Responsabilidades
 
@@ -27,8 +27,8 @@ rango con identidad contiene una sola sentencia completa. El snapshot, la vista,
 el dashboard y la fuente deben seguir vigentes al terminar la solicitud; respuestas
 tardías no invalidan asociaciones de una edición posterior.
 
-Esta proyección informa al futuro preflight. No es autorización ni un plan de
-escritura aceptable desde el navegador: el servidor deberá validar decisiones
+Esta proyección informa al preflight de S1.1b.3. No es autorización ni un plan de
+escritura aceptable desde el navegador: el servidor valida decisiones
 con el [núcleo de reconciliación](sqlviz-sql-identity-reconciliation.md) y el
 snapshot de almacenamiento autorizado.
 
@@ -37,7 +37,7 @@ snapshot de almacenamiento autorizado.
 | Operación | Asociación resultante |
 | --- | --- |
 | Construir texto desde pares `panel_id`/SQL persistidos | Cada bloque conoce el panel desde el que se construyó; el parser debe confirmar los límites |
-| Run exitoso de la sesión | Se registra qué ID ejecutó efectivamente cada fragmento; no corrige una elección posicional anterior |
+| Run exitoso de la sesión | Se registra qué ID ejecutó efectivamente cada fragmento; S1.1b.3 exige correspondencia explícita antes de escribir |
 | Editar dentro de un bloque mediante rangos precisos | Conserva su ID y ajusta la extensión; el parser vuelve a comprobar la correspondencia |
 | Insertar SQL antes de un bloque o eliminar otro bloque | Desplaza offsets; el bloque intacto mantiene su ID. Lo nuevo queda sin asignar y lo eliminado requiere decisión |
 | Reemplazar un bloque completo o cruzar sus límites | Retira la evidencia de los bloques afectados |
@@ -88,7 +88,7 @@ para la fuente exacta, el store devuelve `null` en lugar de una resolución obso
   previo de Run. Persisten las advertencias conocidas de teardown Svelte en
   pruebas y tamaño de chunks; no hubo errores nuevos en el navegador.
 
-Siguiente: **S1.1b.3**, resolución accesible de asociaciones y preflight de Run
-por ID, incluido el foco correcto de edición. Después **S1.1c** debe guardar el
+[S1.1b.3](sqlviz-sql-run-reconciliation.md) continúa este incremento con resolución
+accesible y preflight de Run por ID, incluido el foco de edición. **S1.1c** debe guardar el
 conjunto de forma transaccional y comprobar conflictos; una proyección de borrador
 válida no sustituye esos controles. Ver el [plan operativo](sqlviz-studio-delivery-plan.md).
