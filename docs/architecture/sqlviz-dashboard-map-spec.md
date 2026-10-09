@@ -38,6 +38,32 @@ campos, revisión, visual o ubicación del panel. «Ir al objeto» enfoca el edi
 builder o panel correspondiente, con regreso al mapa y recuperación de foco.
 Un visual con varios inputs muestra esas referencias por nombre/ID.
 
+### Editar desde el flujo
+
+El mapa también es un punto de entrada a la edición. Seleccionar abre contexto;
+«Editar» es una acción visible y operable por teclado/touch. El doble clic puede
+ser un atajo adicional, no la única forma de descubrirla. El inspector contextual
+ofrece ajustes frecuentes y «Abrir en Studio» lleva al editor completo.
+
+| Nodo | Destino de edición |
+| --- | --- |
+| Consulta/dataset | SQL, parámetros, campos y revisión, con diagnóstico de dependencias |
+| Visual | Datos/roles, tipo, formato e interacciones; builder o configuración experta según renderer |
+| Panel | Título/ajustes de instancia y geometría; acceso diferenciado a su visual compartida |
+
+Mostrar qué objeto se edita y el alcance del cambio: una instancia, una visual
+reutilizada o un dataset con varios consumidores. Revisiones publicadas conservan
+sus referencias; editar desde un panel no actualiza todas las publicaciones por
+accidente. Las conexiones cambian mediante los bindings validados, no dibujando
+aristas que contradigan la definición.
+
+Reutilizar controles, borradores, validación, permisos, guardado y undo del Studio.
+El mapa no tiene otra API de escritura ni una copia independiente del objeto.
+Guardar actualiza el grafo confirmado; un fallo conserva borrador y estado previo.
+Cancelar restaura la revisión confirmada. Volver al mapa recupera selección,
+zoom/posición y foco; abrir otro objeto no descarta un borrador silenciosamente.
+El lector sin permiso de edición conserva solo el contexto permitido y navegación.
+
 Estados discretos y con texto: confirmado, cambio pendiente, actualizando,
 ejecución fallida o referencia/campo incompatible. Distinguir definición guardada
 de último resultado disponible; no llamar «actualizado» a un dataset solo porque
@@ -84,7 +110,7 @@ esa publicación; estados de ejecución/frescura se presentan por separado.
 | Parte | Integración | Cierre |
 | --- | --- | --- |
 | F1 | S3.6 | Proyección tipada por IDs/revisiones, nodos/enlaces reales, scope y referencia inválida; pruebas independientes del renderer |
-| F2 | S4.6a | Vista bajo demanda, selección, contexto/ir al objeto, teclado y alternativa en lista; mismo alcance que el dashboard, límites explícitos |
+| F2 | S4.6a | Vista bajo demanda, contexto/edición mediante Studio y regreso al mapa; teclado/lista, permisos y límites explícitos |
 | F3 | S4.6b | Actualización al crear/reutilizar/editar/borrar; confirmado frente a draft, rollback, respuestas tardías y reapertura |
 | F4 | S5 | Linaje de campos con evidencia; diagnóstico de impacto al modificar esquema; precisión/cobertura del AST visibles |
 | F5 | S8 | Revisión publicada y permiso de lectura; accesibilidad, agrupación/carga acotada y rendimiento medido |
@@ -98,3 +124,6 @@ Validar reutilización de un dataset por tres visuales y de una visual por vario
 paneles; consultas/series permutadas; renombrado/borrado; cambio de esquema;
 fallo/concurrencia; estados tras filtros y refresh; foco/teclado/lista equivalente;
 zoom y grafos grandes; ausencia de fugas entre autor y enlaces de lectura.
+Probar mapa → editar panel/visual/dataset → guardar/cancelar/reintentar → volver,
+sin perder foco, zoom, selección ni borradores; cambios de instancia frente a
+objetos reutilizados con revisiones publicadas fijadas.

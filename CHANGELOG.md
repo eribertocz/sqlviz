@@ -83,7 +83,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Mapa vivo del dashboard definido como vista bajo demanda de referencias reales,
-  con contexto/navegación y estados draft/confirmado. F1–F3 entran en S3/S4;
+  con contexto/edición mediante Studio, regreso al mapa y estados draft/confirmado.
+  Distingue ajustes de instancia, visual compartida y dataset. F1–F3 entran en S3/S4;
   linaje detallado y publicación en S5/S8. Es diseño pendiente, no nueva UI.
 
 - Autoría multiconsulta precisada: bloques SQL con identidad → datasets y esquema

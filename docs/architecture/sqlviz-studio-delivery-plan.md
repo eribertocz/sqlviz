@@ -246,7 +246,7 @@ con integración y evidencias; no se cierran solo entregando modelos.
 | S4.3 | Compilación al runtime ECharts y registro mínimo de capacidades; tabla/KPI conservan su adaptador de producto |
 | S4.4 | Editor JSON nativo, referencias, IDs y precedencia; sin callbacks arbitrarios, sin restringirlo a ajustes cosméticos |
 | S4.5 | Persistir → filtrar → reabrir → viewer → reset/undo, sobre la misma visualización; errores atómicos y opciones fuera del builder preservadas |
-| S4.6a | F2: Mapa bajo demanda, contexto y navegación al objeto; diagrama y alternativa en lista sin ocupar espacio permanente |
+| S4.6a | F2: Mapa bajo demanda, contexto y edición con controles del Studio; guardar/cancelar y regresar conservando posición/foco, diagrama y alternativa en lista |
 | S4.6b | F3: Mapa actualizado al crear/reutilizar/editar/borrar; draft/confirmado, fallos y respuestas tardías coherentes |
 | S3.M1 | Contrato de matriz: ejes, medidas, grano, claves/celdas y corpus; desglose M1.1–M1.3 en su especificación |
 | S4.M2–M5 | Motor de medidas/contextos, API/persistencia, grilla y builder con drag de campos; primer flujo guardado/reapertura/viewer de matriz |
