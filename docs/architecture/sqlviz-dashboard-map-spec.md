@@ -32,6 +32,9 @@ Crear un visual agrega su nodo/enlaces; reutilizar un dataset conserva un único
 nodo de definición. Borrar una instancia retira ese panel, no su visual compartida.
 Renombrar actualiza etiquetas, no identidad. Mover un panel cambia geometría,
 no dependencia. El orden de sentencias separadas por `;` no define las aristas.
+Un [bloque de texto](sqlviz-panel-experience-spec.md#mínimos-y-bloques-de-texto) puede
+mostrar su pertenencia al dashboard y abrir su edición; no tiene dependencias de
+consulta/dataset inventadas para encajar en el flujo de visuales.
 
 Seleccionar un nodo resalta sus entradas/salidas y abre contexto: consulta,
 campos, revisión, visual o ubicación del panel. «Ir al objeto» enfoca el editor,

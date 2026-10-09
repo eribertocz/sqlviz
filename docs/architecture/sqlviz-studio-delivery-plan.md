@@ -54,7 +54,7 @@ Su diseño y el desglose de S2 siguientes todavía no habilitan nuevas interacci
 | --- | --- |
 | Ancho | Doce columnas; posición y extensión editables. Un panel nunca sale del grid |
 | Alto | Altura exacta ajustable. El nuevo lienzo no hereda el techo legacy de 900 px |
-| Mínimo | Separar mínimo estructural y mínimo de contenido. Los 120 px actuales son compatibilidad estructural, no garantía de legibilidad |
+| Mínimo | Rechazar 2 px; separar mínimo estructural por tipo y mínimo de contenido. Los 120 px actuales son de paneles gráficos, no un tamaño para futuros títulos de texto |
 | Legibilidad | Medir título, ejes, leyenda, controles y área útil según el visual. Ofrecer perfiles compacto/normal cuando proceda; no imponer un mismo mínimo a KPI, sparkline, tabla y multiserie |
 | Colisiones | El candidato inválido se muestra y no se confirma. Ningún vecino se desplaza sin preview y aceptación |
 | Orden | Mover un panel no reordena SQL, no cambia su identidad ni transfiere ajustes a otra consulta |
@@ -132,11 +132,14 @@ sí sola la experiencia completa.
 | **S1.1a** | Implementado | Parsing nativo del script completo, source/offsets, contador y foco; sin escrituras ante sintaxis inválida |
 | **S1.1b** | Siguiente | Identidad y reconciliación: reordenar/insertar/editar conserva asociación correcta; ambigüedad explícita, sin emparejar solo por índice |
 | **S1.1c** | Pendiente | Integración transaccional de cambios y borrados; un fallo no confirma parte del conjunto |
-| **S1.2a** | Pendiente | Contrato persistido de layout y modo pantalla/scroll; concretar precisión horizontal de 1 px, anclajes/viewport y colisiones antes de migrar; fuente única de geometría |
+| **S1.2a** | Pendiente | Layout persistido y modo pantalla/scroll; ancho/X por columnas, alto/Y por píxeles, referencias visual/texto y mínimos por tipo; fuente única de geometría |
 | **S1.2b** | Pendiente | Migración, repositorio y revisión; ensayo sobre copias y rechazo de conflictos |
 | **S1.2c** | Pendiente | API tipada de layout, validación completa y permisos |
 | **S1.2d** | Pendiente | Controles de posición, ancho y alto; composición de un panel de seis columnas junto a dos apilados, sin fila automática compartida; draft/reintento y P1a/P1b |
 | **S1.2e** | Pendiente | Guardar → reabrir → compartir la composición asimétrica en ambas orientaciones, mismo layout/configuración; P1c de estados y revisión visual |
+| **S1.3a** | Pendiente | Bloque de texto tipado: contenido/rol/estilo y mínimo propio, sin SQL/dataset; persistencia/API y referencias del layout |
+| **S1.3b** | Pendiente | Insertar/editar título, subtítulo, encabezado y párrafo; ancho por columnas, altura sugerida y colisiones con preview |
+| **S1.3c** | Pendiente | Guardar → reabrir → viewer/publicación; texto multilínea, lectura/foco, permisos y temas; consultas conservan los bloques |
 
 Antes de iniciar S2 y las etapas posteriores, dividirlas con la misma disciplina.
 No se implementa una etapa amplia en un único cambio.
@@ -196,8 +199,14 @@ Las [guías y precisión](sqlviz-panel-experience-spec.md#guías-de-dimensionado
 se dividen antes de integrarse: S2.2a obtiene candidatos deterministas y válidos;
 S2.2b presenta guías/cotas y magnetismo controlable durante el gesto; S2.3a integra
 resize exacto y coincidencia de medidas; S2.3b verifica inspector/gesto, zoom/scroll
-y límites. La entrada numérica no se modifica por snap. Alto/Y exactos ya caben
-en S0; X/ancho exactos requieren resolver el contrato en S1.2a, no solo añadir inputs.
+y límites. La entrada numérica válida no se modifica por snap. Alto/Y exactos ya
+caben en S0; X/ancho se mantienen por columnas. Precisión horizontal libre queda
+fuera del primer Studio, pendiente de una decisión separada si existe necesidad.
+
+Los [mínimos y bloques de texto](sqlviz-panel-experience-spec.md#mínimos-y-bloques-de-texto)
+se incorporan en S1.2/S1.3. S2 aplica movimiento/resize a los tipos soportados con
+sus propias restricciones. Un encabezado no recibe herramientas de gráfico y no
+debe heredar su mínimo de 120 px; S6 añade agrupación, no el primer texto insertable.
 
 Arrastrar campos del builder, ajustar columnas de matriz y mover paneles del
 dashboard son operaciones distintas. La [especificación de matriz](sqlviz-analytical-matrix-spec.md)

@@ -93,18 +93,12 @@ S0 representa `top_px` y `height_px` enteros, pero `column`/`column_span` son co
 no X/ancho en píxeles. Mostrar el ancho medido no lo vuelve un ancho editable.
 La UI debe distinguir esas unidades y no mostrar un campo de precisión ficticia.
 
-En S1.2a, concretar la extensión para X/ancho exactos dentro del lienzo de doce
-columnas antes de migrar: anclajes y ancho de referencia, resolución en otro
-viewport y geometría efectiva para colisiones. Evaluar ajustes horizontales
-acotados al tramo de columnas; documentar la decisión y sus límites con un caso
-de desplazamiento/resize de 1 px. No añadir propiedades al contrato S0 existente
-sin versión/migración ni guardar ancho derivado del DOM como otra autoridad.
-
-La intención es precisión de 1 píxel CSS en el ancho de diseño declarado, con
-adaptación explícita en otros viewports; no prometer el mismo ancho fijo junto
-con seis columnas fluidas en cualquier pantalla. El inspector diferencia medida
-de diseño y medida efectiva cuando diverjan. Si un ajuste no cabe, conserva el
-diseño y ofrece reparación/fallback, sin recortar ni sobrescribirlo.
+La dirección recomendada para el primer Studio es mantener X/ancho por columnas
+y alto/Y por píxeles. La ampliación horizontal contemplada anteriormente deja
+de ser un prerrequisito S1.2a; un lienzo completamente libre requiere una necesidad
+validada y decisión separada de anclajes, viewport y colisiones. No guardar ancho
+derivado del DOM como otra autoridad ni mostrarlo como un valor editable exacto.
+Las medidas horizontales efectivas se muestran en el gesto como información.
 
 Separar coordenadas del canvas de las coordenadas del puntero: incluir origen,
 scroll y escala de edición. Zoom o densidad de pantalla no cambian una altura
@@ -117,6 +111,66 @@ El ejemplo de A alto con B/C apilados debe ofrecer alineación de bordes y mostr
 `300 + 16 + 300 = 616 px`; poder fijar A a 617 px sin ajustar B/C es igualmente
 válido si cabe. Validar entrada numérica frente a gesto, magnetismo desactivado,
 límites, teclado/touch y zoom/scroll antes de declarar precisión entregada.
+
+## Mínimos y bloques de texto
+
+### Precisión dentro de un tamaño válido
+
+Una altura de 2 px se rechaza. La política actual de paneles y el núcleo S0 exigen
+al menos 120 px; una comprobación enfocada confirma el rechazo sin cambiar la
+altura anterior. Esto no garantiza que todo gráfico sea legible a 120 px.
+
+En S1.2a–d definir mínimos estructurales por tipo y perfil, junto con los mínimos
+de contenido aportados por el renderer. La UI mide cabecera, título, ejes, leyenda
+y área de trazado disponible; no aplica el mismo mínimo a KPI y línea multiserie.
+El servidor conserva las restricciones estructurales del tipo/perfil autorizado;
+una medida suministrada por el cliente no puede rebajarlas.
+
+Durante resize mostrar el límite y candidato válido más cercano; confirmar solo
+una medida válida y visible. Si se escribe un número menor, conservar el borrador,
+explicar el mínimo y ofrecer aplicarlo, sin reemplazar silenciosamente el número.
+La legibilidad del formato/densidad requiere diagnóstico adicional: más alto no
+arregla unidades incorrectas ni demasiadas series. No ocultar ejes o reducir la
+fuente automáticamente para aceptar una altura imposible.
+
+### Insertar títulos, subtítulos y texto
+
+Ofrecer «Insertar → Texto» con roles Título, Subtítulo, Encabezado de sección y
+Texto descriptivo. Presets de tipografía y espaciado coherentes; el autor puede
+editar contenido, alineación, ancho por columnas y presentación bajo los mismos
+controles del lienzo. Texto plano multilínea en la primera entrega, sin exigir
+Markdown, SQL, dataset ni un renderer ECharts.
+
+El bloque tiene ID estable y tipo propio en la composición. Comparte posición,
+selección, movimiento, borrador, guardado y undo; no fabrica un panel SQL vacío.
+S1.2a debe reservar el contrato discriminado de referencias visual/texto y mínimos
+por tipo; S1.3 concreta contenido y persistencia. No bajar el mínimo global de
+gráficos para acomodar títulos ni cambiar el contrato S0 sin adaptación/versionado.
+
+El alto sugerido depende de líneas, tipografía, padding y ancho disponible: un
+encabezado de una línea no hereda la caja de 120 px de los gráficos. Cambiar texto
+o tamaño de fuente propone el ajuste de altura con preview; no solapa ni empuja
+otros elementos por sorpresa. En contenido largo, explicar el espacio requerido
+antes de guardar, sin cortar texto silenciosamente en el viewer.
+
+Presentación inicial discreta, sin cabecera de tarjeta ni acciones de gráfico.
+«Texto descriptivo» es párrafo; títulos/encabezados conservan una jerarquía
+semántica coherente con el dashboard, sin escoger nivel solo por tamaño de fuente.
+El orden de lectura y foco sigue la composición, también en móvil. El contenido
+se persiste como texto, sin interpretar HTML. Edición solo con permiso de autor;
+publicación/preview comparten contenido y geometría confirmados.
+
+Los bloques sirven en `scroll` y `screen`, donde cuentan para el espacio requerido.
+S6 puede asociar un encabezado a una sección, pero no exige esperar a grupos
+avanzados para insertarlo. El título de una sección tendrá una fuente única:
+si se vincula a un bloque, no guardar otro texto independiente en el grupo.
+Cambiar una consulta conserva estos bloques y posiciones. El mapa puede mostrar
+su pertenencia al dashboard, sin inventar dependencias de datasets.
+
+Primer recorrido: insertar «Ventas» → añadir subtítulo → situar gráficos debajo
+→ agregar «Detalle por región» más abajo → guardar → reabrir → viewer. Comprobar
+título corto, multilínea, ancho estrecho, límite de altura, colisión al crecer,
+cancelación, permisos, tema/zoom y publicación. El texto no debe ejecutar SQL.
 
 ## Panel centrado en los datos
 

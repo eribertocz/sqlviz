@@ -82,6 +82,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Mínimos y bloques de texto especificados: 2 px se rechaza actualmente en
+  gráficos, y títulos/subtítulos/encabezados/párrafos tendrán tipo, mínimo y
+  persistencia propios, sin SQL. S1.3a–c añade su recorrido al plan; todavía sin UI.
+  Se concreta la recomendación de columnas horizontales y píxeles verticales para
+  el primer Studio; precisión horizontal libre deja de ser requisito S1.2a.
+
 - Guías y precisión del lienzo especificadas: alineación, tamaños/separaciones,
   cotas durante el gesto, inspector exacto y magnetismo controlable. S1.2a debe
   concretar precisión horizontal compatible con doce columnas; S0 solo ofrece
