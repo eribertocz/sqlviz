@@ -48,6 +48,13 @@ candidato, devuelven un documento nuevo y conservan identidad, orden y vecinos.
 Un rechazo no modifica el original. No compactan, empujan, recortan ni ajustan
 silenciosamente valores. Puede conservarse espacio en blanco intencional.
 
+Un panel de seis columnas y 616 px de alto puede convivir con dos paneles de seis
+columnas y 300 px apilados en las otras seis columnas: tops 0 y 316 px, gap 16 px.
+La posición vertical es independiente por panel; no hay una fila automática cuya
+altura obligue al segundo vecino a comenzar debajo del panel alto. Las dos
+orientaciones están comprobadas en `screen` y `scroll` en el núcleo; su UI y
+persistencia siguen pendientes en S1/S2.
+
 La detección por pares tiene coste O(n²), acotado por el presupuesto del documento.
 Una estructura espacial solo se justificará con mediciones y necesidades reales.
 
@@ -90,6 +97,14 @@ perfiles de contenido explicarán sus requisitos en la siguiente integración.
 tipos, IDs, colisiones y límites exactos; inmutabilidad y rechazo atómico; tamaños
 superiores a 900 px; mínimos de contenido, pantalla/scroll y viewports inválidos,
 incluidos enteros enormes que no deben producir overflow.
+
+Cuatro casos de regresión adicionales comprueban el panel alto junto a dos
+vecinos apilados, a izquierda/derecha y en ambos modos, con alineación de altura y
+rechazo sin mutación si se invade el gap. Los conteos globales siguientes son la
+evidencia original de S0, no un nuevo ensayo de toda la plataforma.
+
+Validación enfocada de esa ampliación: 58 pruebas de geometría pasan y Ruff del
+archivo de pruebas pasa. No cambia código de runtime ni acredita renderizado UI.
 
 Suite core: 275 pruebas aprobadas. Ruff global y mypy en los cinco paquetes:
 sin errores, 138 fuentes verificadas por mypy. No se ejecutó revisión visual

@@ -29,6 +29,32 @@ el alto de un vecino mueva otro panel. La elección entre tracks explícitos y
 posicionamiento dentro del grid se valida con el recorrido S1; no obliga al autor
 a escribir CSS ni introduce una segunda geometría canónica.
 
+### Un panel alto junto a dos paneles apilados
+
+Este es un requisito del lienzo S1/S2, no de las secciones S6:
+
+```text
+         columnas 1–6          columnas 7–12
+       ┌─────────────────┬─────────────────┐
+       │                 │     Panel B     │
+       │     Panel A     ├─────────────────┤
+       │                 │     Panel C     │
+       └─────────────────┴─────────────────┘
+```
+
+El autor puede invertir los lados y elegir otros spans/altos respetando las doce
+columnas, separación y mínimos. Un panel alto no obliga a dejar espacio vacío bajo
+su vecino corto ni empuja automáticamente el siguiente gráfico debajo de ambos.
+Los límites visuales de filas ayudan a alinear, pero no atan todos los paneles a
+una misma altura. Tampoco son el orden de consultas SQL.
+
+Con dos paneles de 300 px y gap de 16 px, A mide 616 px; B comienza en 0 y C en
+316 px. El núcleo S0 admite ambas orientaciones en `screen` y `scroll`, con
+coordenadas exactas. Todavía falta persistir y representar este caso en la UI.
+S1.2d/S1.2e deben demostrar la composición con controles y guardado/reapertura;
+S2 añade drag/resize. La altura relativa al viewport se resuelve posteriormente
+en S6; no posterga la composición asimétrica básica.
+
 Las áreas del producto —Resumen, Tendencias, Detalle— son grupos con identidad,
 miembros, orden y título opcional. En S6 se concreta su contrato y conversión desde
 layout plano, con preview y revisión. Una plantilla de áreas puede compilar a

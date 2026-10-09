@@ -135,8 +135,8 @@ sí sola la experiencia completa.
 | **S1.2a** | Pendiente | Contrato persistido de layout y modo pantalla/scroll por dashboard; fuente única de geometría |
 | **S1.2b** | Pendiente | Migración, repositorio y revisión; ensayo sobre copias y rechazo de conflictos |
 | **S1.2c** | Pendiente | API tipada de layout, validación completa y permisos |
-| **S1.2d** | Pendiente | Controles de posición, ancho y alto; draft, confirmación y reintento; P1a/P1b de estructura, selección y acciones del panel |
-| **S1.2e** | Pendiente | Recorrido guardar → reabrir → compartir, mismo layout y configuración; P1c de estados y revisión visual del panel |
+| **S1.2d** | Pendiente | Controles de posición, ancho y alto; composición de un panel de seis columnas junto a dos apilados, sin fila automática compartida; draft/reintento y P1a/P1b |
+| **S1.2e** | Pendiente | Guardar → reabrir → compartir la composición asimétrica en ambas orientaciones, mismo layout/configuración; P1c de estados y revisión visual |
 
 Antes de iniciar S2 y las etapas posteriores, dividirlas con la misma disciplina.
 No se implementa una etapa amplia en un único cambio.
@@ -163,7 +163,8 @@ Los cambios no alterarán proyectos reales durante los ensayos.
 El [acabado de paneles](sqlviz-panel-experience-spec.md) comienza aquí con P1a–c,
 acompaña los gestos S2 y la autoría S4. No se reserva toda la calidad visual para
 S8: cabecera, contenido, acciones, foco y estados deben quedar resueltos antes de
-dar por cerrado el primer lienzo persistido.
+dar por cerrado el primer lienzo persistido. Un panel que abarca la altura de dos
+vecinos apilados forma parte de S1/S2; no se pospone a las secciones de S6.
 
 ### S2: mover con confianza
 

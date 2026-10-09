@@ -82,6 +82,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Composición asimétrica aclarada como requisito S1/S2: un panel de seis columnas
+  puede abarcar la altura de dos gráficos apilados en las otras seis. Cuatro casos
+  core cubren ambas orientaciones y modos pantalla/scroll; la UI/persistencia siguen
+  pendientes. No se confunde este caso con secciones/áreas semánticas de S6.
+
 - Experiencia de paneles y áreas documentada: acabado de estructura/acciones/estados
   desde S1/S2, gestos del gráfico preservados y revisión visual obligatoria para
   cerrar ese flujo. CSS Grid se separa de áreas del producto; S6 se desglosa en

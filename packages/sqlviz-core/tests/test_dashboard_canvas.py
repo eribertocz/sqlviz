@@ -85,6 +85,28 @@ def test_side_by_side_panels_can_have_different_heights_and_vertical_positions()
     validate_canvas(canvas)
 
 
+@pytest.mark.parametrize("tall_column", [0, 6])
+@pytest.mark.parametrize("mode", ["scroll", "screen"])
+def test_tall_panel_can_span_two_stacked_neighbors_on_either_side(tall_column, mode):
+    stacked_column = 6 - tall_column
+    # Two 300 px panels with a 16 px gap align with one 616 px panel.
+    canvas = DashboardCanvas(mode=mode, placements=(
+        PanelPlacement("tall", tall_column, 0, 6, 616),
+        PanelPlacement("upper", stacked_column, 0, 6, 300),
+        PanelPlacement("lower", stacked_column, 316, 6, 300),
+    ))
+    validate_canvas(canvas)
+    fit = assess_canvas_fit(canvas, available_width_px=1280, available_height_px=648)
+    assert fit.fits and fit.required_height_px == 648
+
+    # The tall neighbor must not force the lower panel below its own bottom.
+    assert canvas.placements[2].top_px < canvas.placements[0].height_px
+    with pytest.raises(CanvasValidationError) as error:
+        move_panel(canvas, "lower", column=stacked_column, top_px=315)
+    assert error.value.code == "collision"
+    assert canvas.placements[2] == PanelPlacement("lower", stacked_column, 316, 6, 300)
+
+
 def test_move_changes_only_position_preserving_identity_order_and_neighbors():
     original = sample()
     moved = move_panel(original, "revenue", column=0, top_px=600)
