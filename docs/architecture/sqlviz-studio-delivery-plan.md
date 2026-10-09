@@ -84,6 +84,14 @@ SQLviz conserva referencias, permisos, revisiones y procedencia; no introduce un
 nueva gramática pública que replique ECharts. La
 [decisión de autoría](sqlviz-visual-authoring-decision.md) establece los límites.
 
+El objetivo ampliado incluye las 23 familias del núcleo ECharts y combinaciones,
+con inputs nombrados y adaptación de formas de datos. GL y plugins tienen
+dependencias y verificación propias. La [matriz de capacidades](sqlviz-visual-capability-matrix.md)
+separa representabilidad, builder e inferencia; la
+[arquitectura semántica](sqlviz-semantic-inference-architecture.md) describe AST,
+ámbitos, linaje, evidencia y abstención. Son diseños pendientes: no amplían los
+ocho identificadores legacy entregados ni cambian el siguiente paso S1.1b.
+
 ## Orden de construcción
 
 Cada etapa se divide en incrementos pequeños. Una capacidad con UI no se cierra
@@ -189,6 +197,43 @@ NULL, alta cardinalidad, unidades diferentes y resultados ambiguos. No producir
 porcentajes de confianza sin calibración. Una tabla o una pregunta concreta al
 autor pueden ser mejores que una elección arbitraria. S4 ya debe cumplir
 corrección básica; S5 amplía calidad y cobertura, no pospone esos mínimos.
+
+### Partes pequeñas de S3–S5
+
+Este desglose fija dependencias y cierres; no permite saltar S1/S2. Cada parte
+se concreta antes de implementarla, con un cambio revisable. S4 y S5 son recorridos
+con integración y evidencias; no se cierran solo entregando modelos.
+
+| Parte | Alcance y cierre previsto |
+| --- | --- |
+| S3.1 | Dataset/revisión y esquema de salida separado del resultado; permisos y parámetros conservados |
+| S3.2 | Campos/bindings con identidad y diagnósticos de incompatibilidad; una consulta reordenada no transfiere roles |
+| S3.3 | Visual/revisión separada del panel; referencias a uno o varios inputs nombrados, sin asociación por índice |
+| S3.4 | Persistencia, migración y publicación de referencias; un dataset alimenta dos visuales y una visual admite inputs autorizados múltiples |
+| S4.1 | Propuesta completa para el corpus inicial cartesiano; tipos/nulos, múltiples medidas y alternativas coherentes; no depender de primera/última columna |
+| S4.2 | Builder de roles, series y presentación; preview/draft, incompatibilidades y cambios reversibles |
+| S4.3 | Compilación al runtime ECharts y registro mínimo de capacidades; tabla/KPI conservan su adaptador de producto |
+| S4.4 | Editor JSON nativo, referencias, IDs y precedencia; sin callbacks arbitrarios, sin restringirlo a ajustes cosméticos |
+| S4.5 | Persistir → filtrar → reabrir → viewer → reset/undo, sobre la misma visualización; errores atómicos y opciones fuera del builder preservadas |
+| S5.1a | Adaptador AST versionado y diagnóstico estructurado; dialecto/cobertura explícitos y regresión con SQLGlot |
+| S5.1b | Ámbitos y proyecciones: CTE/subconsultas/UNION/ventanas; no confundir agregación interna con salida final |
+| S5.1c | Esquema, alias, linaje/tipos y granularidad con evidencia; ambigüedad explícita, sin usar fingerprint como identidad |
+| S5.2 | Perfil acotado, distribución, relaciones y completitud; precisión, unidades y agregaciones no aditivas |
+| S5.3 | Adaptadores de forma y elegibilidad por familia; inputs múltiples, jerarquías/enlaces inválidos y recursos ausentes diagnosticados |
+| S5.4 | Propuestas completas, alternativas, explicaciones y abstención; catálogo contextual según datos y recursos; calibración antes de probabilidades |
+| S5.5a | Cartesianos y composiciones: multiserie, área, polar, mixtos, calendar/matrix y variantes |
+| S5.5b | Distribución y finanzas: boxplot, candlestick, histogramas y cálculos explícitos |
+| S5.5c | Jerarquías y redes: tree/treemap/sunburst/graph/sankey/chord, con validación de relaciones |
+| S5.5d | Geografía y rutas: map/geo/lines, recursos versionados y correspondencias territoriales |
+| S5.5e | Indicadores/multidimensional: gauge/funnel/radar/parallel/pictorialBar/themeRiver/effectScatter; controles y límites específicos |
+| S5.5f | `custom` registrado y templates: contratos de roles/opciones y código confiable instalado, sin evaluar JSON como JavaScript |
+| S5.6a | Spike GL/plugins: compatibilidad de versiones/build, recursos y presupuestos; dictamen con evidencia antes de adoptar dependencias |
+| S5.6b | Familias GL/extensiones verificadas, por incrementos; editor/viewer, liberación de recursos y fallback explícito |
+
+Los paquetes S5.5 y S5.6 se dividen por familia y componente al iniciarse. Para
+cada uno, el cierre distingue automático, builder y experto según la matriz;
+configurable no significa automáticamente inferible. No posponer en S4 tipos,
+precisión, nulos o rechazo de referencias inválidas a la expansión de S5.
 
 ### S6: altura y áreas sin trucos visuales
 

@@ -3,6 +3,10 @@
 **Decisión aceptada por el usuario:** 2026-10-07.
 **Prioridad de entrega actualizada:** 2026-10-08; ver el
 [plan operativo del Studio](sqlviz-studio-delivery-plan.md).
+**Alcance ampliado:** 2026-10-08; [AST e inferencia semántica](sqlviz-semantic-inference-architecture.md)
+y [matriz ECharts](sqlviz-visual-capability-matrix.md). El objetivo cubre las
+23 familias core; GL/plugins requieren verificación separada. No equivale a
+soporte entregado ni a inferir cualquier gráfico de cualquier SQL.
 **Estado:** diseño para implementar. Este documento no entrega nuevos controles,
 datasets persistidos ni un editor experto. Prevalece sobre la exclusión anterior
 de opciones nativas en la especificación del Studio.
@@ -50,6 +54,11 @@ Separar cuatro responsabilidades en el modelo objetivo:
 | Visualización + revisión | Dataset/bindings, recomendación, ajustes del builder y opciones expertas |
 | Panel | Instancia de la visualización dentro de un dashboard, con ID estable, posición y tamaño |
 | Dashboard + revisión | Composición, filtros y referencias explícitas a revisiones de visualizaciones |
+
+Una visual puede referenciar varios inputs nombrados por IDs: nodos/enlaces,
+precios/volumen, por ejemplo. Dataset no equivale a serie; una tabla puede
+alimentar varias series, y una visual puede necesitar varias tablas. El runtime
+valida bindings y adapta formas sin exigir otro lenguaje de consultas.
 
 Un dataset puede alimentar varios gráficos sin duplicar su definición. Reutilizar
 una visualización no permite que editarla cambie silenciosamente dashboards ya
@@ -106,6 +115,14 @@ Funciones JavaScript y HTML arbitrarios quedan fuera del editor JSON inicial;
 no evaluar strings como código. Su futura ejecución requiere una decisión y
 aislamiento propios. Procesar opciones con HTML/URLs conforme a la
 [guía de seguridad de ECharts](https://echarts.apache.org/handbook/en/best-practices/security/).
+
+Para `custom`, priorizar renderizadores confiables registrados por nombre,
+con roles, versión, opciones y presupuestos declarados. ECharts 6 permite esta
+referencia mediante `registerCustomSeries`; el autor conserva JSON serializable.
+Mapas y otros assets son recursos autorizados/versionados separados de los datos.
+Esto amplía la potencia prevista sin prometer ejecutar toda demo arbitraria ni
+habilitar callbacks pegados por el usuario. Todavía no hay templates registrados
+por SQLviz. Ver [matriz y dependencias](sqlviz-visual-capability-matrix.md).
 
 ## Cierre y orden de entrega
 

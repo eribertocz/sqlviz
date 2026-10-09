@@ -82,6 +82,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Diseño de inferencia y cobertura visual ampliado: AST por ámbitos, linaje,
+  evidencias/abstención, inputs SQL nombrados y adaptadores de forma; matriz de
+  23 familias ECharts core y dependencias GL/custom. S3–S5 ahora tiene partes
+  pequeñas con criterios de cierre. Es documentación de arquitectura pendiente,
+  no nuevas familias soportadas; S1.1b sigue siendo el próximo incremento.
+
 - Prioridad del Studio: geometría y lienzo persistido → drag/resize → dataset y
   visual → primer recorrido Automático/Visual Builder/ECharts nativo. Los tres
   niveles son parte del núcleo; el editor experto no se pospone al acabado.

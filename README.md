@@ -40,6 +40,14 @@ The first S1 increment replaces delimiter splitting with backend DuckDB syntax
 analysis for Run, statement counts and editor focus. Stable panel reconciliation
 remains next; see the [script parsing contract](docs/architecture/sqlviz-sql-script-parsing.md).
 
+The expanded, planned inference architecture adds scoped SQL AST analysis,
+lineage, evidence and explicit ambiguity. The visual target covers all 23 core
+ECharts series families through typed data bindings and shape adapters; GL and
+custom extensions require their own compatibility and resource checks. These
+are design goals, not newly supported chart identifiers. See
+[semantic inference](docs/architecture/sqlviz-semantic-inference-architecture.md)
+and the [capability matrix](docs/architecture/sqlviz-visual-capability-matrix.md).
+
 Start with the [documentation index](docs/README.md),
 [target architecture](docs/architecture/sqlviz-product-architecture.md), and
 [current delivery plan](docs/architecture/sqlviz-product-roadmap.md).
@@ -85,7 +93,7 @@ axis labels edited on the chart. See [presentation contracts and reset behavior]
 Manual chart choices now use supported identifiers, atomic confirmation and
 honest retry when refresh fails; reset clears the choice instead of pinning the
 current recommendation. See [chart override behavior](docs/architecture/sqlviz-chart-overrides.md).
-The remaining dimension review is the next E1 increment.
+The remaining dimension review belongs to S1 in the Studio delivery plan.
 
 ## Architecture today
 

@@ -12,6 +12,13 @@ de cierre; los apartados E0–E5 conservan el mapa técnico e historial.
 Run, contador y foco usan análisis nativo en backend. El siguiente paso es S1.1b:
 identidad y reconciliación; no se atribuye todavía esa garantía al parsing.
 
+**Alcance de inferencia ampliado, pendiente de implementar:**
+[AST, ámbitos, linaje y evidencias](architecture/sqlviz-semantic-inference-architecture.md)
+y [matriz de familias ECharts](architecture/sqlviz-visual-capability-matrix.md).
+Documentan los tres niveles, inputs SQL múltiples, adaptación de jerarquías/redes,
+23 familias core y dependencias GL/custom. El plan desglosa S3–S5 en partes pequeñas;
+el siguiente incremento de código continúa siendo S1.1b.
+
 ## Orden de lectura
 
 1. [Auditoría del producto y del código](architecture/sqlviz-audit-2026-10-05.md): estado observado, evidencias, riesgos y validación ejecutada.
@@ -103,6 +110,9 @@ son una lista fiable del estado actual. En particular:
 - DOC7: describe seguridad deseada; la auditoría encontró rutas sin autorización.
 - DOC9: investigación opcional; las afirmaciones de originalidad comercial no
   están verificadas y no deben usarse como promesas de producto.
+- DOC5: su propuesta inicial de inferir todo sin configuración se sustituye por
+  evidencias, alternativas/abstención y los tres niveles de autoría. El nuevo
+  diseño semántico no declara que el pipeline profundo esté ya implementado.
 - DOC11: catálogo de posibles capacidades; sus veinte motores y su prioridad
   anterior no constituyen un compromiso de implementación.
 
