@@ -169,6 +169,73 @@ visuales y paneles; selección y contexto permiten ir al objeto. Distingue draft
 confirmado y linaje analizado, sin ejecutar SQL ni introducir otra fuente de verdad.
 Su proyección entra en S3.6 y el primer flujo visible en S4.6; aún no está implementado.
 
+## Cambiar una consulta compartida
+
+**Política prevista, todavía sin implementación:** cambiar el SQL de un dataset
+compartido crea una revisión candidata. No borra sus paneles ni reconstruye sus
+visuales por defecto. Cada consumidor conserva identidad, geometría y ajustes;
+adoptar la revisión requiere validar sus dependencias y mostrar el impacto.
+
+| Cambio | Comportamiento previsto |
+| --- | --- |
+| Nuevos datos o filtros SQL, con contrato compatible | Recalcular resultados conservando campos, tipo de visual y personalizaciones; mostrar cambios de alcance de los datos |
+| Reordenar columnas o agregar un campo | Conservar bindings por ID; el campo nuevo queda disponible, sin agregar series automáticamente |
+| Renombrar un campo | Conservar identidad solo con correspondencia validada; una similitud de nombres o linaje es una sugerencia, no autorización para sustituirlo |
+| Quitar un campo requerido o cambiar su tipo de forma incompatible | Marcar los consumidores afectados y ofrecer reparación; los demás mantienen su configuración |
+| Cambiar granularidad, unidad o significado de una medida | Revisar medidas, agregaciones e interacciones aunque nombres y tipos coincidan; no declarar compatibilidad solo por esquema |
+| Resultado vacío | Mostrar estado sin datos manteniendo esquema y bindings; no tratarlo como desaparición de campos |
+| Error SQL, timeout o fallo de ejecución | Mantener borrador y último estado confirmado, identificado como previo; no presentarlo como resultado del nuevo SQL |
+
+Por ejemplo, `mes, ingresos, costos` alimenta una línea de ingresos y barras de
+costos. Cambiar datos actualiza ambos resultados sin mover paneles ni perder
+colores. Quitar `ingresos` exige reparar la línea, pero no las barras. Cambiar de
+totales mensuales a diarios requiere revisar el grano incluso si se conserva el
+nombre `mes`. Agregar `margen` permite usarlo después; no modifica los dos diseños.
+
+### Revisar y aplicar
+
+1. Editar un borrador sobre una revisión conocida. Construir un plan de impacto
+   sobre referencias reales: dataset, visuales, paneles, medidas, filtros y
+   opciones expertas dependientes. Mostrar únicamente metadata autorizada.
+2. Analizar y, cuando corresponda, ejecutar la candidata para obtener esquema y
+   evidencia acotada. Clasificar cada consumidor como compatible, requiere
+   revisión, incompatible o no verificado. La ausencia de evidencia semántica no
+   equivale a compatibilidad. El linaje profundo se incorpora en S5; antes, los
+   cambios de significado no demostrables requieren revisión del autor.
+3. Presentar preview y alcance: «Afecta 2 visuales y 2 paneles». Permitir entrar
+   al visual afectado para reparar sus campos. La inferencia ofrece alternativas
+   para la configuración automática; no reemplaza elecciones manuales ni
+   opciones expertas. «Restablecer a automático» sigue siendo explícito y reversible.
+4. Confirmar conjuntamente las referencias seleccionadas y sus ajustes válidos.
+   En el ejemplo, actualizar ambos es una sola operación: si falta reparar uno,
+   no confirmar el otro como efecto parcial. El autor puede elegir explícitamente
+   actualizar solo los compatibles; los restantes conservan la revisión anterior
+   con ese estado visible. Guardar una candidata no obliga a actualizar todos los
+   dashboards que reutilizan el dataset.
+5. Verificar revisiones esperadas antes del commit de metadata. Un conflicto
+   conserva el borrador y exige revisar el estado vigente. Preparar validación y
+   ejecución antes de una transacción corta; no prometer una transacción distribuida
+   con la fuente SQL. Confirmar resultados por generación/contexto coherente,
+   descartando respuestas tardías. Después de guardar, un refresh fallido muestra
+   el resultado anterior con su revisión y frescura, sin atribuirlo a la nueva.
+
+La UI distingue «Modificar consulta compartida» de «Crear una variante para este
+panel». La variante conserva el ID y layout del panel, y crea las definiciones
+necesarias para separarlo: dataset y también visual si este se reutilizaba. No
+duplica filas ni altera los otros consumidores. Ajustar solo título o tamaño
+sigue siendo un cambio de instancia, sin crear una variante de datos.
+
+Las publicaciones fijan revisiones de definiciones y referencias; adoptar el SQL
+nuevo requiere actualizar/publicar explícitamente. Esto no congela los datos:
+refrescar la consulta fijada puede traer filas nuevas. Undo recupera referencias
+y configuración, sin prometer restaurar el estado histórico de la fuente.
+
+Cerrar esta política exige pruebas de dos visuales sobre un dataset, una visual
+reutilizada en dos paneles, cambios compatibles/incompatibles, resultado vacío,
+grano modificado, reparación, adopción selectiva explícita, variante, conflicto,
+fallo antes/después del commit, respuestas tardías y publicación fijada. La
+persistencia/adopción entra en S3.4a–c y su recorrido de autoría en S4.5.
+
 ## Precedencia y edición reversible
 
 La configuración efectiva combina la propuesta aceptada, las elecciones del

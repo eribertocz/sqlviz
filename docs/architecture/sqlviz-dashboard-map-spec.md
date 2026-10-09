@@ -57,6 +57,14 @@ sus referencias; editar desde un panel no actualiza todas las publicaciones por
 accidente. Las conexiones cambian mediante los bindings validados, no dibujando
 aristas que contradigan la definición.
 
+Al editar una consulta compartida, el mapa resalta los consumidores afectados y
+sus diagnósticos según la [política de actualización](sqlviz-visual-authoring-decision.md#cambiar-una-consulta-compartida).
+Los paneles conservan identidad y layout; desde cada incompatibilidad se puede
+abrir el visual para reparar y volver al plan de impacto. Distinguir la candidata
+de las referencias confirmadas, incluyendo consumidores que sigan en una revisión
+anterior por decisión explícita. No reconstruir el grafo como si se hubieran borrado
+y creado todos los paneles.
+
 Reutilizar controles, borradores, validación, permisos, guardado y undo del Studio.
 El mapa no tiene otra API de escritura ni una copia independiente del objeto.
 Guardar actualiza el grafo confirmado; un fallo conserva borrador y estado previo.

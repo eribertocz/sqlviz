@@ -82,6 +82,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Política de actualización de consultas compartidas documentada: conservar
+  paneles y ajustes, diagnosticar impacto por consumidor, reparar y adoptar
+  revisiones explícitamente; incluye variante de un panel, conflictos y resultados
+  previos identificados. S3.4 se divide en persistencia, impacto y adopción atómica;
+  todavía no implementa datasets compartidos ni estos controles.
+
 - Mapa vivo del dashboard definido como vista bajo demanda de referencias reales,
   con contexto/edición mediante Studio, regreso al mapa y estados draft/confirmado.
   Distingue ajustes de instancia, visual compartida y dataset. F1–F3 entran en S3/S4;

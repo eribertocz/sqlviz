@@ -238,14 +238,16 @@ con integración y evidencias; no se cierran solo entregando modelos.
 | S3.1 | Dataset/revisión y esquema de salida separado del resultado; grano/medidas mínimas para M1, permisos y parámetros conservados |
 | S3.2 | Campos/bindings con identidad y diagnósticos de incompatibilidad; una consulta reordenada no transfiere roles |
 | S3.3 | Visual/revisión separada del panel; referencias a uno o varios inputs nombrados, sin asociación por índice |
-| S3.4 | Persistencia, migración y publicación de referencias; un dataset alimenta dos visuales y una visual admite inputs autorizados múltiples |
+| S3.4a | Persistencia/migración de revisiones y referencias fijadas; un dataset alimenta dos visuales y una visual admite inputs autorizados múltiples |
+| S3.4b | Plan de impacto de SQL compartido: compatibilidad por consumidor, evidencia/límites, reparaciones y alcance de adopción explícito |
+| S3.4c | Adopción atómica de referencias seleccionadas, revisiones esperadas y resultados coherentes; variante sin perder ID/layout del panel, fallos y publicación fijada |
 | S3.5 | Selector de consulta/dataset, resultados con esquema/preview acotado y promoción/reutilización desde editor multiconsulta; sin duplicar SQL ni crear vistas físicas |
 | S3.6 | F1 del Mapa del dashboard: proyección autorizada de referencias reales, IDs/revisiones y diagnósticos; sin segundo repositorio de dependencias |
 | S4.1 | Propuesta completa para el corpus inicial cartesiano; tipos/nulos, múltiples medidas y alternativas coherentes; no depender de primera/última columna |
 | S4.2 | Builder contextual al dataset: elegir campos/roles/series y presentación; preview/draft, cambio de esquema/dataset con diagnóstico y cambios reversibles |
 | S4.3 | Compilación al runtime ECharts y registro mínimo de capacidades; tabla/KPI conservan su adaptador de producto |
 | S4.4 | Editor JSON nativo, referencias, IDs y precedencia; sin callbacks arbitrarios, sin restringirlo a ajustes cosméticos |
-| S4.5 | Persistir → filtrar → reabrir → viewer → reset/undo, sobre la misma visualización; errores atómicos y opciones fuera del builder preservadas |
+| S4.5 | Persistir → filtrar → reabrir → viewer → reset/undo; preview/reparación/adopción de consulta compartida, errores atómicos y opciones fuera del builder preservadas |
 | S4.6a | F2: Mapa bajo demanda, contexto y edición con controles del Studio; guardar/cancelar y regresar conservando posición/foco, diagrama y alternativa en lista |
 | S4.6b | F3: Mapa actualizado al crear/reutilizar/editar/borrar; draft/confirmado, fallos y respuestas tardías coherentes |
 | S3.M1 | Contrato de matriz: ejes, medidas, grano, claves/celdas y corpus; desglose M1.1–M1.3 en su especificación |
