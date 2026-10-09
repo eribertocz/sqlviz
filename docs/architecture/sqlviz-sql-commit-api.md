@@ -2,8 +2,8 @@
 
 **Implementado — 2026-10-09: S1.1c.2a.** HTTP tipado y autorizado sobre el
 [escritor transaccional](sqlviz-sql-atomic-writer.md). Guarda las definiciones de
-un dashboard existente en una sola transacción. **El botón Run aún conserva el
-guardado secuencial**; su integración es S1.1c.2b. Esta entrega no activa arrastre,
+un dashboard existente en una sola transacción. **Run integrado después en
+[S1.1c.2b](sqlviz-sql-run-atomic-commit.md)**. Esta API no activa arrastre,
 Visual Builder, datasets compartidos ni publicación de revisiones del viewer.
 
 ## Recorrido y responsabilidad de cada capa
@@ -143,6 +143,6 @@ Validación local: **2.441 pruebas correctas y tres omitidas** en la suite Pytho
 completa; **118 casos focalizados** después de los ajustes finales de admisión y
 OpenAPI. Ruff y mypy pasan. No hay cambios de frontend en esta entrega.
 
-Siguiente: **S1.1c.2b**, integrar un único commit en Run y separar ejecución y
-composición. Después S1.1c.2c cierra recarga, autoguardado y recuperación.
+**S1.1c.2b entregado:** Run usa un único commit y separa ejecución/composición.
+Siguiente: S1.1c.2c, recarga, autoguardado, recuperación y revisión ejecutada.
 Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

@@ -4,9 +4,11 @@
 validados, sin asignarlos por posición del SELECT ni por igualdad de SQL.
 La [procedencia del borrador](sqlviz-sql-draft-identity.md) aporta asociaciones
 tentativas; las decisiones ambiguas se confirman bajo demanda. El guardado
-transaccional y la persistencia de estas asociaciones siguen en S1.1c.
+transaccional y los borrados explícitos se incorporaron después en
+[S1.1c.2b](sqlviz-sql-run-atomic-commit.md). Este documento conserva el recorrido
+y la evidencia de la primera entrega S1.1b.3; consultar 2b para el comportamiento actual.
 
-## Responsabilidades y recorrido
+## Responsabilidades y recorrido de S1.1b.3
 
 1. El parser nativo comprueba todo el script antes de modificar paneles.
 2. [sqlRunResolution.ts](../../packages/sqlviz-web/src/lib/sql/sqlRunResolution.ts)
@@ -105,6 +107,7 @@ de revisión están en `build/sql-run-review/`, ignorados por Git; no se alteró
 instancia original de demostración.
 
 [S1.1c.1](sqlviz-sql-atomic-writer.md) ya entrega snapshot y escritor transaccional
-internos. Sigue **S1.1c.2a**, contrato HTTP autorizado; después Run, recarga y
-recuperación ante conflictos. Los límites de Run descritos arriba siguen vigentes
-hasta esa integración. Ver el [plan operativo](sqlviz-studio-delivery-plan.md).
+internos; S1.1c.2a entrega HTTP autorizado y S1.1c.2b conecta el commit único de
+Run, reemplazando sus escrituras secuenciales y habilitando borrados explícitos.
+La recarga y recuperación continúan en S1.1c.2c. Los límites anteriores describen
+la primera entrega, no el estado actual. Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

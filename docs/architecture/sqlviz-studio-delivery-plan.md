@@ -12,7 +12,8 @@ fija dependencias y entrega adaptadores internos probados, sin UI activa ni
 cambios de formato. S1.1b.1 entrega ahora el núcleo de reconciliación;
 S1.1b.2 entrega asociaciones del borrador; S1.1b.3 entrega resolución accesible
 y Run por ID. S1.1c.1 entrega el escritor transaccional interno; S1.1c.2a entrega
-su API tipada y autorizada. Sigue S1.1c.2b: conectar Run con un único commit.
+su API tipada y autorizada. S1.1c.2b conecta Run con un único commit de definiciones;
+sigue S1.1c.2c: recarga y recuperación coherentes.
 
 ## Dirección del producto
 
@@ -57,8 +58,10 @@ sin escrituras y foco por identidad. **S1.1c.1 implementado:**
 [escritor atómico interno](sqlviz-sql-atomic-writer.md), revisión esperada,
 persistencia de asociaciones y migración aditiva. **S1.1c.2a implementado:**
 [API de snapshot y commit](sqlviz-sql-commit-api.md), autorización, contratos
-estrictos y admisión de consultas antes de escribir. Integración Run/recarga
-y layout siguen pendientes; el Run visible aún es secuencial y no se declara S1 completa.
+estrictos y admisión de consultas antes de escribir. **S1.1c.2b implementado:**
+[Run con commit único](sqlviz-sql-run-atomic-commit.md), eliminaciones explícitas y
+ejecución separada del guardado. Recarga/recuperación, coherencia de revisión
+ejecutada y layout siguen pendientes; no se declara S1 completa.
 
 **Matriz analítica incorporada al alcance central:** la tabla actual es plana.
 El [módulo de matriz](sqlviz-analytical-matrix-spec.md) tiene entregas M1–M9,
@@ -119,7 +122,7 @@ dependencias y verificación propias. La [matriz de capacidades](sqlviz-visual-c
 separa representabilidad, builder e inferencia; la
 [arquitectura semántica](sqlviz-semantic-inference-architecture.md) describe AST,
 ámbitos, linaje, evidencia y abstención. Son diseños pendientes: no amplían los
-ocho identificadores legacy entregados ni cambian el siguiente paso S1.1c.2b.
+ocho identificadores legacy entregados ni cambian el siguiente paso S1.1c.2c.
 
 ## Orden de construcción
 
@@ -149,7 +152,7 @@ sí sola la experiencia completa.
 | --- | --- | --- |
 | **S1.1a** | Implementado | Parsing nativo del script completo, source/offsets, contador y foco; sin escrituras ante sintaxis inválida |
 | **S1.1b** | Implementado | Núcleo, asociaciones del borrador, resolución en UI y Run por ID. Identidad sin emparejar por índice; persistencia y atomicidad pendientes en S1.1c |
-| **S1.1c** | En curso | Escritor transaccional y API entregados; Run/recarga pendientes. El escritor revierte cambios/creaciones/borrados y asociaciones juntos; no se atribuye aún ese comportamiento al botón Run |
+| **S1.1c** | En curso | Escritor/API y commit único de Run entregados; recarga/recuperación y revisión ejecutada pendientes. Definiciones atómicas; ejecución/composición posteriores y sin rollback distribuido |
 | **S1.2a** | Pendiente | Layout persistido y modo pantalla/scroll; ancho/X por columnas, alto/Y por píxeles, referencias visual/texto y mínimos por tipo; fuente única de geometría |
 | **S1.2b** | Pendiente | Migración, repositorio y revisión; ensayo sobre copias y rechazo de conflictos |
 | **S1.2c** | Pendiente | API tipada de layout, validación completa y permisos |
@@ -168,7 +171,7 @@ No se implementa una etapa amplia en un único cambio.
 | --- | --- | --- |
 | **S1.1b.1** | Implementado | Contrato y política pura: conservar/crear/eliminar explícitamente, ambigüedad pendiente, IDs y fuente validados; pruebas de política y parser real. Todavía no integrado en Run |
 | **S1.1b.2** | Implementado | Asociaciones del borrador y procedencia de ediciones; validación nativa, snapshots y guardas de fuente/vista. Reemplazos opacos y límites ambiguos quedan pendientes; sin persistencia ni Run por ID |
-| **S1.1b.3** | Implementado | Resolución accesible de asociaciones ambiguas, preflight de Run por ID y foco por identidad; nunca escribir una propuesta pendiente. Inserción/reordenación probadas; borrado desde script bloqueado hasta S1.1c |
+| **S1.1b.3** | Implementado | Resolución accesible de asociaciones ambiguas, preflight de Run por ID y foco por identidad; nunca escribir una propuesta pendiente. Borrado bloqueado en su primera entrega y habilitado con decisiones explícitas en S1.1c.2b |
 
 S1.1c sigue a esas partes: la validación previa no sustituye la escritura
 transaccional ni la comprobación del estado esperado en almacenamiento.
@@ -177,10 +180,18 @@ transaccional ni la comprobación del estado esperado en almacenamiento.
 
 | Incremento | Estado | Cierre |
 | --- | --- | --- |
-| **S1.1c.1** | Implementado | Snapshot esperado y escritor transaccional interno: fuente, IDs y estado revalidados; cambios/creaciones/borrados y asociaciones juntos; migración en copia, rollback y concurrencia probados. HTTP incorporado en 2a; Run pendiente |
+| **S1.1c.1** | Implementado | Snapshot esperado y escritor transaccional interno: fuente, IDs y estado revalidados; cambios/creaciones/borrados y asociaciones juntos; migración en copia, rollback y concurrencia probados. HTTP incorporado en 2a; Run en 2b |
 | **S1.1c.2a** | Implementado | HTTP tipado y autorizado para snapshot/commit; conflictos, fuente nativa, política de lectura y decisiones revalidadas; no aceptar planes del navegador como autoridad. Pruebas HTTP de permisos/rollback/reapertura; sin integrar Run |
-| **S1.1c.2b** | Siguiente | Run con un único commit de definiciones, eliminación explícita y bindings persistidos; ejecución/composición separadas del guardado y confirmación de éxito |
-| **S1.1c.2c** | Pendiente | Recarga, borrador/autoguardado, conflicto y respuesta perdida; asociar solo fuentes compatibles, recuperar IDs sin duplicar creaciones, preservar vista confirmada y viewer |
+| **S1.1c.2b** | Implementado | Run con un único commit de definiciones, eliminación explícita y bindings persistidos; ejecución/composición posteriores, IDs adoptados al guardar y fallos diferenciados. Todavía sin congelar ejecución concurrente ni restaurar bindings al recargar |
+| **S1.1c.2c** | Siguiente | Recarga, borrador/autoguardado, conflicto y respuesta perdida; asociar fuentes compatibles, recuperar IDs sin duplicar creaciones y vincular revisión ejecutada/resultado/registro; preservar confirmado y viewer |
+
+**Partes pequeñas de S1.1c.2c, en este orden:**
+
+| Parte | Cierre previsto |
+| --- | --- |
+| **S1.1c.2c.1** | Referencia de definición ejecutada y registro de éxito condicionado; rechazar SQL/revisiones incompatibles, no persistir inferencia obsoleta ni atribuir un resultado a otra fuente; pruebas de cambios concurrentes |
+| **S1.1c.2c.2** | Cargar el snapshot como autoridad de definiciones y restaurar bindings solo para fuente exacta/procedencia válida; recargar → editar → ejecutar sin reasignación por posición o SQL |
+| **S1.1c.2c.3** | Borrador/autoguardado, respuesta perdida, conflicto y recuperación explícita; no sustituir revisiones silenciosamente ni duplicar creaciones, preservar texto y estado confirmado |
 
 1. Revisar cómo se asigna hoy la identidad de paneles al editar y ejecutar SQL.
    Establecer reconciliación segura antes de asociar geometría persistida. Un

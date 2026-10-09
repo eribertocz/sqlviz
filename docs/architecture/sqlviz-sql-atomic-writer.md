@@ -2,9 +2,9 @@
 
 **Implementado — 2026-10-09: S1.1c.1.** Se entrega un repositorio interno que
 guarda fuente, paneles y asociaciones en una sola transacción. **HTTP incorporado
-en [S1.1c.2a](sqlviz-sql-commit-api.md); el botón Run sigue pendiente**: el recorrido visible de
-[S1.1b.3](sqlviz-sql-run-reconciliation.md) conserva sus escrituras secuenciales
-hasta S1.1c.2b. No se declara completo el guardado atómico del producto.
+en [S1.1c.2a](sqlviz-sql-commit-api.md) y Run en
+[S1.1c.2b](sqlviz-sql-run-atomic-commit.md)**. Se confirma el guardado atómico de
+definiciones; recarga/recuperación y revisión ejecutada siguen pendientes en 2c.
 
 ## Contrato y límites entre capas
 
@@ -129,7 +129,6 @@ El servidor de vista previa existente no se reinicia ni cambia de comportamiento
 por esta entrega interna.
 
 **S1.1c.2a entregado:** [contrato HTTP y autorización](sqlviz-sql-commit-api.md)
-para leer snapshot y guardar. Siguiente: **S1.1c.2b**, Run con un único commit de
-definiciones; finalmente
-**S1.1c.2c**, recarga, conflictos, reintento y separación del estado de ejecución.
+para leer snapshot y guardar. **S1.1c.2b entregado:** Run con un único commit de
+definiciones. Siguiente: **S1.1c.2c**, recarga, conflictos, reintento y revisión ejecutada.
 Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import SqlRunResolutionDialog from './SqlRunResolutionDialog.svelte';
-import { selectRunPanel, type SqlRunResolution } from '$lib/sql/sqlRunResolution';
+import { selectRunPanel, selectRunRemoval, type SqlRunResolution } from '$lib/sql/sqlRunResolution';
 
 beforeEach(() => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] }));
 afterEach(async () => {
@@ -18,7 +18,7 @@ function draft(): SqlRunResolution {
 
 it('keeps unresolved associations explicit, focuses the first query and supports keyboard cancellation', async () => {
     const onCancel = vi.fn(); const onChoose = vi.fn(); const onConfirm = vi.fn();
-    const screen = render(SqlRunResolutionDialog, { resolution: draft(), onCancel, onChoose, onConfirm });
+    const screen = render(SqlRunResolutionDialog, { resolution: draft(), onCancel, onChoose, onConfirm, onRemove: vi.fn() });
     const first = await screen.findByLabelText('Query 1');
     await waitFor(() => expect(document.activeElement).toBe(first));
     expect(screen.getByRole('button', { name: 'Run dashboard' }).hasAttribute('disabled')).toBe(true);
@@ -31,7 +31,7 @@ it('keeps unresolved associations explicit, focuses the first query and supports
 it('shows previous SQL, prevents duplicate targets and allows confirmation only with full coverage', async () => {
     const onConfirm = vi.fn();
     const partial = selectRunPanel(draft(), 0, 'b', () => 'new');
-    const screen = render(SqlRunResolutionDialog, { resolution: partial, onChoose: vi.fn(), onCancel: vi.fn(), onConfirm });
+    const screen = render(SqlRunResolutionDialog, { resolution: partial, onChoose: vi.fn(), onCancel: vi.fn(), onConfirm, onRemove: vi.fn() });
     await screen.findByRole('dialog');
     const second = screen.getByLabelText('Query 2') as HTMLSelectElement;
     expect(second.querySelector<HTMLOptionElement>('option[value="keep:b"]')?.disabled).toBe(true);
@@ -48,10 +48,27 @@ it('returns focus after confirmation finishes and the Run trigger becomes enable
     document.body.append(trigger);
     try {
         const complete = selectRunPanel(selectRunPanel(draft(), 0, 'b', () => 'new'), 1, 'a', () => 'new');
-        const screen = render(SqlRunResolutionDialog, { resolution: complete, onChoose: vi.fn(), onCancel: vi.fn(),
+        const screen = render(SqlRunResolutionDialog, { resolution: complete, onChoose: vi.fn(), onCancel: vi.fn(), onRemove: vi.fn(),
             onConfirm: async () => { await screen.rerender({ resolution: null }); trigger.disabled = false; } });
         await screen.findByRole('dialog');
         await fireEvent.click(screen.getByRole('button', { name: 'Run dashboard' }));
         await waitFor(() => expect(document.activeElement).toBe(trigger));
     } finally { trigger.remove(); }
+});
+
+it('removal is unchecked by default, explicit, reversible and part of confirmation', async () => {
+    const partial = selectRunPanel({ ...draft(), statements: draft().statements.slice(0, 1) }, 0, 'b', () => 'new');
+    const onRemove = vi.fn(), onConfirm = vi.fn();
+    const screen = render(SqlRunResolutionDialog, { resolution: partial, onChoose: vi.fn(), onCancel: vi.fn(), onConfirm, onRemove });
+    const checkbox = await screen.findByRole('checkbox', { name: 'Remove Margin' }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    expect(screen.getByRole('button', { name: 'Run dashboard' }).hasAttribute('disabled')).toBe(true);
+    await fireEvent.click(checkbox);
+    expect(onRemove).toHaveBeenCalledWith('a', true);
+    await screen.rerender({ resolution: selectRunRemoval(partial, 'a', true) });
+    expect(screen.getByText('1 panel and its settings will be removed when you confirm.')).toBeTruthy();
+    const confirm = screen.getByRole('button', { name: 'Confirm removal & run' });
+    expect(confirm.hasAttribute('disabled')).toBe(false);
+    await fireEvent.click(confirm); expect(onConfirm).toHaveBeenCalledOnce();
+    await fireEvent.click(checkbox); expect(onRemove).toHaveBeenLastCalledWith('a', false);
 });

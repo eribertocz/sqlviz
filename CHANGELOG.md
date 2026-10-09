@@ -9,9 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Breaking
 
-- Run por ID requiere también `POST /api/v1/sql/reconcile`. Una asociación ambigua
-  solicita confirmación; quitar SQL no elimina paneles desde el script. El
-  guardado del conjunto y las asociaciones persistidas siguen pendientes en S1.1c.
+- Run del workspace requiere parsing/preflight y la API de snapshot/commit del
+  script por dashboard. Guarda las definiciones en una sola transacción antes de
+  ejecutar; eliminar SQL exige asignar o confirmar la eliminación de los paneles
+  afectados. No vuelve al guardado secuencial con un backend antiguo.
 
 - Run del workspace analiza todo el script antes de crear/editar paneles y ahora
   rechaza sintaxis inválida sin escrituras de panel. Requiere el backend con
@@ -27,25 +28,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- S1.1c.2b: Run usa un único commit de definiciones y valida su recibo antes de
+  adoptar IDs; ejecución y composición posteriores. Diálogo con eliminación
+  explícita y reversible de paneles sin consulta, incluso para script vacío.
+  Espera autoguardados en vuelo, suspende nuevos mientras guarda, conserva texto
+  editado durante Run y no lo reemplaza al registrar la última ejecución.
+  Fallos de consulta/layout conservan IDs guardados y no crean duplicados al
+  reintentar; caché distingue SQL mostrado del registro durable de ejecución.
+  Recarga, respuesta perdida y revisión ejecutada quedan en S1.1c.2c.
+
 - S1.1c.2a: GET de snapshot y POST de commit del script por dashboard, ambos de
   autor; contratos estrictos y token esperado, análisis nativo completo y política
   de consultas de lectura antes de escribir. Guarda fuente/paneles/asociaciones
   juntos, devuelve IDs asignados y rechaza conflictos, decisiones inválidas y
   metadata corrupta sin exponer SQL. Pruebas HTTP de permisos, rollback, límites
-  y reapertura. Run sigue usando su recorrido anterior hasta S1.1c.2b.
+  y reapertura. Run se integra después en S1.1c.2b.
 
 - S1.1c.1: repositorio interno de guardado atómico de fuente, paneles y bindings
   UTF-16; token esperado del estado, conflictos con cambios/concurrencia, rollback
   y UUID de nuevas creaciones. Conserva ajustes manuales y retira inferencias de
   SQL cambiado. Tabla reservada y migración aditiva 0022 sin fabricar identidad
   legacy; borrado de dashboard limpia también sus asociaciones. HTTP incorporado
-  en S1.1c.2a; las escrituras secuenciales del botón Run se reemplazarán en S1.1c.2b.
+  en S1.1c.2a; las escrituras secuenciales del botón Run se reemplazan en S1.1c.2b.
 
 - S1.1b.3: diálogo bajo demanda para asociar consultas con paneles existentes o
   nuevos, con comparación de SQL, teclado/foco y elecciones uno a uno. Preflight
   estricto y autorizado de servidor, sin escrituras; Run y foco por ID, guardas
   ante cambios del borrador y preservación de ajustes. El preflight no sustituye
-  una transacción: las escrituras posteriores de Run todavía son secuenciales.
+  una transacción; S1.1c.2b conecta el guardado atómico después de este preflight.
 
 - S1.1b.2: asociaciones del borrador por rangos UTF-16 y procedencia de ediciones
   Monaco, comprobadas con el parser nativo. Inserciones desplazan bloques sin

@@ -2,9 +2,10 @@
     import { Dialog } from 'bits-ui';
     import { runResolutionComplete, type SqlRunResolution } from '$lib/sql/sqlRunResolution';
 
-    let { resolution, onChoose, onConfirm, onCancel, error = null }: {
+    let { resolution, onChoose, onRemove, onConfirm, onCancel, error = null }: {
         resolution: SqlRunResolution | null;
         onChoose: (index: number, panelId: string | null | undefined) => void;
+        onRemove: (panelId: string, remove: boolean) => void;
         onConfirm: () => void | Promise<void>;
         onCancel: () => void;
         error?: string | null;
@@ -13,8 +14,9 @@
     const unmatched = $derived(resolution?.panels.filter(panel => !resolution?.choices.some(
         choice => choice.kind === 'keep' && choice.panel_id === panel.id,
     )) ?? []);
+    const removedCount = $derived(resolution?.choices.filter(choice => choice.kind === 'remove').length ?? 0);
     function value(index: number) {
-        const choice = resolution?.choices.find(item => item.statement_index === index);
+        const choice = resolution?.choices.find(item => item.kind !== 'remove' && item.statement_index === index);
         return choice?.kind === 'keep' ? `keep:${choice.panel_id}` : choice?.kind === 'create' ? 'new' : '';
     }
     function choose(index: number, selected: string) {
@@ -36,7 +38,7 @@
         <Dialog.Overlay class="resolution-backdrop" />
         <Dialog.Content class="resolution-dialog"
             onOpenAutoFocus={event => {
-                const first = document.querySelector<HTMLSelectElement>('.resolution-dialog select');
+                const first = document.querySelector<HTMLElement>('.resolution-dialog select, .resolution-dialog input');
                 if (first) { event.preventDefault(); first.focus(); }
             }}
             onCloseAutoFocus={event => {
@@ -45,7 +47,7 @@
             <header>
                 <Dialog.Title class="resolution-title">Confirm query associations</Dialog.Title>
                 <Dialog.Description class="resolution-description">
-                    Keep each existing panel’s settings with the right query. New queries can create new panels.
+                    Keep each panel’s settings with the right query. Decide explicitly what to remove.
                 </Dialog.Description>
             </header>
             {#if resolution}
@@ -71,9 +73,20 @@
                     {/each}
                     {#if unmatched.length}
                         <div class="unassigned" role="status">
-                            <strong>{unmatched.length} existing {unmatched.length === 1 ? 'panel needs' : 'panels need'} a query</strong>
-                            <p>{unmatched.map(panel => panel.label).join(', ')}</p>
-                            <p>Assign each existing panel to a query before running.</p>
+                            <strong>Panels without a query</strong>
+                            <p>Assign them above or select removal. Nothing is removed automatically.</p>
+                            {#each unmatched as panel (panel.id)}
+                                <div class="removal-choice">
+                                    <label class="removal-label">
+                                        <input type="checkbox" aria-label={`Remove ${panel.label}`}
+                                            checked={resolution.choices.some(choice => choice.kind === 'remove' && choice.panel_id === panel.id)}
+                                            onchange={event => onRemove(panel.id, event.currentTarget.checked)} />
+                                        <span>Remove <strong>{panel.label}</strong> from this dashboard</span>
+                                    </label>
+                                    <details><summary>Previous SQL · {panel.label}</summary><pre><code>{panel.sql}</code></pre></details>
+                                </div>
+                            {/each}
+                            {#if removedCount}<p class="removal-warning">{removedCount} {removedCount === 1 ? 'panel and its settings will' : 'panels and their settings will'} be removed when you confirm.</p>{/if}
                         </div>
                     {/if}
                     {#if error}<p class="resolution-error" role="alert">{error}</p>{/if}
@@ -81,7 +94,7 @@
             {/if}
             <footer>
                 <button class="cancel" onclick={onCancel}>Cancel</button>
-                <button class="confirm" disabled={!complete} onclick={confirm}>Run dashboard</button>
+                <button class="confirm" disabled={!complete} onclick={confirm}>{removedCount ? 'Confirm removal & run' : 'Run dashboard'}</button>
             </footer>
         </Dialog.Content>
     </Dialog.Portal>
@@ -106,11 +119,15 @@
         background: var(--sqlviz-bg-base); border-radius: 8px; font-size: 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; }
     select { width: 100%; min-height: 40px; padding: 8px; border: 1px solid var(--sqlviz-border);
         border-radius: 8px; background: var(--sqlviz-bg-surface); color: var(--sqlviz-text); font-size: 0.8125rem; }
-    select:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--sqlviz-primary); outline-offset: 2px; }
+    select:focus-visible, input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--sqlviz-primary); outline-offset: 2px; }
     details { margin-top: 12px; font-size: 0.75rem; color: var(--sqlviz-text-muted); }
     summary { cursor: pointer; margin-bottom: 8px; }
     .unassigned { margin-top: 16px; font-size: 0.8125rem; }
     .unassigned p { color: var(--sqlviz-text-muted); margin-top: 6px; }
+    .removal-choice { padding: 12px 0; border-bottom: 1px solid var(--sqlviz-hairline); }
+    .removal-label { display: flex; align-items: center; gap: 10px; margin: 0; min-height: 40px; font-weight: 400; cursor: pointer; }
+    .removal-label input { flex: 0 0 auto; width: 18px; height: 18px; accent-color: var(--sqlviz-primary); }
+    .unassigned .removal-warning { color: var(--sqlviz-negative); }
     .resolution-error { color: var(--sqlviz-negative); font-size: 0.8125rem; margin-top: 12px; }
     footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--sqlviz-hairline); }
     button { min-height: 40px; padding: 8px 16px; border-radius: 8px; font-size: 0.8125rem; cursor: pointer; }

@@ -183,6 +183,7 @@
 
 <SqlRunResolutionDialog resolution={dashboardStore.sqlRunResolution}
     onChoose={dashboardStore.chooseSqlRunPanel} onConfirm={dashboardStore.confirmSqlRunResolution}
+    onRemove={dashboardStore.chooseSqlRunRemoval}
     onCancel={dashboardStore.cancelSqlRunResolution} error={executionStore.errorMsg} />
 
 <ToastHost />

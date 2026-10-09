@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { initialRunChoices, requireRunPreflight, runResolutionComplete, selectRunPanel,
+import { initialRunChoices, requireRunPreflight, runResolutionComplete, selectRunPanel, selectRunRemoval,
     type SqlRunPreflight, type SqlRunResolution } from './sqlRunResolution';
 
 function resolution(): SqlRunResolution {
@@ -39,6 +39,27 @@ it('clearing a choice allows an explicit swap without silently reassigning anoth
     const draft = selectRunPanel(complete(), 0, undefined, () => 'new');
     expect(draft.choices).toHaveLength(1);
     expect(complete().choices).toHaveLength(2);
+});
+
+it('requires explicit removal of unused panels and rejects contradictory removal choices', () => {
+    const draft = selectRunPanel({ ...resolution(), statements: resolution().statements.slice(0, 1) }, 0, 'b', () => 'new');
+    expect(runResolutionComplete(draft)).toBe(false);
+    const removed = selectRunRemoval(draft, 'a', true);
+    expect(runResolutionComplete(removed)).toBe(true);
+    expect(runResolutionComplete(selectRunRemoval(removed, 'a', false))).toBe(false);
+    expect(() => selectRunRemoval(draft, 'b', true)).toThrow();
+    expect(() => selectRunRemoval(draft, 'foreign', true)).toThrow();
+    expect(runResolutionComplete({ ...removed, choices: [...removed.choices, { kind: 'remove', panel_id: 'a' }] })).toBe(false);
+    const plan = { ...preflight(), statements: preflight().statements.slice(0, 1), removed_panel_ids: ['a'] };
+    expect(() => requireRunPreflight(plan, removed)).not.toThrow();
+    expect(() => requireRunPreflight({ ...plan, removed_panel_ids: ['b'] }, removed)).toThrow();
+});
+
+it('can explicitly remove every panel from a script with no statements', () => {
+    const draft = { ...resolution(), statements: [] };
+    const removed = selectRunRemoval(selectRunRemoval(draft, 'a', true), 'b', true);
+    expect(runResolutionComplete(removed)).toBe(true);
+    expect(runResolutionComplete(draft)).toBe(false);
 });
 
 it('accepts a coherent server proposal including an explicit new panel', () => {
