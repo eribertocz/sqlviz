@@ -240,11 +240,14 @@ con integración y evidencias; no se cierran solo entregando modelos.
 | S3.3 | Visual/revisión separada del panel; referencias a uno o varios inputs nombrados, sin asociación por índice |
 | S3.4 | Persistencia, migración y publicación de referencias; un dataset alimenta dos visuales y una visual admite inputs autorizados múltiples |
 | S3.5 | Selector de consulta/dataset, resultados con esquema/preview acotado y promoción/reutilización desde editor multiconsulta; sin duplicar SQL ni crear vistas físicas |
+| S3.6 | F1 del Mapa del dashboard: proyección autorizada de referencias reales, IDs/revisiones y diagnósticos; sin segundo repositorio de dependencias |
 | S4.1 | Propuesta completa para el corpus inicial cartesiano; tipos/nulos, múltiples medidas y alternativas coherentes; no depender de primera/última columna |
 | S4.2 | Builder contextual al dataset: elegir campos/roles/series y presentación; preview/draft, cambio de esquema/dataset con diagnóstico y cambios reversibles |
 | S4.3 | Compilación al runtime ECharts y registro mínimo de capacidades; tabla/KPI conservan su adaptador de producto |
 | S4.4 | Editor JSON nativo, referencias, IDs y precedencia; sin callbacks arbitrarios, sin restringirlo a ajustes cosméticos |
 | S4.5 | Persistir → filtrar → reabrir → viewer → reset/undo, sobre la misma visualización; errores atómicos y opciones fuera del builder preservadas |
+| S4.6a | F2: Mapa bajo demanda, contexto y navegación al objeto; diagrama y alternativa en lista sin ocupar espacio permanente |
+| S4.6b | F3: Mapa actualizado al crear/reutilizar/editar/borrar; draft/confirmado, fallos y respuestas tardías coherentes |
 | S3.M1 | Contrato de matriz: ejes, medidas, grano, claves/celdas y corpus; desglose M1.1–M1.3 en su especificación |
 | S4.M2–M5 | Motor de medidas/contextos, API/persistencia, grilla y builder con drag de campos; primer flujo guardado/reapertura/viewer de matriz |
 | S5.M6–M7 | Formato/semántica avanzada, virtualización/carga progresiva y pruebas de escala de matriz; independiente de la ampliación ECharts |
@@ -276,6 +279,11 @@ El [recorrido del editor multiconsulta](sqlviz-visual-authoring-decision.md#del-
 precisa cómo los bloques separados por `;` alimentan datasets y varios visuales.
 Guardar definición, ejecutar/preview y materializar/importar filas son acciones
 distintas; S3 no crea vistas físicas ni convierte el script entero en un dataset.
+
+El [Mapa vivo del dashboard](sqlviz-dashboard-map-spec.md) refleja ese flujo
+durante la construcción. F1–F3 muestran relaciones declaradas en S3/S4; el linaje
+de campos F4 acompaña S5 y publicación/acceso F5 acompaña S8. No bloquea el primer
+gráfico a la espera de entender toda consulta SQL y no incorpora un editor ETL.
 
 ### S6: altura y áreas sin trucos visuales
 

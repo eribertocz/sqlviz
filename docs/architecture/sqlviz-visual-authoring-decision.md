@@ -163,6 +163,12 @@ sin mantener una segunda copia canónica del SQL. El catálogo de campos sigue e
 visual o dataset activo; nunca mezcla resultados de consultas por tener nombres
 de columna similares.
 
+El [Mapa del dashboard](sqlviz-dashboard-map-spec.md) será una vista bajo demanda
+de ese recorrido real. Se actualiza con las referencias de consultas, datasets,
+visuales y paneles; selección y contexto permiten ir al objeto. Distingue draft,
+confirmado y linaje analizado, sin ejecutar SQL ni introducir otra fuente de verdad.
+Su proyección entra en S3.6 y el primer flujo visible en S4.6; aún no está implementado.
+
 ## Precedencia y edición reversible
 
 La configuración efectiva combina la propuesta aceptada, las elecciones del

@@ -82,6 +82,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Mapa vivo del dashboard definido como vista bajo demanda de referencias reales,
+  con contexto/navegación y estados draft/confirmado. F1–F3 entran en S3/S4;
+  linaje detallado y publicación en S5/S8. Es diseño pendiente, no nueva UI.
+
 - Autoría multiconsulta precisada: bloques SQL con identidad → datasets y esquema
   → preview/campos → varios visuales. S3.5 añade selector de consulta/dataset y
   promoción/reutilización; S4.2 explicita el builder contextual. Guardar definición

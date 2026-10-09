@@ -52,6 +52,12 @@ preview y catálogo de campos → varios gráficos o matrices. Guardar SQL como
 definición no importa filas ni crea vistas físicas. Este flujo corresponde a
 S3/S4 y aún no está implementado; hoy se ejecuta una sentencia por panel.
 
+El [Mapa vivo del dashboard](architecture/sqlviz-dashboard-map-spec.md) añade una
+vista prevista de las conexiones reales consulta → dataset → visual → panel,
+actualizada durante la autoría. Acceso bajo demanda, contexto y estados de guardado,
+sin reservar espacio fijo ni construir un segundo modelo de dependencias.
+F1–F3 se integran en S3/S4; la vista aún no está implementada.
+
 La [navegación del workspace](architecture/sqlviz-navigation.md) documenta la
 primera capacidad visual implementada de ese alcance: ocultación completa,
 diálogo móvil, búsqueda y foco. Preview y el viewer de workspace incorporan
