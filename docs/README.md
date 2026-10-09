@@ -46,6 +46,12 @@ manual puede integrarse antes sobre referencias de panel estables. El
 [núcleo del canvas](architecture/sqlviz-canvas-contract.md) ya está implementado
 y probado; no habilita todavía UI de arrastre ni guardado del nuevo lienzo.
 
+El [recorrido de editor multiconsulta](architecture/sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables)
+precisa la evolución prevista: sentencias con identidad → datasets/esquema →
+preview y catálogo de campos → varios gráficos o matrices. Guardar SQL como
+definición no importa filas ni crea vistas físicas. Este flujo corresponde a
+S3/S4 y aún no está implementado; hoy se ejecuta una sentencia por panel.
+
 La [navegación del workspace](architecture/sqlviz-navigation.md) documenta la
 primera capacidad visual implementada de ese alcance: ocultación completa,
 diálogo móvil, búsqueda y foco. Preview y el viewer de workspace incorporan

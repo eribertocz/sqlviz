@@ -81,8 +81,87 @@ su contrato mínimo junto con identidad y persistencia visual antes del recorrid
 completo de los tres niveles. La geometría manual puede integrarse primero sobre
 referencias estables de paneles existentes; antes de persistirla, garantizar que
 editar o reordenar SQL no reasigna su identidad. El catálogo completo, conectores
-y métricas siguen posteriores. Polars, el DAG de transformaciones y la IA no
+y métricas gobernadas siguen posteriores; las medidas locales para matriz entran
+en S3/S4. Polars, el DAG de transformaciones y la IA no
 forman parte de este primer contrato.
+
+## Del editor multiconsulta a campos reutilizables
+
+**Estado observado:** Run ya analiza el script con DuckDB, respetando `;` dentro
+de strings/comentarios. Después guarda/ejecuta una sentencia por panel y todavía
+asocia por posición (`activePanelIds[i]`). No existe aún el flujo de datasets,
+preview de campos y builder completo descrito aquí. S1.1b corrige primero la
+identidad/reconciliación; S3 separa consulta/dataset de visual/panel.
+
+Como referencia, Superset distingue SQL Lab, consultas guardadas y datasets para
+crear gráficos en Explore; una consulta de SQL Lab debe convertirse en dataset
+para ser una fuente persistente de gráficos. Ver
+[exploración en Superset](https://superset.apache.org/docs/using-superset/exploring-data/)
+y [consultas guardadas frente a datasets](https://superset.apache.org/user-docs/6.1.0/using-superset/using-ai-with-superset/).
+Un dataset virtual define SQL ejecutado sobre la fuente; no implica importar sus
+filas ni crear una vista física. La fuente y los posibles caches son conceptos
+separados: [conexión a datos](https://superset.apache.org/docs/using-superset/creating-your-first-dashboard/),
+[SQL de datasets virtuales](https://superset.apache.org/admin-docs/security/).
+
+En SQLviz, conservar el editor con varias sentencias y ofrecer una selección
+contextual de consulta/dataset. El diseño previsto es:
+
+```mermaid
+flowchart LR
+    S[Script SQL] --> Q1[Consulta con ID A]
+    S --> Q2[Consulta con ID B]
+    Q1 --> D1[Dataset Ventas y revisión]
+    Q2 --> D2[Dataset Saldos y revisión]
+    D1 --> F1[Tabla de preview y campos]
+    D2 --> F2[Tabla de preview y campos]
+    F1 --> V1[Línea]
+    F1 --> V2[Barras]
+    F1 --> V3[Matriz BI]
+    F2 --> V4[Otro visual]
+```
+
+1. Analizar y reconciliar los bloques antes de modificar asociaciones. Cada
+   consulta tiene ID y nombre de presentación; «Consulta 1» es una etiqueta
+   inicial, no su identidad. El orden y los offsets del editor solo ubican texto.
+2. Ejecutar la consulta activa o el script. Mostrar resultados por consulta/ID,
+   con tabla acotada, esquema/tipos, estado de ejecución y completitud. El esquema
+   no se deduce solo de la primera fila y sigue disponible si no hay filas.
+3. Crear un gráfico desde ese resultado sin un asistente obligatorio de catálogo.
+   La inferencia propone y el builder muestra los campos del dataset seleccionado.
+   Guardar/promover a dataset reutilizable conserva SQL, fuente, esquema, parámetros
+   y revisión; publicar debe persistir las referencias necesarias, no filas de preview.
+4. Seleccionar fecha/categoría/medidas para gráficos, o arrastrar campos a Filas,
+   Columnas y Valores para matriz. Usar bindings por ID; cambiar dataset valida
+   compatibilidad y no reasigna roles por el orden de columnas.
+5. Crear varios visuales sobre el mismo dataset: guardar tres diseños no duplica
+   tres definiciones SQL. Cada visual conserva su propia intención y agrupación.
+   Cuando proceda, el runtime genera consultas de agregación autorizadas sobre
+   la relación completa, no sobre la muestra de preview.
+6. Actualizar SQL/esquema mediante una revisión con diagnóstico de dependencias.
+   Una ejecución fallida no sustituye el resultado confirmado ni cambia bindings;
+   las visuales publicadas no saltan silenciosamente a otra revisión.
+
+La consulta base decide qué campos y granularidad existen. Una salida con solo
+`month, total_revenue` no permite elegir `product` ni recuperar transacciones.
+El builder explica qué falta y permite volver al SQL. Reagregar un promedio o
+ratio requiere componentes suficientes y la semántica de medidas de la matriz;
+no basta con `dataset/encode` de ECharts.
+
+`SELECT ...; SELECT ...;` produce dos fuentes de resultado independientes,
+no una tabla combinada ni una sola definición de dataset. Una CTE pertenece a
+su sentencia; un resultado previo no crea una tabla visible para la siguiente.
+Nombres como «Ventas» identifican objetos de UI, no habilitan `FROM Ventas`
+automáticamente. Unir datos o encadenar datasets requiere SQL/CTE dentro de una
+consulta o referencias explícitas y un adaptador autorizado futuro. No ejecutar
+DDL ni crear vistas como efecto lateral de «Guardar dataset».
+
+En editor, los bloques se vinculan mediante metadata y operaciones conscientes
+de identidad. Reordenación ambigua, SQL duplicado o pegado de un script completo
+requieren preview/resolución de asociaciones; no adivinar por índice o fingerprint.
+Pestañas por dataset pueden ofrecer edición enfocada sobre el mismo documento,
+sin mantener una segunda copia canónica del SQL. El catálogo de campos sigue el
+visual o dataset activo; nunca mezcla resultados de consultas por tener nombres
+de columna similares.
 
 ## Precedencia y edición reversible
 

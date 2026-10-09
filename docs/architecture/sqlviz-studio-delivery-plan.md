@@ -239,8 +239,9 @@ con integración y evidencias; no se cierran solo entregando modelos.
 | S3.2 | Campos/bindings con identidad y diagnósticos de incompatibilidad; una consulta reordenada no transfiere roles |
 | S3.3 | Visual/revisión separada del panel; referencias a uno o varios inputs nombrados, sin asociación por índice |
 | S3.4 | Persistencia, migración y publicación de referencias; un dataset alimenta dos visuales y una visual admite inputs autorizados múltiples |
+| S3.5 | Selector de consulta/dataset, resultados con esquema/preview acotado y promoción/reutilización desde editor multiconsulta; sin duplicar SQL ni crear vistas físicas |
 | S4.1 | Propuesta completa para el corpus inicial cartesiano; tipos/nulos, múltiples medidas y alternativas coherentes; no depender de primera/última columna |
-| S4.2 | Builder de roles, series y presentación; preview/draft, incompatibilidades y cambios reversibles |
+| S4.2 | Builder contextual al dataset: elegir campos/roles/series y presentación; preview/draft, cambio de esquema/dataset con diagnóstico y cambios reversibles |
 | S4.3 | Compilación al runtime ECharts y registro mínimo de capacidades; tabla/KPI conservan su adaptador de producto |
 | S4.4 | Editor JSON nativo, referencias, IDs y precedencia; sin callbacks arbitrarios, sin restringirlo a ajustes cosméticos |
 | S4.5 | Persistir → filtrar → reabrir → viewer → reset/undo, sobre la misma visualización; errores atómicos y opciones fuera del builder preservadas |
@@ -270,6 +271,11 @@ precisión, nulos o rechazo de referencias inválidas a la expansión de S5.
 M8 de matriz se integra en S7 para interacción avanzada y M9 en S8 para publicación/
 exportación y tareas de referencia. M1–M9 son partes del plan vigente, no una
 segunda secuencia que posponga permisos, filtros básicos o cálculo correcto.
+
+El [recorrido del editor multiconsulta](sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables)
+precisa cómo los bloques separados por `;` alimentan datasets y varios visuales.
+Guardar definición, ejecutar/preview y materializar/importar filas son acciones
+distintas; S3 no crea vistas físicas ni convierte el script entero en un dataset.
 
 ### S6: altura y áreas sin trucos visuales
 

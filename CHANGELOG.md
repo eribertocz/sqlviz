@@ -82,6 +82,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Autoría multiconsulta precisada: bloques SQL con identidad → datasets y esquema
+  → preview/campos → varios visuales. S3.5 añade selector de consulta/dataset y
+  promoción/reutilización; S4.2 explicita el builder contextual. Guardar definición
+  no importa filas ni crea vistas físicas. Flujo documentado pendiente de entrega.
+
 - Matriz analítica BI incorporada al alcance central, con módulo M1–M9:
   jerarquías, medidas/totales por contexto, renderer de grilla y drag de campos.
   Primer flujo en S3/S4, ampliación de formato/escala en S5 y lectura/publicación
