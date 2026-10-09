@@ -132,7 +132,7 @@ sí sola la experiencia completa.
 | **S1.1a** | Implementado | Parsing nativo del script completo, source/offsets, contador y foco; sin escrituras ante sintaxis inválida |
 | **S1.1b** | Siguiente | Identidad y reconciliación: reordenar/insertar/editar conserva asociación correcta; ambigüedad explícita, sin emparejar solo por índice |
 | **S1.1c** | Pendiente | Integración transaccional de cambios y borrados; un fallo no confirma parte del conjunto |
-| **S1.2a** | Pendiente | Contrato persistido de layout y modo pantalla/scroll por dashboard; fuente única de geometría |
+| **S1.2a** | Pendiente | Contrato persistido de layout y modo pantalla/scroll; concretar precisión horizontal de 1 px, anclajes/viewport y colisiones antes de migrar; fuente única de geometría |
 | **S1.2b** | Pendiente | Migración, repositorio y revisión; ensayo sobre copias y rechazo de conflictos |
 | **S1.2c** | Pendiente | API tipada de layout, validación completa y permisos |
 | **S1.2d** | Pendiente | Controles de posición, ancho y alto; composición de un panel de seis columnas junto a dos apilados, sin fila automática compartida; draft/reintento y P1a/P1b |
@@ -186,11 +186,18 @@ botones.
 | Parte | Cierre previsto |
 | --- | --- |
 | S2.1 | Operación de gesto sobre geometría S1: ID estable, inicio/preview/confirmación/cancelación, una entrada de undo |
-| S2.2 | Drag desde cabecera con captura de puntero, destino/guías y preview de colisión; ningún vecino cambia sin acción explícita |
-| S2.3 | Resize de ancho/alto, mínimos de contenido y límites de viewport; tiradores siempre recuperables |
+| S2.2 | Drag desde cabecera con captura de puntero, guías de bordes/centros/separación, magnetismo controlable y preview de colisión; sin cambiar vecinos |
+| S2.3 | Resize con cotas en vivo, coincidencia de tamaños, mínimos/límites y precisión coherente con inspector; tiradores recuperables |
 | S2.4 | Alternativas por clic/tap y teclado; touch, autoscroll controlado, zoom y foco; el contenido conserva sus gestos |
 | S2.5 | Undo/redo, bloqueo y guardado por revisión; conflicto/fallo conserva confirmado y draft recuperable |
 | S2.6 | Guardar → recargar → viewer; mismo diseño, sin ejecutar SQL al mover; navegación y modo pantalla/scroll conservados |
+
+Las [guías y precisión](sqlviz-panel-experience-spec.md#guías-de-dimensionado-y-precisión)
+se dividen antes de integrarse: S2.2a obtiene candidatos deterministas y válidos;
+S2.2b presenta guías/cotas y magnetismo controlable durante el gesto; S2.3a integra
+resize exacto y coincidencia de medidas; S2.3b verifica inspector/gesto, zoom/scroll
+y límites. La entrada numérica no se modifica por snap. Alto/Y exactos ya caben
+en S0; X/ancho exactos requieren resolver el contrato en S1.2a, no solo añadir inputs.
 
 Arrastrar campos del builder, ajustar columnas de matriz y mover paneles del
 dashboard son operaciones distintas. La [especificación de matriz](sqlviz-analytical-matrix-spec.md)

@@ -63,6 +63,61 @@ ni su formato de almacenamiento. No crear un grid independiente por área que
 rompa la alineación de las doce columnas globales. Comenzar con un nivel de grupos;
 movimientos conjuntos deben validar la composición completa sin empujar vecinos.
 
+## Guías de dimensionado y precisión
+
+**Requisito de producto:** combinar ayuda visual durante drag/resize con entrada
+numérica exacta. No depender de que el autor acierte una medida con el mouse.
+Referencias: [guías de Power BI](https://learn.microsoft.com/en-us/power-bi/create-reports/desktop-gridlines-snap-to-grid),
+[cuadrícula dinámica de Visio](https://support.microsoft.com/en-us/visio/improve-shape-placement-by-using-the-dynamic-grid)
+y [dimensiones/posición exactas en Visio](https://support.microsoft.com/en-us/visio/set-the-dimensions-and-position-of-a-shape-by-using-the-size-position-window).
+
+| Ayuda | Comportamiento previsto |
+| --- | --- |
+| Alineación | Guías temporales de bordes y centros entre paneles; mostrar solo candidatos relevantes y válidos |
+| Tamaño coincidente | Indicar cuando el borde ajustado iguala el alto/ancho de otro panel, sin modificar el vecino |
+| Separación | Medidas entre paneles y márgenes; identificar gaps iguales y falta de espacio |
+| Medida en vivo | Etiqueta de ancho/alto y tramo de columnas durante resize; posición durante drag, sin desplazar el gráfico |
+| Inspector numérico | Campos de posición/tamaño con unidades y valores efectivos; draft, validación y confirmación sobre el mismo contrato del gesto |
+| Ajuste fino | Alto/Y en pasos de 1 px; incremento mayor con modificador. Teclas solo con foco de layout, nunca dentro de un input o gesto del gráfico |
+| Magnetismo | Preferencia visible para activar/desactivar ayudas; suspensión temporal durante el gesto con alternativa por clic/touch. No desactiva límites ni validación de colisiones |
+
+Una entrada numérica exacta no se redondea al múltiplo de una cuadrícula ni al
+tamaño de otro panel. Si el candidato es inválido, explicar el límite y conservar
+el borrador. Las guías no autorizan solapamientos ni reducen los mínimos del visual.
+Reglas y cotas adicionales se revelan bajo demanda, sin barras permanentes en el
+viewer ni líneas que resten legibilidad a los datos.
+
+### Precisión horizontal y las doce columnas
+
+S0 representa `top_px` y `height_px` enteros, pero `column`/`column_span` son columnas,
+no X/ancho en píxeles. Mostrar el ancho medido no lo vuelve un ancho editable.
+La UI debe distinguir esas unidades y no mostrar un campo de precisión ficticia.
+
+En S1.2a, concretar la extensión para X/ancho exactos dentro del lienzo de doce
+columnas antes de migrar: anclajes y ancho de referencia, resolución en otro
+viewport y geometría efectiva para colisiones. Evaluar ajustes horizontales
+acotados al tramo de columnas; documentar la decisión y sus límites con un caso
+de desplazamiento/resize de 1 px. No añadir propiedades al contrato S0 existente
+sin versión/migración ni guardar ancho derivado del DOM como otra autoridad.
+
+La intención es precisión de 1 píxel CSS en el ancho de diseño declarado, con
+adaptación explícita en otros viewports; no prometer el mismo ancho fijo junto
+con seis columnas fluidas en cualquier pantalla. El inspector diferencia medida
+de diseño y medida efectiva cuando diverjan. Si un ajuste no cabe, conserva el
+diseño y ofrece reparación/fallback, sin recortar ni sobrescribirlo.
+
+Separar coordenadas del canvas de las coordenadas del puntero: incluir origen,
+scroll y escala de edición. Zoom o densidad de pantalla no cambian una altura
+guardada de 301 px. La tolerancia de magnetismo se mide en espacio visual y se
+convierte al canvas; empates deterministas y retención del objetivo evitan saltos
+entre guías. Snap se aplica al candidato antes de validar, con preview de la medida
+real, no como una corrección invisible después de guardar.
+
+El ejemplo de A alto con B/C apilados debe ofrecer alineación de bordes y mostrar
+`300 + 16 + 300 = 616 px`; poder fijar A a 617 px sin ajustar B/C es igualmente
+válido si cabe. Validar entrada numérica frente a gesto, magnetismo desactivado,
+límites, teclado/touch y zoom/scroll antes de declarar precisión entregada.
+
 ## Panel centrado en los datos
 
 El panel comparte estructura entre editor y viewer: cabecera, contenido y estados.

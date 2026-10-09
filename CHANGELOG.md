@@ -82,6 +82,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Guías y precisión del lienzo especificadas: alineación, tamaños/separaciones,
+  cotas durante el gesto, inspector exacto y magnetismo controlable. S1.2a debe
+  concretar precisión horizontal compatible con doce columnas; S0 solo ofrece
+  píxeles exactos en alto/Y. Desglose de guías/resize en S2, todavía sin UI entregada.
+
 - Composición asimétrica aclarada como requisito S1/S2: un panel de seis columnas
   puede abarcar la altura de dos gráficos apilados en las otras seis. Cuatro casos
   core cubren ambas orientaciones y modos pantalla/scroll; la UI/persistencia siguen
