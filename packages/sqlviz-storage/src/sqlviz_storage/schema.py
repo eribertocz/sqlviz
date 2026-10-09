@@ -1,7 +1,7 @@
 """SQL DDL for the .sqlviz project file schema.
 
-Source of truth: DOC2 Section 4. Eight application tables + one
-migration-control table (schema_migrations), in creation order.
+Legacy structure: DOC2 Section 4. Later metadata extensions and the
+migration-control table (schema_migrations) are also declared here.
 Each statement uses CREATE TABLE IF NOT EXISTS so the list is safe
 to replay on an already-initialised file (idempotent).
 """
@@ -11,10 +11,23 @@ from __future__ import annotations
 # Reserved catalog names: analytical adapters must never export these tables.
 APPLICATION_TABLES = frozenset({
     "_sqlviz_meta", "_sqlviz_auth", "connections", "folders", "dashboards",
-    "shares", "filter_memory", "settings", "panels", "schema_migrations",
+    "shares", "filter_memory", "settings", "panels", "schema_migrations", "dashboard_sql_scripts",
 })
 
+# Shared by fresh creation and the additive migration; no identity is guessed
+# when opening a legacy project. The first explicit script commit creates a row.
+SQL_SCRIPT_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS dashboard_sql_scripts (
+        dashboard_id VARCHAR PRIMARY KEY,
+        revision BIGINT NOT NULL CHECK (revision >= 1),
+        source VARCHAR NOT NULL,
+        bindings_json VARCHAR NOT NULL,
+        updated_at VARCHAR NOT NULL
+    )
+"""
+
 SCHEMA_STATEMENTS: list[str] = [
+    SQL_SCRIPT_SCHEMA,
     # Project signature — validated by is_sqlviz_project()
     """
     CREATE TABLE IF NOT EXISTS _sqlviz_meta (

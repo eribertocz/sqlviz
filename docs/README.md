@@ -16,14 +16,18 @@ con decisiones explícitas, validación y propuestas pendientes. **S1.1b.2 imple
 Monaco y validación nativa de rangos. **S1.1b.3 implementado:**
 [resolución y Run por ID](architecture/sqlviz-sql-run-reconciliation.md), diálogo
 bajo demanda y preflight autorizado sin escrituras. Guardado atómico e identidad
-persistida siguen pendientes en S1.1c; no se declara S1 completa.
+persistida se integrarán en Run mediante S1.1c.2; no se declara S1 completa.
+**S1.1c.1 implementado:** [escritor atómico interno](architecture/sqlviz-sql-atomic-writer.md),
+snapshot esperado, cambios/borrados y asociaciones persistidas en una transacción,
+con migración en copia y rollback/concurrencia probados. Todavía sin API ni cambio
+del guardado visible de Run.
 
 **Alcance de inferencia ampliado, pendiente de implementar:**
 [AST, ámbitos, linaje y evidencias](architecture/sqlviz-semantic-inference-architecture.md)
 y [matriz de familias ECharts](architecture/sqlviz-visual-capability-matrix.md).
 Documentan los tres niveles, inputs SQL múltiples, adaptación de jerarquías/redes,
 23 familias core y dependencias GL/custom. El plan desglosa S3–S5 en partes pequeñas;
-el siguiente incremento de código es S1.1c.1: snapshot y escritor transaccional.
+el siguiente incremento de código es S1.1c.2a: contrato HTTP y autorización.
 
 ## Orden de lectura
 
@@ -60,7 +64,7 @@ de composición S6; sigue siendo diseño pendiente de implementación.
 [GridStack y Drawflow](architecture/sqlviz-interaction-adapters.md) son las
 bibliotecas elegidas para lienzo y mapa. Dependencias fijadas y adaptadores internos
 con pruebas ya están entregados; conectar UI/persistencia sigue pendiente en
-S1/S2 y F2, respectivamente. No cambia el próximo paso S1.1c.1.
+S1/S2 y F2, respectivamente. No cambia el próximo paso S1.1c.2a.
 
 El [recorrido de editor multiconsulta](architecture/sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables)
 precisa la evolución prevista: sentencias con identidad → datasets/esquema →

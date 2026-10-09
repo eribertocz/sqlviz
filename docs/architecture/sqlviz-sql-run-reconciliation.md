@@ -104,6 +104,7 @@ se comprueba apertura/cancelación conservando sus seis paneles. Los artefactos
 de revisión están en `build/sql-run-review/`, ignorados por Git; no se alteró la
 instancia original de demostración.
 
-El siguiente incremento es **S1.1c**, dividido primero en contrato de snapshot y
-escritor transaccional, y después integración de Run, persistencia de identidad y
-recuperación ante conflictos. Ver el [plan operativo](sqlviz-studio-delivery-plan.md).
+[S1.1c.1](sqlviz-sql-atomic-writer.md) ya entrega snapshot y escritor transaccional
+internos. Sigue **S1.1c.2a**, contrato HTTP autorizado; después Run, recarga y
+recuperación ante conflictos. Los límites de Run descritos arriba siguen vigentes
+hasta esa integración. Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

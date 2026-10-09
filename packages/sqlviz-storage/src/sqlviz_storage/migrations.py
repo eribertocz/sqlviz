@@ -31,6 +31,8 @@ from datetime import datetime, timezone
 
 import duckdb
 
+from sqlviz_storage.schema import SQL_SCRIPT_SCHEMA
+
 _log = logging.getLogger(__name__)
 
 # ── Migration list ────────────────────────────────────────────────────────────
@@ -106,6 +108,7 @@ MIGRATIONS: list[tuple[str, str]] = [
      "ALTER TABLE panels ADD COLUMN IF NOT EXISTS view_x_label VARCHAR"),
     ("0021_panels_add_view_y_label",
      "ALTER TABLE panels ADD COLUMN IF NOT EXISTS view_y_label VARCHAR"),
+    ("0022_dashboard_sql_scripts", SQL_SCRIPT_SCHEMA),
 ]
 
 

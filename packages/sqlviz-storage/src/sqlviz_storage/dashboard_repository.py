@@ -130,6 +130,9 @@ class DashboardRepository:
                 "WHERE dashboard_id = ?", [modified_at, alternate, modified_at, dashboard_id],
             )
             self._db.execute("DELETE FROM panels WHERE dashboard_id = ?", [dashboard_id])
+            self._db.execute(
+                "DELETE FROM dashboard_sql_scripts WHERE dashboard_id = ?", [dashboard_id],
+            )
             tokens = self._db.execute(
                 "DELETE FROM shares WHERE dashboard_id = ? RETURNING token", [dashboard_id],
             ).fetchall()
