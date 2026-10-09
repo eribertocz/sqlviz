@@ -1,15 +1,19 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import { editorRef } from '$lib/stores/editorRef';
+    import type * as Monaco from 'monaco-editor';
+    import type { SqlEditorChange } from '$lib/sql/sqlIdentityDraft';
 
     let {
         value = $bindable(''),
         onRun,
+        onEdit,
         disabled = false,
         theme = 'dark',
     }: {
         value?: string;
         onRun?: () => void;
+        onEdit?: (event: SqlEditorChange) => boolean | void;
         disabled?: boolean;
         theme?: 'dark' | 'light';
     } = $props();
@@ -22,6 +26,15 @@
     let focusFrame = 0;
     // Guard against setValue triggering onDidChangeModelContent
     let syncing = false;
+    let modelSource = '';
+
+    function setEditorContent(text: string) {
+        syncing = true;
+        try {
+            editor.setValue(text);
+            modelSource = editor.getValue();
+        } finally { syncing = false; }
+    }
 
     onMount(async () => {
         // Set MonacoEnvironment before importing monaco-editor.
@@ -123,10 +136,16 @@
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onRun?.());
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,  () => onRun?.());
 
-            editor.onDidChangeModelContent(() => {
-                syncing = true;
-                value = editor.getValue();
-                syncing = false;
+            modelSource = editor.getValue();
+            editor.onDidChangeModelContent((event: Monaco.editor.IModelContentChangedEvent) => {
+                if (syncing) return;
+                const after = editor.getValue();
+                const accepted = onEdit?.({ before: modelSource, after, isFlush: event.isFlush,
+                    changes: event.changes.map(change => ({ rangeOffset: change.rangeOffset,
+                        rangeLength: change.rangeLength, text: change.text })) });
+                if (accepted === false) { setEditorContent(value); return; }
+                modelSource = after;
+                value = after;
             });
 
             // The backend supplies statement positions; Monaco does not parse SQL.
@@ -144,10 +163,8 @@
                 },
                 setContent(text: string) {
                     if (!editor || editor.getValue() === text) return;
-                    syncing = true;
-                    editor.setValue(text);
+                    setEditorContent(text);
                     value = text;
-                    syncing = false;
                 },
             });
 
@@ -179,15 +196,16 @@
 
     // Sync external value changes into the editor (e.g. loading saved SQL on mount)
     $effect(() => {
-        if (editor && !syncing && editor.getValue() !== value) {
+        const text = value;
+        if (monacoReady && editor && !syncing && editor.getValue() !== text) {
             const pos = editor.getPosition();
-            editor.setValue(value);
+            setEditorContent(text);
             if (pos) editor.setPosition(pos);
         }
     });
 
     $effect(() => {
-        if (editor) editor.updateOptions({ readOnly: disabled });
+        if (monacoReady && editor) editor.updateOptions({ readOnly: disabled });
     });
 
     $effect(() => {

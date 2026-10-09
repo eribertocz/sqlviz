@@ -23,6 +23,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- S1.1b.2: asociaciones del borrador por rangos UTF-16 y procedencia de ediciones
+  Monaco, comprobadas con el parser nativo. Inserciones desplazan bloques sin
+  transferir IDs; reemplazos, límites ambiguos y split/merge quedan pendientes.
+  Guardas de fuente/vista, 29 pruebas nuevas y comprobación con Monaco real.
+  Todavía no entrega resolución en UI, Run por ID ni persistencia de asociaciones.
+
 - S1.1b.1: núcleo interno de reconciliación SQL/panel con decisiones explícitas
   para conservar, crear o eliminar. Propuestas inmutables, fuente/IDs validados
   y ambigüedad pendiente, sin inferir identidad por índice o igualdad de SQL.

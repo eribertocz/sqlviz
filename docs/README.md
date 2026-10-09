@@ -12,14 +12,16 @@ de cierre; los apartados E0–E5 conservan el mapa técnico e historial.
 Run, contador y foco usan análisis nativo en backend. **S1.1b.1 implementado:**
 [núcleo de identidad y reconciliación](architecture/sqlviz-sql-identity-reconciliation.md)
 con decisiones explícitas, validación y propuestas pendientes. Todavía no cambia
-Run; el siguiente paso S1.1b.2 lleva las asociaciones al borrador del editor.
+Run. **S1.1b.2 implementado:**
+[asociaciones del borrador](architecture/sqlviz-sql-draft-identity.md), captura
+Monaco y validación nativa de rangos; S1.1b.3 conecta resolución en UI y Run por ID.
 
 **Alcance de inferencia ampliado, pendiente de implementar:**
 [AST, ámbitos, linaje y evidencias](architecture/sqlviz-semantic-inference-architecture.md)
 y [matriz de familias ECharts](architecture/sqlviz-visual-capability-matrix.md).
 Documentan los tres niveles, inputs SQL múltiples, adaptación de jerarquías/redes,
 23 familias core y dependencias GL/custom. El plan desglosa S3–S5 en partes pequeñas;
-el siguiente incremento de código continúa siendo S1.1b.2.
+el siguiente incremento de código continúa siendo S1.1b.3.
 
 ## Orden de lectura
 
@@ -56,7 +58,7 @@ de composición S6; sigue siendo diseño pendiente de implementación.
 [GridStack y Drawflow](architecture/sqlviz-interaction-adapters.md) son las
 bibliotecas elegidas para lienzo y mapa. Dependencias fijadas y adaptadores internos
 con pruebas ya están entregados; conectar UI/persistencia sigue pendiente en
-S1/S2 y F2, respectivamente. No cambia el próximo paso S1.1b.2.
+S1/S2 y F2, respectivamente. No cambia el próximo paso S1.1b.3.
 
 El [recorrido de editor multiconsulta](architecture/sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables)
 precisa la evolución prevista: sentencias con identidad → datasets/esquema →

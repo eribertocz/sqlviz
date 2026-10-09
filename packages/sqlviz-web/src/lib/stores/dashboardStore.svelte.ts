@@ -12,6 +12,8 @@ import { getPaletteById } from '$lib/charts/palettes';
 import { fetchFilterDomains } from '$lib/filters/filterDomains';
 import { createFilterRuntime, patchFilterResults } from '$lib/filters/filterRuntime.svelte';
 import { createSqlScriptAnalysis, joinSqlStatements } from '$lib/sql/sqlScript.svelte';
+import { confirmedSqlDraft, editSqlIdentityDraft, projectSqlIdentity, settleSqlIdentityDraft,
+    sqlDraftFromPanels, unboundSqlDraft, type SqlEditorChange, type SqlIdentityDraft } from '$lib/sql/sqlIdentityDraft';
 
 export type { ExecResult };
 
@@ -38,6 +40,8 @@ export function createDashboardStore() {
     let executedResults  = $state<ExecResult[]>([]);
     let layout           = $state<DashboardLayout | null>(null);
     let sql               = $state('');
+    let sqlIdentity = $state.raw(unboundSqlDraft(''));
+    let confirmedSqlIdentity: SqlIdentityDraft | null = null;
 
     // Panel Properties panel (v0.2.9): which panel's side panel is open, plus
     // session-only palette overrides per panel (keyed by panel_id).
@@ -129,6 +133,33 @@ export function createDashboardStore() {
 
     const sqlAnalysis = createSqlScriptAnalysis();
     const statementCount = $derived(sqlAnalysis.get(sql)?.length ?? 0);
+
+    function applySqlEditorChange(event: SqlEditorChange): boolean {
+        // Monaco events are synchronous. A stale model cannot replace another view's draft.
+        if (event.before !== sql) return false;
+        sqlIdentity = editSqlIdentityDraft(sqlIdentity, event);
+        sql = event.after;
+        onSqlChanged(sql);
+        return true;
+    }
+
+    async function analyzeSqlIdentity(source: string) {
+        const captured = sqlIdentity;
+        const generation = viewGeneration;
+        const target = dashboardId;
+        const statements = await sqlAnalysis.analyze(source);
+        if (generation === viewGeneration && target === dashboardId && captured === sqlIdentity && source === sql) {
+            sqlIdentity = settleSqlIdentityDraft(captured, statements);
+        }
+        return statements;
+    }
+
+    function loadSqlIdentity(source: string, savedDraft: string) {
+        confirmedSqlIdentity = null;
+        sqlIdentity = savedDraft ? unboundSqlDraft(source, panelIds) : sqlDraftFromPanels(
+            panelIds.map((id, index) => ({ id, sql_content: panelSQLs[index] })),
+        );
+    }
 
     // "Restore last run" is offered while there is a prior successful run whose
     // SQL differs from the current draft.
@@ -233,6 +264,8 @@ export function createDashboardStore() {
     function restoreLastRun() {
         if (lastRunSql === '' || sql === lastRunSql) return;
         sql = lastRunSql;
+        sqlIdentity = confirmedSqlIdentity?.source === sql
+            ? confirmedSqlIdentity : unboundSqlDraft(sql, panelIds);
         onSqlChanged(sql);
         queueMicrotask(() => {
             get(editorRef).setContent?.(lastRunSql);
@@ -276,6 +309,7 @@ export function createDashboardStore() {
             // committed panel SQL for dashboards created before draft auto-save.
             const draft = active.sql_content || joinSqlStatements(panelSQLs);
             sql = draft;
+            loadSqlIdentity(draft, active.sql_content);
             markSqlSaved(draft);
             queueMicrotask(() => get(editorRef).setContent?.(draft));
             // Do NOT auto-run — refresh shows "Last run X ago" + Run Again.
@@ -301,7 +335,8 @@ export function createDashboardStore() {
         const isCurrent = () => generation === viewGeneration && dashboardId === activeDashId;
 
         try {
-            const statements = (await sqlAnalysis.analyze(ranSql)).map(statement => statement.sql);
+            const parsedStatements = await analyzeSqlIdentity(ranSql);
+            const statements = parsedStatements.map(statement => statement.sql);
             if (!isCurrent() || sql !== ranSql) return;
             if (statements.length === 0) {
                 executionStore.errorMsg = 'No SQL statements found. Write at least one query.';
@@ -358,6 +393,11 @@ export function createDashboardStore() {
             if (!isCurrent()) return;
             panelIds        = newPanelIds;
             panelSQLs       = statements;
+            // Records what this legacy run actually executed. ID-based Run is S1.1b.3.
+            confirmedSqlIdentity = confirmedSqlDraft(ranSql, parsedStatements.map((statement, index) => ({
+                panel_id: newPanelIds[index], statement,
+            })));
+            sqlIdentity = sql === ranSql ? confirmedSqlIdentity : unboundSqlDraft(sql, panelIds);
             executedResults = results;
             layout = composed;
             filterValues.reset();
@@ -411,6 +451,8 @@ export function createDashboardStore() {
         panelIds        = newPanelIds;
         panelSQLs       = newSQLs;
         sql             = joinSqlStatements(newSQLs);
+        sqlIdentity = sqlDraftFromPanels(newPanelIds.map((id, index) => ({ id, sql_content: newSQLs[index] })));
+        confirmedSqlIdentity = null;
 
         if (newResults.length === 0) {
             layout = null;
@@ -435,7 +477,7 @@ export function createDashboardStore() {
         const generation = viewGeneration;
         const targetDashboard = dashboardId;
         try {
-            const statements = await sqlAnalysis.analyze(source);
+            const statements = await analyzeSqlIdentity(source);
             if (generation !== viewGeneration || targetDashboard !== dashboardId || source !== sql) return;
             const statement = statements[idx];
             if (statement) get(editorRef).focusOffset?.(statement.start_offset);
@@ -477,6 +519,8 @@ export function createDashboardStore() {
             panelIds        = [];
             panelSQLs       = [];
             sql             = '';
+            sqlIdentity = unboundSqlDraft('');
+            confirmedSqlIdentity = null;
             markSqlSaved('');
             lastRunAt       = null;
             lastRunSql      = '';
@@ -556,6 +600,7 @@ export function createDashboardStore() {
             // Prefer the saved draft; fall back to the committed panel SQL.
             const draft = dash.sql_content || joinSqlStatements(panelSQLs);
             sql = draft;
+            loadSqlIdentity(draft, dash.sql_content);
             markSqlSaved(draft);
             queueMicrotask(() => {
                 get(editorRef).setContent?.(draft);
@@ -612,6 +657,8 @@ export function createDashboardStore() {
                 panelIds = [];
                 panelSQLs = [];
                 sql = '';
+                sqlIdentity = unboundSqlDraft('');
+                confirmedSqlIdentity = null;
                 executedResults = [];
                 layout = null;
                 filterDomains = {};
@@ -1068,7 +1115,7 @@ export function createDashboardStore() {
             $effect(() => {
                 const source = sql;
                 const timer = window.setTimeout(() => {
-                    void sqlAnalysis.analyze(source).catch(() => { /* shown beside the count */ });
+                    void analyzeSqlIdentity(source).catch(() => { /* shown beside the count */ });
                 }, 300);
                 return () => window.clearTimeout(timer);
             });
@@ -1100,7 +1147,16 @@ export function createDashboardStore() {
         get executedResults() { return executedResults; },
         get layout() { return layout; },
         get sql() { return sql; },
-        set sql(v: string) { sql = v; onSqlChanged(v); },
+        set sql(v: string) {
+            if (v === sql) return;
+            sql = v;
+            sqlIdentity = unboundSqlDraft(v, panelIds);
+            onSqlChanged(v);
+        },
+        get sqlIdentity() {
+            const statements = sqlAnalysis.get(sql);
+            return statements ? projectSqlIdentity(sqlIdentity, statements) : null;
+        },
 
         get hasLayout() { return hasLayout; },
         get lastRunAt() { return lastRunAt; },
@@ -1123,6 +1179,7 @@ export function createDashboardStore() {
 
         bootstrap,
         run,
+        applySqlEditorChange,
         saveDraft,
         restoreLastRun,
         handleDelete,

@@ -1,8 +1,9 @@
 # Identidad y reconciliación SQL: primer núcleo
 
 **Implementado — 2026-10-08: S1.1b.1.** Política pura y contrato interno de
-decisiones explícitas. El editor y Run **todavía no consumen este núcleo**: la
-asociación posicional actual sigue pendiente de reemplazo en S1.1b.2/b.3.
+decisiones explícitas. El editor captura [asociaciones del borrador en S1.1b.2](sqlviz-sql-draft-identity.md);
+editor y Run **todavía no consumen este núcleo como preflight de escritura**.
+La asociación posicional actual sigue pendiente de reemplazo en S1.1b.3.
 No hay nuevos endpoints, migraciones ni escrituras de proyectos en esta entrega.
 
 ## Problema y regla de identidad
@@ -88,7 +89,7 @@ El conjunto de reconciliación y parsing ejecutado da **82 pruebas correctas**;
 Ruff y mypy pasan. No se declara roundtrip de UI o persistencia a partir de estas
 pruebas: el núcleo aún no está conectado a esos flujos.
 
-Continuación en el [plan operativo](sqlviz-studio-delivery-plan.md): S1.1b.2
+Continuación en el [plan operativo](sqlviz-studio-delivery-plan.md): S1.1b.2 ya
 mantiene asociaciones en el borrador y registra ediciones con procedencia;
 S1.1b.3 integra resolución de ambigüedad y preflight de Run por ID. S1.1c entrega
 el guardado transaccional del conjunto. Solo después asociamos el lienzo

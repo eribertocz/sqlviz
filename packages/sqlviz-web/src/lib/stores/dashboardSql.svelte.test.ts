@@ -136,4 +136,72 @@ it('retains the exact executed snapshot if the draft changes after execution sta
     store.sql = 'SELECT 3'; response.resolve(result); await operation;
     expect(apiPatch).toHaveBeenCalledWith('/api/v1/dashboards/d', expect.objectContaining({ last_run_sql: source }));
     expect(store.sql).toBe('SELECT 3'); expect(store.canRestoreLastRun).toBe(true);
+    store.restoreLastRun();
+    expect(store.sqlIdentity?.statements.map(item => item.panel_id)).toEqual(['p1', 'p2']);
+});
+
+it('tracks a Monaco interior edit without losing its binding to an existing panel', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    const changedFirst = "SELECT 'xyz;b'";
+    const changed = `${changedFirst};\n${second}`;
+    const event = { before: source, after: changed, changes: [{ rangeOffset: first.indexOf('a'), rangeLength: 1, text: 'xyz' }], isFlush: false };
+    expect(store.applySqlEditorChange(event)).toBe(true);
+    // The bind:value setter receives the same value after the precise event.
+    store.sql = changed;
+    vi.mocked(apiPost).mockResolvedValueOnce({ ...parsed, statements: [
+        { sql: changedFirst, start_offset: 0, end_offset: changedFirst.length },
+        { sql: second, start_offset: changedFirst.length + 2, end_offset: changed.length },
+    ] });
+    vi.mocked(apiPatch).mockClear();
+    await store.handleEditSQL('p1');
+    expect(store.sqlIdentity?.statements.map(item => item.panel_id)).toEqual(['p1', 'p2']);
+    expect(apiPatch).not.toHaveBeenCalled();
+});
+
+it('a plain source setter loses evidence even when reordering equal known SQL', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    const reversed = `${second}\n;\n\n${first}`;
+    store.sql = reversed;
+    vi.mocked(apiPost).mockResolvedValueOnce({ ...parsed, statements: [
+        { sql: second, start_offset: 0, end_offset: second.length },
+        { sql: first, start_offset: second.length + 4, end_offset: reversed.length },
+    ] });
+    await store.handleEditSQL('p1');
+    expect(store.sqlIdentity?.statements.map(item => item.panel_id)).toEqual([null, null]);
+    expect(store.sqlIdentity?.unresolved_panel_ids).toEqual(['p1', 'p2']);
+});
+
+it('an obsolete Monaco model cannot write into a newly selected dashboard', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    await store.createDashboard('Other');
+    expect(store.applySqlEditorChange({ before: source, after: 'SELECT 100', changes: [], isFlush: false })).toBe(false);
+    expect(store.sql).toBe(''); expect(store.panelIds).toEqual([]);
+});
+
+it('a late parse of a replaced draft cannot attach old bindings to a restored text', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    const response = deferred();
+    store.sql = 'SELECT 5';
+    vi.mocked(apiPost).mockReturnValueOnce(response.promise);
+    const operation = store.handleEditSQL('p1');
+    store.sql = source; // Opaque replacement; equality is not identity evidence.
+    response.resolve({ ...parsed, statements: [{ sql: 'SELECT 5', start_offset: 0, end_offset: 8 }] });
+    await operation;
+    vi.mocked(apiPost).mockResolvedValueOnce(parsed);
+    await store.handleEditSQL('p1');
+    expect(store.sqlIdentity?.statements.map(item => item.panel_id)).toEqual([null, null]);
+});
+
+it.each([true, false])('load distinguishes saved arbitrary SQL from directly constructed panel source (saved=%s)', async saved => {
+    const reconstructed = `${first}\n;\n\n${second}`;
+    vi.mocked(apiGet).mockResolvedValue({ id: 'loaded', sql_content: saved ? reconstructed : '', last_run_at: null });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => [
+        { id: 'p1', sql_content: first, sort_order: 0 }, { id: 'p2', sql_content: second, sort_order: 1 },
+    ] }));
+    vi.mocked(apiPost).mockResolvedValueOnce({ ...parsed, statements: [
+        { sql: first, start_offset: 0, end_offset: first.length },
+        { sql: second, start_offset: first.length + 4, end_offset: reconstructed.length },
+    ] });
+    const store = createDashboardStore(); await store.loadDashboard('loaded'); await store.handleEditSQL('p1');
+    expect(store.sqlIdentity?.statements.map(item => item.panel_id)).toEqual(saved ? [null, null] : ['p1', 'p2']);
 });

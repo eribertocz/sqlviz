@@ -74,8 +74,9 @@ el draft cambie después de empezar la ejecución.
 El foco de edición solicita los offsets del mismo análisis y verifica el contexto
 antes de mover Monaco. La asociación del panel a una sentencia sigue siendo
 posicional: S1.1b debe reemplazarla. S1.1b.1 ya entrega un
-[núcleo de decisiones explícitas](sqlviz-sql-identity-reconciliation.md), todavía
-sin integración en editor/Run. No se atribuye identidad estable a este cambio.
+[núcleo de decisiones explícitas](sqlviz-sql-identity-reconciliation.md) y S1.1b.2
+[asociaciones del borrador](sqlviz-sql-draft-identity.md). Todavía no son preflight
+de Run por ID. No se atribuye identidad estable a este cambio.
 
 Al reconstruir texto desde paneles, el separador se coloca en una línea propia
 (`\n;\n\n`), para que un comentario final `-- …` no lo absorba. Separadores

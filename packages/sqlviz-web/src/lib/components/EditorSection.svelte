@@ -49,7 +49,8 @@
     </div>
 
     <div class="editor-wrapper">
-        <SQLEditor bind:value={dashboardStore.sql} onRun={dashboardStore.run} disabled={executionStore.executing} theme={uiStore.theme} />
+        <SQLEditor bind:value={dashboardStore.sql} onEdit={dashboardStore.applySqlEditorChange}
+            onRun={dashboardStore.run} disabled={executionStore.executing} theme={uiStore.theme} />
     </div>
 </div>
 
