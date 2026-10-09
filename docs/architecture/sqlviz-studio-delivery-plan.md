@@ -6,6 +6,11 @@ reemplaza el orden inmediato anterior del [roadmap](sqlviz-product-roadmap.md).
 E0–E5 conservan su función de mapa técnico e historial; S0–S8 definen el trabajo
 actual. No son compromisos de calendario.
 
+**Bibliotecas elegidas por el usuario — 2026-10-08:** GridStack para el lienzo y
+Drawflow para el mapa. El [incremento de adaptación](sqlviz-interaction-adapters.md)
+fija dependencias y entrega adaptadores internos probados, sin UI activa ni
+cambios de formato. S1.1b sigue siendo el próximo incremento del producto.
+
 ## Dirección del producto
 
 SQLviz debe permitir pasar de una consulta a un dashboard legible, personalizable
@@ -194,6 +199,12 @@ botones.
 | S2.4 | Alternativas por clic/tap y teclado; touch, autoscroll controlado, zoom y foco; el contenido conserva sus gestos |
 | S2.5 | Undo/redo, bloqueo y guardado por revisión; conflicto/fallo conserva confirmado y draft recuperable |
 | S2.6 | Guardar → recargar → viewer; mismo diseño, sin ejecutar SQL al mover; navegación y modo pantalla/scroll conservados |
+
+GridStack es el motor de interacción elegido. S1.2d debe integrar su contenedor
+con el panel Svelte, validar píxeles/gap y desmontaje sin perder renderer; S2 usa
+una clase de motor que rechaza colisiones sin empujar vecinos. La proyección de
+filas no se persiste como otra altura canónica. Guías/undo y accesibilidad
+requieren integración propia, no se cierran instalando la biblioteca.
 
 Las [guías y precisión](sqlviz-panel-experience-spec.md#guías-de-dimensionado-y-precisión)
 se dividen antes de integrarse: S2.2a obtiene candidatos deterministas y válidos;

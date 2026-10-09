@@ -17,7 +17,10 @@ un footer permanente en edición. Estos son hallazgos del código, no un ensayo 
 
 ## Grid CSS, geometría y áreas del producto
 
-CSS Grid pertenece al adaptador web del canvas. `grid-area` puede colocar un
+GridStack es el motor elegido para el nuevo lienzo; el [adaptador interno](sqlviz-interaction-adapters.md)
+proyecta doce columnas y alturas en píxeles. Su contenedor/interacción se integra
+en S1/S2; todavía no reemplaza `DashboardGrid.svelte`. CSS Grid pertenece a la
+implementación web, no al contrato persistido. `grid-area` puede colocar un
 elemento por líneas o área nombrada; `grid-template-areas` define regiones
 rectangulares de una plantilla. Referencia:
 [especificación CSS Grid](https://www.w3.org/TR/css-grid-2/#named-areas).

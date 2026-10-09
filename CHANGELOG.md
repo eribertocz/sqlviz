@@ -23,6 +23,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Dependencias web fijadas: GridStack 14.0.0, Drawflow 0.0.60 y tipos Drawflow
+  0.0.12. Adaptadores internos con dieciséis pruebas sobre las bibliotecas reales:
+  geometría por IDs/píxeles, colisiones sin empuje y mapa de lectura con inputs
+  nombrados, etiquetas como texto y cancelación/desmontaje. Todavía no conecta
+  drag/resize ni mapa al Studio, ni modifica proyectos `.sqlviz`.
+
 - S1.1a: análisis nativo DuckDB de scripts, slices de fuente y offsets UTF-16;
   contrato HTTP estricto solo para autores, sin ejecución ni conexión de proyecto.
   Presupuestos de bytes/sentencias y admisión por aplicación.

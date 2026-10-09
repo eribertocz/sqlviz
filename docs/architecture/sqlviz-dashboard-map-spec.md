@@ -5,6 +5,11 @@ Vista de dependencias reales durante la autoría, vinculada al
 [recorrido multiconsulta](sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables).
 No sustituye el lienzo ni habilita un editor de pipelines ETL.
 
+**Renderer elegido:** Drawflow, solicitado por el usuario el 2026-10-08. El
+[adaptador interno](sqlviz-interaction-adapters.md) está probado sobre proyecciones
+sintéticas; F1 y la UI de F2 siguen pendientes. Bloquear edición nativa de conexiones
+y usar los controles del Studio para modificar objetos/referencias.
+
 ## Experiencia
 
 Ofrecer «Mapa» en las acciones del dashboard para abrir una vista temporal del

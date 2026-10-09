@@ -51,6 +51,11 @@ define el acabado de cabecera, contenido, acciones y estados desde S1/S2, con
 partes P1a–c y evidencia visual. Distingue CSS Grid como adaptador web de las áreas
 de composición S6; sigue siendo diseño pendiente de implementación.
 
+[GridStack y Drawflow](architecture/sqlviz-interaction-adapters.md) son las
+bibliotecas elegidas para lienzo y mapa. Dependencias fijadas y adaptadores internos
+con pruebas ya están entregados; conectar UI/persistencia sigue pendiente en
+S1/S2 y F2, respectivamente. No cambia el próximo paso S1.1b.
+
 El [recorrido de editor multiconsulta](architecture/sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables)
 precisa la evolución prevista: sentencias con identidad → datasets/esquema →
 preview y catálogo de campos → varios gráficos o matrices. Guardar SQL como

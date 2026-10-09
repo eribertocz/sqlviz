@@ -39,6 +39,11 @@ los gráficos ECharts. No forzar opciones de matriz dentro de `EChartsOption`.
 
 ## Motor y contratos
 
+El lienzo usará GridStack y el mapa Drawflow, según la
+[decisión de adaptadores](sqlviz-interaction-adapters.md). Los adaptadores internos
+ya tienen pruebas; la UI todavía no está conectada. Son motores de interacción:
+datasets, visuales, revisiones y el renderer ECharts conservan sus responsabilidades.
+
 Mantener ECharts como motor inicial. Su configuración nativa puede formar parte
 del contrato de renderizado; SQLviz conserva identidad, dataset/revisión,
 bindings, procedencia de los ajustes, layout y publicación. El Visual Builder
