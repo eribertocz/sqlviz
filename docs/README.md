@@ -19,15 +19,17 @@ bajo demanda y preflight autorizado sin escrituras. Guardado atómico e identida
 persistida se integrarán en Run mediante S1.1c.2; no se declara S1 completa.
 **S1.1c.1 implementado:** [escritor atómico interno](architecture/sqlviz-sql-atomic-writer.md),
 snapshot esperado, cambios/borrados y asociaciones persistidas en una transacción,
-con migración en copia y rollback/concurrencia probados. Todavía sin API ni cambio
-del guardado visible de Run.
+con migración en copia y rollback/concurrencia probados.
+**S1.1c.2a implementado:** [API de snapshot y commit](architecture/sqlviz-sql-commit-api.md),
+contratos estrictos, autorización y admisión de consultas de lectura. Todavía no
+cambia el guardado visible de Run; la conexión es la próxima parte S1.1c.2b.
 
 **Alcance de inferencia ampliado, pendiente de implementar:**
 [AST, ámbitos, linaje y evidencias](architecture/sqlviz-semantic-inference-architecture.md)
 y [matriz de familias ECharts](architecture/sqlviz-visual-capability-matrix.md).
 Documentan los tres niveles, inputs SQL múltiples, adaptación de jerarquías/redes,
 23 familias core y dependencias GL/custom. El plan desglosa S3–S5 en partes pequeñas;
-el siguiente incremento de código es S1.1c.2a: contrato HTTP y autorización.
+el siguiente incremento de código es S1.1c.2b: Run con un único commit de definiciones.
 
 ## Orden de lectura
 
@@ -64,7 +66,7 @@ de composición S6; sigue siendo diseño pendiente de implementación.
 [GridStack y Drawflow](architecture/sqlviz-interaction-adapters.md) son las
 bibliotecas elegidas para lienzo y mapa. Dependencias fijadas y adaptadores internos
 con pruebas ya están entregados; conectar UI/persistencia sigue pendiente en
-S1/S2 y F2, respectivamente. No cambia el próximo paso S1.1c.2a.
+S1/S2 y F2, respectivamente. No cambia el próximo paso S1.1c.2b.
 
 El [recorrido de editor multiconsulta](architecture/sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables)
 precisa la evolución prevista: sentencias con identidad → datasets/esquema →

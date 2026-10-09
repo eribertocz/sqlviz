@@ -11,8 +11,8 @@ Drawflow para el mapa. El [incremento de adaptación](sqlviz-interaction-adapter
 fija dependencias y entrega adaptadores internos probados, sin UI activa ni
 cambios de formato. S1.1b.1 entrega ahora el núcleo de reconciliación;
 S1.1b.2 entrega asociaciones del borrador; S1.1b.3 entrega resolución accesible
-y Run por ID. S1.1c.1 entrega el escritor transaccional interno; S1.1c.2a es el
-siguiente incremento: contrato HTTP y autorización para conectarlo.
+y Run por ID. S1.1c.1 entrega el escritor transaccional interno; S1.1c.2a entrega
+su API tipada y autorizada. Sigue S1.1c.2b: conectar Run con un único commit.
 
 ## Dirección del producto
 
@@ -55,7 +55,9 @@ captura de ediciones Monaco y validación nativa de rangos. **S1.1b.3 implementa
 [resolución y Run por ID](sqlviz-sql-run-reconciliation.md), preflight de servidor
 sin escrituras y foco por identidad. **S1.1c.1 implementado:**
 [escritor atómico interno](sqlviz-sql-atomic-writer.md), revisión esperada,
-persistencia de asociaciones y migración aditiva. HTTP, integración Run/recarga
+persistencia de asociaciones y migración aditiva. **S1.1c.2a implementado:**
+[API de snapshot y commit](sqlviz-sql-commit-api.md), autorización, contratos
+estrictos y admisión de consultas antes de escribir. Integración Run/recarga
 y layout siguen pendientes; el Run visible aún es secuencial y no se declara S1 completa.
 
 **Matriz analítica incorporada al alcance central:** la tabla actual es plana.
@@ -117,7 +119,7 @@ dependencias y verificación propias. La [matriz de capacidades](sqlviz-visual-c
 separa representabilidad, builder e inferencia; la
 [arquitectura semántica](sqlviz-semantic-inference-architecture.md) describe AST,
 ámbitos, linaje, evidencia y abstención. Son diseños pendientes: no amplían los
-ocho identificadores legacy entregados ni cambian el siguiente paso S1.1c.2a.
+ocho identificadores legacy entregados ni cambian el siguiente paso S1.1c.2b.
 
 ## Orden de construcción
 
@@ -147,7 +149,7 @@ sí sola la experiencia completa.
 | --- | --- | --- |
 | **S1.1a** | Implementado | Parsing nativo del script completo, source/offsets, contador y foco; sin escrituras ante sintaxis inválida |
 | **S1.1b** | Implementado | Núcleo, asociaciones del borrador, resolución en UI y Run por ID. Identidad sin emparejar por índice; persistencia y atomicidad pendientes en S1.1c |
-| **S1.1c** | En curso | Escritor transaccional interno entregado; API y Run pendientes. El escritor revierte cambios/creaciones/borrados y asociaciones juntos; no se atribuye aún ese comportamiento al botón Run |
+| **S1.1c** | En curso | Escritor transaccional y API entregados; Run/recarga pendientes. El escritor revierte cambios/creaciones/borrados y asociaciones juntos; no se atribuye aún ese comportamiento al botón Run |
 | **S1.2a** | Pendiente | Layout persistido y modo pantalla/scroll; ancho/X por columnas, alto/Y por píxeles, referencias visual/texto y mínimos por tipo; fuente única de geometría |
 | **S1.2b** | Pendiente | Migración, repositorio y revisión; ensayo sobre copias y rechazo de conflictos |
 | **S1.2c** | Pendiente | API tipada de layout, validación completa y permisos |
@@ -175,9 +177,9 @@ transaccional ni la comprobación del estado esperado en almacenamiento.
 
 | Incremento | Estado | Cierre |
 | --- | --- | --- |
-| **S1.1c.1** | Implementado | Snapshot esperado y escritor transaccional interno: fuente, IDs y estado revalidados; cambios/creaciones/borrados y asociaciones juntos; migración en copia, rollback y concurrencia probados. Sin API ni Run |
-| **S1.1c.2a** | Siguiente | HTTP tipado y autorizado para snapshot/commit; conflictos, fuente nativa y decisiones revalidadas; no aceptar planes del navegador como autoridad |
-| **S1.1c.2b** | Pendiente | Run con un único commit de definiciones, eliminación explícita y bindings persistidos; ejecución/composición separadas del guardado y confirmación de éxito |
+| **S1.1c.1** | Implementado | Snapshot esperado y escritor transaccional interno: fuente, IDs y estado revalidados; cambios/creaciones/borrados y asociaciones juntos; migración en copia, rollback y concurrencia probados. HTTP incorporado en 2a; Run pendiente |
+| **S1.1c.2a** | Implementado | HTTP tipado y autorizado para snapshot/commit; conflictos, fuente nativa, política de lectura y decisiones revalidadas; no aceptar planes del navegador como autoridad. Pruebas HTTP de permisos/rollback/reapertura; sin integrar Run |
+| **S1.1c.2b** | Siguiente | Run con un único commit de definiciones, eliminación explícita y bindings persistidos; ejecución/composición separadas del guardado y confirmación de éxito |
 | **S1.1c.2c** | Pendiente | Recarga, borrador/autoguardado, conflicto y respuesta perdida; asociar solo fuentes compatibles, recuperar IDs sin duplicar creaciones, preservar vista confirmada y viewer |
 
 1. Revisar cómo se asigna hoy la identidad de paneles al editar y ejecutar SQL.

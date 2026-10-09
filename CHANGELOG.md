@@ -27,12 +27,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- S1.1c.2a: GET de snapshot y POST de commit del script por dashboard, ambos de
+  autor; contratos estrictos y token esperado, análisis nativo completo y política
+  de consultas de lectura antes de escribir. Guarda fuente/paneles/asociaciones
+  juntos, devuelve IDs asignados y rechaza conflictos, decisiones inválidas y
+  metadata corrupta sin exponer SQL. Pruebas HTTP de permisos, rollback, límites
+  y reapertura. Run sigue usando su recorrido anterior hasta S1.1c.2b.
+
 - S1.1c.1: repositorio interno de guardado atómico de fuente, paneles y bindings
   UTF-16; token esperado del estado, conflictos con cambios/concurrencia, rollback
   y UUID de nuevas creaciones. Conserva ajustes manuales y retira inferencias de
   SQL cambiado. Tabla reservada y migración aditiva 0022 sin fabricar identidad
-  legacy; borrado de dashboard limpia también sus asociaciones. Todavía no conecta
-  un endpoint nuevo ni reemplaza las escrituras secuenciales del botón Run.
+  legacy; borrado de dashboard limpia también sus asociaciones. HTTP incorporado
+  en S1.1c.2a; las escrituras secuenciales del botón Run se reemplazarán en S1.1c.2b.
 
 - S1.1b.3: diálogo bajo demanda para asociar consultas con paneles existentes o
   nuevos, con comparación de SQL, teclado/foco y elecciones uno a uno. Preflight

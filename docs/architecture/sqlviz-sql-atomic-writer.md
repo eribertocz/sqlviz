@@ -1,8 +1,8 @@
 # Guardado atómico de definiciones SQL
 
 **Implementado — 2026-10-09: S1.1c.1.** Se entrega un repositorio interno que
-guarda fuente, paneles y asociaciones en una sola transacción. **Todavía no se
-conecta a HTTP ni al botón Run**: el recorrido visible de
+guarda fuente, paneles y asociaciones en una sola transacción. **HTTP incorporado
+en [S1.1c.2a](sqlviz-sql-commit-api.md); el botón Run sigue pendiente**: el recorrido visible de
 [S1.1b.3](sqlviz-sql-run-reconciliation.md) conserva sus escrituras secuenciales
 hasta S1.1c.2b. No se declara completo el guardado atómico del producto.
 
@@ -128,7 +128,8 @@ cambios. Los artefactos están en `build/sql-atomic-review/`, ignorados por Git.
 El servidor de vista previa existente no se reinicia ni cambia de comportamiento
 por esta entrega interna.
 
-Siguiente: **S1.1c.2a**, contrato HTTP y autorización para leer snapshot y guardar;
-después **S1.1c.2b**, Run con un único commit de definiciones; finalmente
+**S1.1c.2a entregado:** [contrato HTTP y autorización](sqlviz-sql-commit-api.md)
+para leer snapshot y guardar. Siguiente: **S1.1c.2b**, Run con un único commit de
+definiciones; finalmente
 **S1.1c.2c**, recarga, conflictos, reintento y separación del estado de ejecución.
 Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

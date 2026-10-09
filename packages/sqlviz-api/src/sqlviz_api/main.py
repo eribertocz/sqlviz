@@ -43,11 +43,17 @@ from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlviz_core.models.folders import FolderError
 from sqlviz_core.models.parameters import ParameterError, ParameterLimits
+from sqlviz_core.models.sql_reconciliation import SqlReconciliationError
 from sqlviz_core.models.sql_script import SqlScriptError
 from sqlviz_core.version import __version__
 from sqlviz_storage.dashboard_repository import DashboardNotFound, DashboardWriteConflict
 from sqlviz_storage.folder_repository import FolderWriteConflict
 from sqlviz_storage.panel_repository import PanelNotFound, PanelWriteConflict
+from sqlviz_storage.sql_script_repository import (
+    SqlScriptMetadataError,
+    SqlScriptStateLimitError,
+    SqlScriptWriteConflict,
+)
 
 from sqlviz_api.quack_server import QuackConnectionRouter
 from sqlviz_api.request_limits import RequestBodyLimitMiddleware
@@ -60,6 +66,7 @@ from sqlviz_api.routers import (
     meta,
     panels,
     shares,
+    sql_script_commits,
     sql_scripts,
 )
 from sqlviz_api.routers.auth import require_admin
@@ -101,6 +108,34 @@ def create_app(
     app.state.queries = QueryService(query_limits, parameter_limits=parameter_limits)
     app.state.parameters = ParameterService(parameter_limits)
     app.state.sql_scripts = SqlScriptService()
+
+    @app.exception_handler(SqlReconciliationError)
+    async def _sql_identity_failure(request: Request, exc: SqlReconciliationError) -> JSONResponse:
+        return JSONResponse(
+            status_code=413 if exc.code == "sql_reconciliation_limit" else 422,
+            content={"detail": exc.detail, "code": exc.code},
+        )
+
+    @app.exception_handler(SqlScriptWriteConflict)
+    async def _sql_commit_conflict(request: Request, exc: SqlScriptWriteConflict) -> JSONResponse:
+        return JSONResponse(status_code=409, content={
+            "detail": "Dashboard changed or has a conflicting dependency. Refresh and retry.",
+            "code": "sql_script_write_conflict",
+        })
+
+    @app.exception_handler(SqlScriptMetadataError)
+    async def _sql_metadata_failure(request: Request, exc: SqlScriptMetadataError) -> JSONResponse:
+        return JSONResponse(status_code=500, content={
+            "detail": "Stored SQL associations are invalid. The project requires repair.",
+            "code": "sql_script_metadata_invalid",
+        })
+
+    @app.exception_handler(SqlScriptStateLimitError)
+    async def _sql_state_limit(request: Request, exc: SqlScriptStateLimitError) -> JSONResponse:
+        return JSONResponse(status_code=413, content={
+            "detail": "Project script state exceeds supported limits.",
+            "code": "sql_script_state_limit",
+        })
 
     @app.exception_handler(SqlScriptError)
     async def _sql_script_failure(request: Request, exc: SqlScriptError) -> JSONResponse:
@@ -185,6 +220,7 @@ def create_app(
     app.include_router(panels.router)
     app.include_router(shares.router)
     app.include_router(sql_scripts.router, dependencies=[Depends(require_admin)])
+    app.include_router(sql_script_commits.router, dependencies=[Depends(require_admin)])
 
     @app.middleware("http")
     async def _private_data_cache(request: Request, call_next):  # type: ignore[no-untyped-def]

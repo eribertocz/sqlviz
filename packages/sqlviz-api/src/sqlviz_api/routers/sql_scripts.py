@@ -5,11 +5,7 @@ from dataclasses import asdict
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from sqlviz_core.models.sql_reconciliation import (
-    CreateSqlPanel,
     ExistingSqlPanel,
-    KeepSqlPanel,
-    RemoveSqlPanel,
-    SqlIdentityDecision,
     SqlPanelUpdate,
     SqlReconciliationError,
     reconcile_sql_script,
@@ -19,9 +15,8 @@ from sqlviz_storage.panel_repository import PanelRepository
 from sqlviz_storage.transactions import project_transaction
 
 from sqlviz_api.dependencies import DbDep, SqlScriptsDep
+from sqlviz_api.sql_identity_adapter import identity_decisions
 from sqlviz_api.sql_script_contract import (
-    CreateSqlIdentity,
-    KeepSqlIdentity,
     SqlReconciledStatement,
     SqlReconcileRequest,
     SqlReconcileResponse,
@@ -62,14 +57,7 @@ def preview_sql_reconciliation(
         ):
             raise HTTPException(409, "Panel snapshot changed. Reload the dashboard and retry.")
         previous = tuple(ExistingSqlPanel(panel.id, panel.sql_content) for panel in panels)
-    decisions: list[SqlIdentityDecision] = []
-    for choice in body.decisions:
-        if isinstance(choice, KeepSqlIdentity):
-            decisions.append(KeepSqlPanel(choice.statement_index, choice.panel_id))
-        elif isinstance(choice, CreateSqlIdentity):
-            decisions.append(CreateSqlPanel(choice.statement_index, choice.creation_key))
-        else:
-            decisions.append(RemoveSqlPanel(choice.panel_id))
+    decisions = identity_decisions(body.decisions)
     try:
         plan = reconcile_sql_script(body.sql, statements, previous, decisions)
     except SqlReconciliationError as exc:

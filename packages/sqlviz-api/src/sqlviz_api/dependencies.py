@@ -9,10 +9,12 @@ import duckdb
 from fastapi import Depends, Request
 from sqlviz_storage.dashboard_repository import DashboardRepository
 from sqlviz_storage.folder_repository import FolderRepository
+from sqlviz_storage.sql_script_repository import SqlScriptRepository
 
 from sqlviz_api.services.dashboards import DashboardDeletionService
 from sqlviz_api.services.parameters import ParameterService
 from sqlviz_api.services.queries import QueryService
+from sqlviz_api.services.sql_authoring import SqlAuthoringService
 from sqlviz_api.services.sql_scripts import SqlScriptService
 
 
@@ -36,7 +38,8 @@ DbDep = Annotated[duckdb.DuckDBPyConnection, Depends(get_db)]
 
 def get_dashboard_deletion(request: Request, db: DbDep) -> DashboardDeletionService:
     return DashboardDeletionService(
-        DashboardRepository(db), request.app.state.authorization.viewer_sessions,
+        DashboardRepository(db),
+        request.app.state.authorization.viewer_sessions,
     )
 
 
@@ -69,3 +72,12 @@ def get_sql_scripts(request: Request) -> SqlScriptService:
 
 
 SqlScriptsDep = Annotated[SqlScriptService, Depends(get_sql_scripts)]
+
+
+def get_sql_authoring(
+    db: DbDep, scripts: SqlScriptsDep, queries: QueriesDep
+) -> SqlAuthoringService:
+    return SqlAuthoringService(SqlScriptRepository(db), scripts, queries)
+
+
+SqlAuthoringDep = Annotated[SqlAuthoringService, Depends(get_sql_authoring)]

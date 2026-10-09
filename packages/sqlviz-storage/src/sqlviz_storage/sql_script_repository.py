@@ -72,6 +72,10 @@ class SqlScriptMetadataError(ValueError):
     """Stored script metadata is invalid; never turn it into guessed identity."""
 
 
+class SqlScriptStateLimitError(ValueError):
+    """Persisted state exceeds the script writer's supported capacity."""
+
+
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
     result = dict(pairs)
     if len(result) != len(pairs):
@@ -152,7 +156,7 @@ class SqlScriptRepository:
             [dashboard_id],
         ).fetchone()
         if count is not None and count[0] > MAX_SQL_SCRIPT_STATEMENTS:
-            raise ValueError("Dashboard exceeds 256 SQL panels")
+            raise SqlScriptStateLimitError("Dashboard exceeds 256 SQL panels")
         panels = tuple(
             sorted(PanelRepository(self._db).list(dashboard_id), key=lambda panel: panel.id)
         )
@@ -220,7 +224,7 @@ class SqlScriptRepository:
                         "Dashboard changed; refresh and confirm associations again"
                     )
                 if script_revision >= 2**63 - 1:
-                    raise ValueError("Script revision exhausted")
+                    raise SqlScriptStateLimitError("Script revision exhausted")
                 plan = reconcile_sql_script(
                     source,
                     statements,
