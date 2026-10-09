@@ -1,5 +1,11 @@
 # Dashboard Studio: alcance, edición e inferencia
 
+**Ampliación 2026-10-08:** la [matriz analítica](sqlviz-analytical-matrix-spec.md)
+es un visual central con renderer de grilla, medidas/totales por contexto y
+builder de Filas/Columnas/Valores. Su primer flujo entra en S3/S4. El
+[plan operativo](sqlviz-studio-delivery-plan.md) también desglosa S2 en seis partes
+para mover/redimensionar paneles. Ambos alcances siguen pendientes de implementación.
+
 **Fecha:** 2026-10-05; autoría y orden de entrega actualizados: 2026-10-08. **Estado:**
 especificación para implementar, con navegación entregada según
 [su documento de implementación](sqlviz-navigation.md). Los contratos visuales,

@@ -42,6 +42,12 @@ Ver el [contrato y sus límites](sqlviz-canvas-contract.md).
 integrado en Run, contador y foco. La identidad/reconciliación y el guardado del
 layout siguen pendientes; no se declara S1 completa.
 
+**Matriz analítica incorporada al alcance central:** la tabla actual es plana.
+El [módulo de matriz](sqlviz-analytical-matrix-spec.md) tiene entregas M1–M9,
+renderer de grilla, medidas/totales por contexto y drag de campos. El primer
+recorrido entra en S3/S4; no se pospone hasta cubrir todas las familias ECharts.
+Su diseño y el desglose de S2 siguientes todavía no habilitan nuevas interacciones.
+
 ## Libertad con límites que se pueden explicar
 
 | Decisión | Regla de producto |
@@ -77,6 +83,11 @@ Los controles del builder se agrupan en Datos, Visual, Formato e Interacción.
 Las opciones nativas aparecen bajo demanda en el mismo espacio de edición.
 Cambiar de nivel no duplica el gráfico ni descarta decisiones anteriores.
 
+La matriz sigue los mismos niveles: automático propone ejes/medidas, builder
+organiza Filas/Columnas/Valores, experto edita configuración tipada de grilla y
+medidas SQL. ECharts native options aplica a gráficos ECharts. Las revisiones,
+bindings, precedencia y publicación son comunes; cada renderer tiene su contrato.
+
 El modelo separa intención del autor y opciones efectivas del renderer. ECharts
 permite separar datos y codificación mediante
 [dataset y encode](https://echarts.apache.org/handbook/en/concepts/dataset/).
@@ -103,9 +114,9 @@ cruzan las capas necesarias manteniendo sus responsabilidades separadas.
 | **S0 — Entregado** | Núcleo de geometría manual | Doce columnas, posiciones y alturas exactas, colisiones, operaciones inmutables y diagnóstico de espacio; pruebas sin HTTP, SQL ni DOM |
 | **S1 — En curso** | Lienzo persistido, primero con controles de posición/tamaño | S1.1a parsing entregado; identidad/reconciliación, contrato HTTP de layout y revisión, escritura atómica, migración ensayada sobre copias, draft/reintento; mismo diseño tras reabrir y compartir |
 | **S2** | Drag/resize y edición reversible | Guías, preview, cancelación, undo/redo y bloqueo; teclado y alternativa por clic/tap; mover no ejecuta SQL ni roba gestos del gráfico |
-| **S3** | Dataset mínimo, visual y panel separados | Una definición alimenta dos visuales; esquema/bindings y revisiones explícitos; SQL reordenado no transfiere personalizaciones |
-| **S4** | Primer recorrido completo de los tres niveles | Automático → builder → JSON nativo → guardar → filtrar → reabrir → viewer → reset/undo, sobre la misma visualización |
-| **S5** | Inferencia y renderizado ampliados | Corpus independiente, multiserie, fechas/unidades/nulos y alternativas explicadas; calidad medida con casos que no replican la implementación |
+| **S3** | Dataset mínimo, visual y panel separados; M1 de matriz | Una definición alimenta dos visuales; esquema/bindings, grano y medidas mínimas con revisiones; SQL reordenado no transfiere personalizaciones |
+| **S4** | Primer recorrido de los tres niveles y matriz M2–M5 | Gráficos y matriz con builder/configuración experta → guardar → filtrar → reabrir → viewer → reset/undo; totales y asociaciones comprobados |
+| **S5** | Inferencia y renderizado ampliados; matriz M6–M7 | Corpus independiente, familias/grilla, fechas/unidades/nulos, formato y escala; calidad medida con casos que no replican la implementación |
 | **S6** | Pantalla/scroll y áreas del dashboard | Aprovechar altura disponible sin recortar; mínimos medidos, fallback explicado, secciones y lectura responsive; diseño desktop preservado |
 | **S7** | Interacciones y experiencia del lector | Filtros versionados y con alcance, crossfilter visible, drill autorizado, reset y navegación contextual; no perder significado al cambiar de dashboard |
 | **S8** | Publicación y acabado | Revisión publicada estable, preview fiel, accesibilidad, rendimiento, estados y exportaciones autorizadas; tareas observadas con usuarios |
@@ -166,6 +177,22 @@ por [WCAG 2.2, movimientos de arrastre](https://www.w3.org/WAI/WCAG22/Understand
 Probar touch, zoom, foco y cancelación, sin declarar conformidad solo por añadir
 botones.
 
+| Parte | Cierre previsto |
+| --- | --- |
+| S2.1 | Operación de gesto sobre geometría S1: ID estable, inicio/preview/confirmación/cancelación, una entrada de undo |
+| S2.2 | Drag desde cabecera con captura de puntero, destino/guías y preview de colisión; ningún vecino cambia sin acción explícita |
+| S2.3 | Resize de ancho/alto, mínimos de contenido y límites de viewport; tiradores siempre recuperables |
+| S2.4 | Alternativas por clic/tap y teclado; touch, autoscroll controlado, zoom y foco; el contenido conserva sus gestos |
+| S2.5 | Undo/redo, bloqueo y guardado por revisión; conflicto/fallo conserva confirmado y draft recuperable |
+| S2.6 | Guardar → recargar → viewer; mismo diseño, sin ejecutar SQL al mover; navegación y modo pantalla/scroll conservados |
+
+Arrastrar campos del builder, ajustar columnas de matriz y mover paneles del
+dashboard son operaciones distintas. La [especificación de matriz](sqlviz-analytical-matrix-spec.md)
+define sus zonas y persistencia. El docking de herramientas del editor es una
+evolución posterior al primer recorrido S4; usa preferencias privadas y no
+reordena consultas ni paneles publicados. No introducir ventanas flotantes como
+requisito para diseñar una matriz.
+
 ### S3–S5: el núcleo visual recibe la mayor inversión
 
 Separar definición de dataset de resultado de ejecución, y visual reutilizable
@@ -179,13 +206,15 @@ flowchart LR
     P --> B[Dashboard y revisión]
     A[Automático] --> V
     U[Visual Builder] --> V
-    E[ECharts JSON nativo] --> V
+    E[Configuración experta por renderer] --> V
 ```
 
 S4 empieza con un caso acotado pero completo: fecha, categoría, ingresos y coste;
 inferencia de campos/series; builder para X/Y/series; ajuste nativo de una línea
 de referencia y leyenda. Las opciones expertas no quedan relegadas al final.
-Primero soportar correctamente línea, barras, KPI y tabla; ampliar después.
+Primero soportar correctamente línea, barras, KPI y tabla; incorporar el flujo
+de matriz M2–M5 dentro de S4 antes de ampliar el catálogo general en S5. La matriz
+requiere medidas con contexto y una grilla propia, además del renderer ECharts.
 
 No basta con JSON sintácticamente válido: validar capacidades, referencias y
 conflictos. Definir edición de listas mediante IDs estables; no aplicar un merge
@@ -206,7 +235,7 @@ con integración y evidencias; no se cierran solo entregando modelos.
 
 | Parte | Alcance y cierre previsto |
 | --- | --- |
-| S3.1 | Dataset/revisión y esquema de salida separado del resultado; permisos y parámetros conservados |
+| S3.1 | Dataset/revisión y esquema de salida separado del resultado; grano/medidas mínimas para M1, permisos y parámetros conservados |
 | S3.2 | Campos/bindings con identidad y diagnósticos de incompatibilidad; una consulta reordenada no transfiere roles |
 | S3.3 | Visual/revisión separada del panel; referencias a uno o varios inputs nombrados, sin asociación por índice |
 | S3.4 | Persistencia, migración y publicación de referencias; un dataset alimenta dos visuales y una visual admite inputs autorizados múltiples |
@@ -215,6 +244,9 @@ con integración y evidencias; no se cierran solo entregando modelos.
 | S4.3 | Compilación al runtime ECharts y registro mínimo de capacidades; tabla/KPI conservan su adaptador de producto |
 | S4.4 | Editor JSON nativo, referencias, IDs y precedencia; sin callbacks arbitrarios, sin restringirlo a ajustes cosméticos |
 | S4.5 | Persistir → filtrar → reabrir → viewer → reset/undo, sobre la misma visualización; errores atómicos y opciones fuera del builder preservadas |
+| S3.M1 | Contrato de matriz: ejes, medidas, grano, claves/celdas y corpus; desglose M1.1–M1.3 en su especificación |
+| S4.M2–M5 | Motor de medidas/contextos, API/persistencia, grilla y builder con drag de campos; primer flujo guardado/reapertura/viewer de matriz |
+| S5.M6–M7 | Formato/semántica avanzada, virtualización/carga progresiva y pruebas de escala de matriz; independiente de la ampliación ECharts |
 | S5.1a | Adaptador AST versionado y diagnóstico estructurado; dialecto/cobertura explícitos y regresión con SQLGlot |
 | S5.1b | Ámbitos y proyecciones: CTE/subconsultas/UNION/ventanas; no confundir agregación interna con salida final |
 | S5.1c | Esquema, alias, linaje/tipos y granularidad con evidencia; ambigüedad explícita, sin usar fingerprint como identidad |
@@ -234,6 +266,10 @@ Los paquetes S5.5 y S5.6 se dividen por familia y componente al iniciarse. Para
 cada uno, el cierre distingue automático, builder y experto según la matriz;
 configurable no significa automáticamente inferible. No posponer en S4 tipos,
 precisión, nulos o rechazo de referencias inválidas a la expansión de S5.
+
+M8 de matriz se integra en S7 para interacción avanzada y M9 en S8 para publicación/
+exportación y tareas de referencia. M1–M9 son partes del plan vigente, no una
+segunda secuencia que posponga permisos, filtros básicos o cálculo correcto.
 
 ### S6: altura y áreas sin trucos visuales
 
@@ -267,8 +303,9 @@ ejecución/persistencia, no crear capas vacías para cada función. No replicar 
 autoridad independiente de geometría en frontend y backend: el cliente necesita
 preview compatible y el servidor confirma el documento completo.
 
-La mayor inversión será S3–S5: contratos visuales, los tres niveles, inferencia y
-significado de los datos. S1–S2 también requieren trabajo sustancial en identidad,
+La mayor inversión será S3–S5: contratos visuales, matriz analítica, motor de
+medidas mínimo, los tres niveles, inferencia y significado de los datos.
+S1–S2 también requieren trabajo sustancial en identidad,
 concurrencia e interacción. Acceso y aislamiento se mantienen en cada entrega;
 roles de equipo, modelado avanzado y ETL no se adelantan para multiplicar alcance.
 

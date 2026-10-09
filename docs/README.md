@@ -21,6 +21,13 @@ el siguiente incremento de código continúa siendo S1.1b.
 
 ## Orden de lectura
 
+La [matriz analítica BI](architecture/sqlviz-analytical-matrix-spec.md) es ahora
+un módulo central pendiente, con entregas M1–M9: jerarquías de filas/columnas,
+medidas, totales por contexto, builder con drag de campos y grilla dedicada.
+Su primer flujo entra en S3/S4 antes de la ampliación general ECharts. El plan
+también divide drag/resize de paneles S2 en seis partes. No confundir esta matriz
+con la tabla plana existente ni con las coordenadas `matrix` de ECharts.
+
 1. [Auditoría del producto y del código](architecture/sqlviz-audit-2026-10-05.md): estado observado, evidencias, riesgos y validación ejecutada.
 2. [Evaluación de buenas prácticas](architecture/sqlviz-engineering-practices-review.md): SOLID, dependencias, invariantes, transacciones, concurrencia y controles de arquitectura.
 3. [Dirección de producto y arquitectura objetivo](architecture/sqlviz-product-architecture.md): decisiones para continuar el desarrollo y límites entre módulos.

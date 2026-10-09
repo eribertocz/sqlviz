@@ -48,6 +48,12 @@ are design goals, not newly supported chart identifiers. See
 [semantic inference](docs/architecture/sqlviz-semantic-inference-architecture.md)
 and the [capability matrix](docs/architecture/sqlviz-visual-capability-matrix.md).
 
+An [analytical BI matrix](docs/architecture/sqlviz-analytical-matrix-spec.md) is
+also a central planned module: hierarchical row/column axes, measures, context-aware
+totals, field drag-and-drop and a dedicated grid renderer. Its first workflow
+belongs to S3/S4, before broad chart expansion. The current flat table does not
+implement it. The Studio plan breaks dashboard panel drag/resize into six increments.
+
 Start with the [documentation index](docs/README.md),
 [target architecture](docs/architecture/sqlviz-product-architecture.md), and
 [current delivery plan](docs/architecture/sqlviz-product-roadmap.md).

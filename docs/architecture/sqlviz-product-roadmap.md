@@ -43,6 +43,13 @@ interacciones y publicación. La mayor inversión será el núcleo visual S3–S
 Migraciones y correcciones de dependencias se entregan según las necesidades de
 cada incremento; no se declara todo E1 cerrado para empezar una interfaz.
 
+La [matriz analítica](sqlviz-analytical-matrix-spec.md) añade entregas M1–M9 al
+plan vigente. Contrato y grano/medidas mínimos en S3, primer flujo funcional con
+totales por contexto y drag de campos en S4, formato/escala en S5 e interacción/
+publicación en S7/S8. No esperar a cubrir todas las familias ECharts ni a E4 para
+calcular totales correctos. S2 tiene seis partes de drag/resize, undo y validación;
+el siguiente incremento inmediato sigue siendo S1.1b.
+
 Cabecera, selector, control de marca y filtros confirmados ya existen, pero no
 cierran el Studio. Presets compartidos, favoritos y URLs/historial conservan su
 alcance futuro. La cancelación efectiva de consultas sigue pendiente:
@@ -217,6 +224,9 @@ SQL generado usa parámetros; permisos se respetan en preview y filtros.
 Una consulta SQL avanzada no se degrada silenciosamente al abrir el editor visual.
 
 ## E4 — Métricas confiables y colaboración
+
+El motor local mínimo de medidas necesario para la matriz se entrega antes, en
+S3/S4. E4 amplía gobernanza/modelado y colaboración; no pospone su corrección.
 
 **Depende de:** E3 y publicación de E2. **Resultado:** los equipos comparten
 definiciones y acceso, además de gráficos.

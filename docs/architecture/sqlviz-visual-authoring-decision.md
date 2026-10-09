@@ -11,6 +11,10 @@ soporte entregado ni a inferir cualquier gráfico de cualquier SQL.
 datasets persistidos ni un editor experto. Prevalece sobre la exclusión anterior
 de opciones nativas en la especificación del Studio.
 
+**Ampliación BI:** la [matriz analítica](sqlviz-analytical-matrix-spec.md) es un
+visual central con grilla y medidas por contexto. Su primer flujo entra en S4;
+no se confunde con la coordenada `matrix` de ECharts.
+
 ## Experiencia y alcance
 
 SQL produce datos; la inferencia propone una visualización; el autor la ajusta.
@@ -28,6 +32,11 @@ convierte automáticamente todo el gráfico ni descarta la configuración visual
 Los ajustes se guardan, reabren y representan también en el viewer. La UI revela
 opciones avanzadas bajo demanda; no incorpora tres espacios de trabajo obligatorios.
 
+La matriz comparte estos niveles. Su builder organiza Filas/Columnas/Valores con
+drag de campos y alternativa por clic; su modo experto usa medidas SQL y JSON
+tipado de grilla. ECharts native options continúa siendo el contrato experto de
+los gráficos ECharts. No forzar opciones de matriz dentro de `EChartsOption`.
+
 ## Motor y contratos
 
 Mantener ECharts como motor inicial. Su configuración nativa puede formar parte
@@ -40,7 +49,9 @@ explícita; la aceptación de este diseño no cambia su versión ni el archivo `
 Vega-Lite y Vega son alternativas válidas para describir gráficos. Vega-Lite
 compila a Vega; escogerlo para renderizar con ECharts añadiría una traducción que
 habría que desarrollar y evaluar. No introducir esa traducción ni otro renderer
-en este incremento. Referencias: [Vega-Lite](https://vega.github.io/vega-lite/),
+de gráficos en esta revisión. La grilla analítica complementa ECharts para
+tablas/matrices del producto; no traduce gráficos a Vega. Referencias:
+[Vega-Lite](https://vega.github.io/vega-lite/),
 [compilación a Vega](https://vega.github.io/vega-lite/usage/compile.html),
 [Vega](https://vega.github.io/vega/).
 

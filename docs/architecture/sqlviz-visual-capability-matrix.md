@@ -16,9 +16,27 @@ ocho identificadores legacy: `kpi`, `line`, `bar`, `bar_horizontal`, `pie`,
 es una variante de barras e histograma requiere una política de bins.
 No equivalen a ocho familias nativas independientes.
 
+## Matriz BI: visual de producto central
+
+La [matriz analítica](sqlviz-analytical-matrix-spec.md) es un módulo propio:
+filas/columnas jerárquicas, múltiples medidas, expansión, subtotales/totales por
+contexto, formato y grilla de carga acotada. La tabla plana actual no lo entrega.
+La coordenada `matrix` de ECharts organiza gráficos; no implementa este pivot BI.
+El inventario del producto incluye gráficos ECharts, KPI, tabla y matriz analítica.
+
+La matriz usa un renderer de grilla y motor de medidas compartido con la semántica
+de datasets, sin obligar a que su configuración sea `EChartsOption`. Básico propone
+roles; builder admite arrastrar campos a Filas/Columnas/Valores; experto ofrece
+configuración de grilla tipada y medidas SQL. ECharts native options permanece
+para los gráficos ECharts. No se modifica el enum/API legacy en esta revisión.
+
+El primer flujo de matriz M1–M5 entra en S3/S4, antes de la expansión general S5.
+M6–M9 amplían formato, escala, interacción y publicación. Su cobertura se valida
+independientemente de las 23 familias core; no queda oculta bajo la fila `custom`.
+
 Que una biblioteca esté instalada no implica que SQLviz soporte todos sus tipos.
 Ampliar un enum sin bindings, adaptación, persistencia y renderizado no entrega
-cobertura. Esta matriz no amplía el PATCH legacy ni sustituye `VisualSpec` v1.
+cobertura. Este inventario no amplía el PATCH legacy ni sustituye `VisualSpec` v1.
 
 ## Tres niveles sobre la misma visualización
 
@@ -75,6 +93,7 @@ declarado; que haya una demo no demuestra que el motor de inferencia ya lo haga.
 `calendar`, `matrix`, `polar`, `geo`, `grid`, `singleAxis`, `timeline`, `dataZoom`,
 `visualMap`, `graphic` y texto enriquecido son coordenadas o componentes. La matriz
 interna de ECharts no reemplaza el lienzo de doce columnas del dashboard.
+Tampoco reemplaza la matriz BI del producto.
 Cada componente también necesita cobertura y límites de edición. El experto
 permitirá varias series/coordenadas dentro de una visualización; no asumir
 «una consulta = una serie = un gráfico».

@@ -82,6 +82,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Matriz analítica BI incorporada al alcance central, con módulo M1–M9:
+  jerarquías, medidas/totales por contexto, renderer de grilla y drag de campos.
+  Primer flujo en S3/S4, ampliación de formato/escala en S5 y lectura/publicación
+  en S7/S8. S2 se divide en seis partes para drag/resize de paneles. Es diseño
+  documentado pendiente; la tabla plana y los contratos legacy no cambian.
+
 - Diseño de inferencia y cobertura visual ampliado: AST por ámbitos, linaje,
   evidencias/abstención, inputs SQL nombrados y adaptadores de forma; matriz de
   23 familias ECharts core y dependencias GL/custom. S3–S5 ahora tiene partes

@@ -228,6 +228,13 @@ completo y conectores permanecen en E3.
 Polars y un grafo de transformaciones requieren un runtime propio con límites y
 dependencias; incorporarlos cuando casos reales lo justifiquen, después del Studio.
 
+**Semántica mínima para la matriz, en S3/S4.** Grano, medidas locales y cálculo
+por contexto son prerrequisitos de la [matriz analítica](sqlviz-analytical-matrix-spec.md).
+Totales de ratios, promedios y distintos no se obtienen sumando celdas. Este
+alcance acotado se adelanta a la gobernanza de métricas de equipos y modelado
+general descritos a continuación. La matriz tiene grilla dedicada; comparte
+dataset/visual/panel y permisos con los gráficos ECharts.
+
 **Después semántica explícita.** Dimensiones, métricas, tiempo, granularidad y
 relaciones con cardinalidad. Definir medidas aditivas/no aditivas, razón de sumas
 frente a promedio de razones, moneda y comparación de periodos. Evitar dobles

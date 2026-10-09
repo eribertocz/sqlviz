@@ -6,6 +6,11 @@ Amplía la [decisión de autoría](sqlviz-visual-authoring-decision.md) y el
 la política de ejecución ni el formato `.sqlviz`. El siguiente incremento de
 código sigue siendo S1.1b: identidad y reconciliación.
 
+La [matriz analítica](sqlviz-analytical-matrix-spec.md) amplía el objetivo BI:
+jerarquías cruzadas, medidas y totales por contexto. Tiene grilla dedicada y
+contratos propios, no se resuelve con la coordenada `matrix` de ECharts. Su
+semántica local mínima se entrega en S3/S4, antes del modelado gobernado general.
+
 ## Qué usamos y dónde está el límite actual
 
 La instalación revisada usa SQLGlot 30.11.0 y ECharts 6.1.0. SQLGlot genera el
@@ -57,8 +62,11 @@ flowchart TD
     H --> V[Propuestas completas y alternativas]
     V --> I[Intención aceptada del autor]
     B[Visual Builder] --> I
-    N[Opciones nativas] --> I
-    I --> O[Adaptador ECharts y validación]
+    N[Configuración experta] --> I
+    I --> O[Adaptador por renderer y validación]
+    O --> EC[ECharts]
+    O --> G[Grilla analítica]
+    M[Medidas por contexto autorizado] --> G
 ```
 
 Los nombres siguientes describen responsabilidades internas previstas; no son
@@ -73,7 +81,7 @@ una nueva gramática pública ni clases ya entregadas.
 | Compatibilidad de forma | Validar roles, dominios, claves y estructura antes de puntuar familias. Informar campos/metadatos faltantes y adaptaciones necesarias |
 | Propuesta visual | Familia, bindings por identidad, series/componentes, formato, tratamiento explícito de datos, alternativas y razones. No solo `chart_type` |
 | Intención confirmada | Propuesta aceptada, ajustes del builder y ajustes expertos versionados. La nueva recomendación no reemplaza decisiones manuales |
-| Renderizado efectivo | Datos autorizados actuales + intención + capacidades de la versión del motor. Validar referencias y producir opciones sin persistir copias de resultados |
+| Renderizado efectivo | Datos autorizados actuales + intención + capacidades del renderer. ECharts o grilla de matriz, con medidas calculadas por contexto; validar referencias sin persistir copias de resultados |
 
 SQLGlot queda detrás del adaptador de análisis. Los contratos de dominio no
 exponen sus clases como formato persistido ni como API pública; las actualizaciones
@@ -147,6 +155,12 @@ estructurada. Mapas, iconos y renderizadores son recursos de presentación,
 no un motivo para exigir Python o un nuevo lenguaje de consultas al usuario.
 
 ## Experiencia propuesta: mostrar posibilidades y lo que falta
+
+La matriz cruza ejes y evalúa medidas en cada contexto de filas/columnas/filtros.
+No se arma solamente pivotando la muestra del gráfico ni sumando porcentajes.
+El AST y la granularidad ayudan a detectar límites de rollup; el motor de medidas
+calcula o rechaza lo no resoluble. La inferencia propone roles, pero no prueba
+aditividad solo por el tipo numérico o nombre de la columna.
 
 Al ejecutar, ofrecer una propuesta completa y un catálogo contextual: «Disponible»,
 «Requiere asignar campos» o «Requiere recurso/extensión». Una red con dos inputs
