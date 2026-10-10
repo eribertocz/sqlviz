@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path
 from fastapi.responses import JSONResponse
+from sqlviz_storage.sql_run_completion import record_sql_run
 from sqlviz_storage.sql_script_repository import (
     SqlDefinitionConflict,
     SqlScriptRepository,
@@ -12,8 +13,9 @@ from sqlviz_storage.sql_script_repository import (
 )
 from sqlviz_storage.transactions import project_transaction
 
-from sqlviz_api.dependencies import DbDep, SqlAuthoringDep
+from sqlviz_api.dependencies import DbDep, SqlAuthoringDep, SqlRunReceiptsDep
 from sqlviz_api.routers.compose import compose_items
+from sqlviz_api.services.sql_run_receipts import SqlRunReceiptError
 from sqlviz_api.sql_commit_contract import (
     CreatedSqlPanelResponse,
     SqlCommitRequest,
@@ -23,7 +25,11 @@ from sqlviz_api.sql_commit_contract import (
     SqlScriptPanelResponse,
     SqlSnapshotResponse,
 )
-from sqlviz_api.sql_execution_contract import BoundComposeRequest
+from sqlviz_api.sql_execution_contract import (
+    BoundComposeRequest,
+    CompleteSqlRunRequest,
+    CompleteSqlRunResponse,
+)
 from sqlviz_api.sql_identity_adapter import identity_decisions
 
 router = APIRouter(
@@ -116,7 +122,7 @@ def commit_script(
     },
 )
 def compose_definition(
-    dashboard_id: DashboardId, body: BoundComposeRequest, db: DbDep,
+    dashboard_id: DashboardId, body: BoundComposeRequest, db: DbDep, receipts: SqlRunReceiptsDep,
 ) -> JSONResponse:
     if body.definition.dashboard_id != dashboard_id:
         raise SqlDefinitionConflict("Definition belongs to another dashboard")
@@ -126,8 +132,36 @@ def compose_definition(
         ids = [binding.panel_id for binding in snapshot.publication.bindings]
         if [item.panel_id for item in body.panels] != ids:
             raise SqlDefinitionConflict("Composition does not cover the requested definition")
-        # The reference covers the metadata snapshot used for composition, not
-        # a shared analytical data snapshot or a cryptographic execution proof.
+        verified = [receipts.verify_execution(
+            item.execution_receipt, body.definition.to_domain(), item.panel_id,
+            item.inference_result.wire_result(),
+        ) if item.execution_receipt is not None else False for item in body.panels]
+        composed = compose_items(body.panels, db)
+        rows = composed["rows"]
+        assert isinstance(rows, list)
+        emitted_ids = [panel["panel_id"] for row in rows for panel in row["panels"]]
+        if sorted(emitted_ids) != sorted(ids):
+            raise SqlRunReceiptError("Composition did not preserve complete panel coverage")
+        # Unattested legacy author compositions still work, but cannot mint a
+        # completion proof. A successful empty query is executed; a fallback isn't.
+        complete = bool(verified) and all(verified)
         return JSONResponse(content={
-            **compose_items(body.panels, db), "definition": body.definition.model_dump(),
+            **composed, "definition": body.definition.model_dump(),
+            "completion_receipt": (
+                receipts.completion(body.definition.to_domain()) if complete else None
+            ),
         })
+
+
+@router.post("/complete", response_model=CompleteSqlRunResponse, responses={
+    409: {"description": "Definition changed, a newer Run completed, or proof is invalid/expired"},
+    422: {"description": "Invalid completion contract"},
+})
+def complete_run(dashboard_id: DashboardId, body: CompleteSqlRunRequest,
+                 db: DbDep, receipts: SqlRunReceiptsDep) -> CompleteSqlRunResponse:
+    if body.definition.dashboard_id != dashboard_id:
+        raise SqlDefinitionConflict("Definition belongs to another dashboard")
+    completed_at = receipts.verify_completion(body.completion_receipt, body.definition.to_domain())
+    result = record_sql_run(db, body.definition.to_domain(), completed_at)
+    return CompleteSqlRunResponse(definition=body.definition,
+                                  last_run_at=result.last_run_at, last_run_sql=result.last_run_sql)

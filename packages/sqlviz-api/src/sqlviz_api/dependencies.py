@@ -15,6 +15,7 @@ from sqlviz_api.services.dashboards import DashboardDeletionService
 from sqlviz_api.services.parameters import ParameterService
 from sqlviz_api.services.queries import QueryService
 from sqlviz_api.services.sql_authoring import SqlAuthoringService
+from sqlviz_api.services.sql_run_receipts import SqlRunReceipts
 from sqlviz_api.services.sql_scripts import SqlScriptService
 
 
@@ -81,3 +82,10 @@ def get_sql_authoring(
 
 
 SqlAuthoringDep = Annotated[SqlAuthoringService, Depends(get_sql_authoring)]
+
+
+def get_sql_run_receipts(request: Request) -> SqlRunReceipts:
+    return request.app.state.sql_run_receipts  # type: ignore[no-any-return]
+
+
+SqlRunReceiptsDep = Annotated[SqlRunReceipts, Depends(get_sql_run_receipts)]

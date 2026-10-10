@@ -11,6 +11,8 @@ from sqlviz_api.sql_script_contract import PanelRef
 DefinitionRevision = Annotated[
     str, Field(pattern=r"^sql-definition-v1:[0-9a-f]{64}$", min_length=82, max_length=82)
 ]
+RunReceipt = Annotated[str, Field(min_length=1, max_length=2048,
+                                pattern=r"^[A-Za-z0-9_-]+\.[0-9a-f]{64}$")]
 
 
 class _ReferenceContract(BaseModel):
@@ -40,6 +42,7 @@ class ExecutionReferenceInput(_ReferenceContract):
 
 class BoundComposeItem(ComposeItem):
     execution_reference: ExecutionReferenceInput
+    execution_receipt: RunReceipt | None = None
 
 
 class BoundComposeRequest(BaseModel):
@@ -58,3 +61,15 @@ class BoundComposeRequest(BaseModel):
         ):
             raise ValueError("Composition references must match the definition and panels")
         return self
+
+
+class CompleteSqlRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    definition: DefinitionReferenceInput
+    completion_receipt: RunReceipt
+
+
+class CompleteSqlRunResponse(BaseModel):
+    definition: DefinitionReferenceInput
+    last_run_at: str
+    last_run_sql: str

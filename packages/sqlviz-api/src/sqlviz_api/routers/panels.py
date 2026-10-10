@@ -40,7 +40,7 @@ from sqlviz_storage.panel_view_overrides import (
 from sqlviz_storage.sql_script_repository import SqlDefinitionConflict, SqlScriptRepository
 from sqlviz_storage.transactions import project_transaction
 
-from sqlviz_api.dependencies import DbDep, ParametersDep, QueriesDep
+from sqlviz_api.dependencies import DbDep, ParametersDep, QueriesDep, SqlRunReceiptsDep
 from sqlviz_api.models import (
     ExecuteBody,
     FilterDomainBody,
@@ -214,7 +214,7 @@ def _render_contract(
 
 def _execution_response(
     content: dict[str, Any], db: DbDep, panel: PanelResponse,
-    definition: DefinitionReferenceInput | None,
+    definition: DefinitionReferenceInput | None, receipts: SqlRunReceiptsDep,
 ) -> JSONResponse:
     """Verify fallback provenance after calculation; no metadata writes."""
     if definition is None:
@@ -223,7 +223,9 @@ def _execution_response(
         SqlScriptRepository(db).require_definition(definition.to_domain())
         return JSONResponse(content={**content, "execution_reference": ExecutionReferenceInput(
             panel_id=panel.id, definition=definition,
-        ).model_dump()})
+        ).model_dump(), "execution_receipt": receipts.execution(
+            definition.to_domain(), panel.id, content["inference_result"], executed=False,
+        ), "query_executed": False})
 
 
 def _inference_only_response(
@@ -233,6 +235,7 @@ def _inference_only_response(
     debug: bool,
     panel: PanelResponse,
     queries: QueriesDep,
+    receipts: SqlRunReceiptsDep,
     definition: DefinitionReferenceInput | None = None,
 ) -> JSONResponse:
     """Render the filter bar without data when the query can't be executed.
@@ -265,7 +268,7 @@ def _inference_only_response(
     return _execution_response({
         "inference_result": _render_contract(db, panel, result),
         "data": [],
-    }, db, panel, definition)
+    }, db, panel, definition, receipts)
 
 
 @router.post(
@@ -278,6 +281,7 @@ def execute_panel(
     principal: ReaderDep,
     queries: QueriesDep,
     parameters: ParametersDep,
+    receipts: SqlRunReceiptsDep,
     body: ExecuteBody | None = Body(default=None),
     debug: bool = Query(default=False),
 ) -> JSONResponse:
@@ -338,7 +342,7 @@ def execute_panel(
     if plan.sql is None:
         # A variable outside a predicate cannot safely mean All. Render its
         # controls without data until a concrete value is supplied.
-        return _inference_only_response(sql, db, brain, debug, panel, queries, definition)
+        return _inference_only_response(sql, db, brain, debug, panel, queries, receipts, definition)
 
     try:
         execution = queries.execute(
@@ -356,11 +360,13 @@ def execute_panel(
         return _execution_response({
             "inference_result": _render_contract(db, panel, result),
             "data": [],
-        }, db, panel, definition)
+        }, db, panel, definition, receipts)
     except duckdb.Error as exc:
         # First Run / all-"All": reveal the filter bar instead of failing hard.
         if is_reveal:
-            return _inference_only_response(sql, db, brain, debug, panel, queries, definition)
+            return _inference_only_response(
+                sql, db, brain, debug, panel, queries, receipts, definition,
+            )
         if plan.bindings:
             raise HTTPException(
                 status_code=422, detail="SQL could not execute with these filter values"
@@ -402,11 +408,15 @@ def execute_panel(
             )
             _update_dashboard_classification(db, panel_id, col_names)
             rendered = _render_contract(db, _to_response(current), result)
-        content = {"inference_result": rendered, "data": data}
+        content: dict[str, Any] = {"inference_result": rendered, "data": data}
         if definition is not None:
             content["execution_reference"] = ExecutionReferenceInput(
                 panel_id=panel_id, definition=definition,
             ).model_dump()
+            content["execution_receipt"] = receipts.execution(
+                definition.to_domain(), panel_id, rendered, executed=True,
+            )
+            content["query_executed"] = True
         return JSONResponse(content=content)
 
     return JSONResponse(content={

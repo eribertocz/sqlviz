@@ -102,10 +102,10 @@ solicitud; no confirma todavía que coincidan con el commit previo de Run.
   pérdida de respuesta; reintentar con el mismo token no duplica creaciones.
 - Completar autosave/recarga y coherencia del cache ante otros editores y cambios
   legacy, preservando borrador y estado confirmado.
-- Completar el registro condicionado de éxito. Run ya valida la definición de
-  consulta/composición, pero su PATCH legacy puede registrar la fuente anterior
-  si hay un cambio posterior a composición. No hay snapshot analítico común del
-  lote; lectores/refrescos legacy no se ligan todavía a una definición esperada.
+- **1c entregado:** [cierre verificado de Run](sqlviz-sql-run-completion.md), recibos
+  firmados y registro condicionado a definición vigente, con fuente/reloj del
+  servidor. El PATCH de última ejecución deja de admitirse. No hay snapshot
+  analítico común del lote; lectores/refrescos legacy no se ligan todavía a una definición.
 
 Crear el primer dashboard sigue siendo una operación separada del commit de sus
 paneles. Si el commit posterior falla, puede quedar el dashboard sin paneles;
@@ -130,7 +130,7 @@ verifican a 1440 × 1000 y 390 × 650; sin errores JavaScript. Persisten los avi
 conocidos de teardown Svelte y tamaño de chunks. Artefactos en
 `build/sql-run-commit-review/`, ignorados por Git.
 
-Siguiente: **S1.1c.2c.1c**, registro de éxito condicionado, antes de cerrar recarga
-y recuperación.
+Siguiente: **S1.1c.2c.2**, restaurar snapshot/asociaciones al recargar; después,
+borrador y recuperación en 2c.3.
 
 Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

@@ -27,8 +27,10 @@ eliminación explícita, IDs confirmados al guardar y ejecución/composición se
 **S1.1c.2c.1a implementado:** [publicación de inferencia compatible](architecture/sqlviz-inference-publication.md),
 transacción breve de inferencia/clasificación y conflicto seguro ante inputs
 cambiados. **1b implementado:** [definición esperada de Run](architecture/sqlviz-sql-execution-definition.md),
-consultas/fallback y composición ligados al commit confirmado. Sigue **1c**,
-registro de éxito condicionado, antes de recarga y recuperación. No se declara S1 completa.
+consultas/fallback y composición ligados al commit confirmado. **1c implementado:**
+[cierre verificado de Run](architecture/sqlviz-sql-run-completion.md), recibos del
+servidor y registro atómico condicionado sin reescribir el borrador. Sigue **2c.2**,
+recarga de snapshots/asociaciones; no se declara S1 completa.
 
 **Alcance de inferencia ampliado, pendiente de implementar:**
 [AST, ámbitos, linaje y evidencias](architecture/sqlviz-semantic-inference-architecture.md)

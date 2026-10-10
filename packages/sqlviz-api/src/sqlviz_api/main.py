@@ -75,6 +75,7 @@ from sqlviz_api.routers.auth import require_admin
 from sqlviz_api.services.access import AuthorizationService
 from sqlviz_api.services.parameters import ParameterService
 from sqlviz_api.services.queries import QueryFailure, QueryLimits, QueryService
+from sqlviz_api.services.sql_run_receipts import SqlRunReceiptError, SqlRunReceipts
 from sqlviz_api.services.sql_scripts import SqlScriptService
 
 
@@ -110,6 +111,14 @@ def create_app(
     app.state.queries = QueryService(query_limits, parameter_limits=parameter_limits)
     app.state.parameters = ParameterService(parameter_limits)
     app.state.sql_scripts = SqlScriptService()
+    app.state.sql_run_receipts = SqlRunReceipts()
+
+    @app.exception_handler(SqlRunReceiptError)
+    async def _run_receipt_failure(request: Request, exc: SqlRunReceiptError) -> JSONResponse:
+        return JSONResponse(status_code=409, content={
+            "detail": "Run proof is invalid or expired. Run the dashboard again.",
+            "code": "sql_run_receipt_invalid",
+        })
 
     @app.exception_handler(SqlReconciliationError)
     async def _sql_identity_failure(request: Request, exc: SqlReconciliationError) -> JSONResponse:

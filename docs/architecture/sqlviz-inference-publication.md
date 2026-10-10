@@ -107,5 +107,6 @@ La referencia futura debe distinguir definiciones de metadata derivada. El token
 de snapshot actual incluye timestamps e inferencia: cambia tras una publicación
 normal y no puede reutilizarse sin más como referencia esperada del lote.
 
-**Siguiente: S1.1c.2c.1c**, registro de éxito condicionado del lado servidor antes
-de continuar con recarga y recuperación.
+**1c entregado:** [cierre verificado de Run](sqlviz-sql-run-completion.md), pruebas
+firmadas y registro condicionado a definición vigente. **Siguiente: 2c.2**,
+recarga del snapshot y asociaciones; después, recuperación.

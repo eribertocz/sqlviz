@@ -106,9 +106,11 @@ short transaction, conditional on the captured SQL and manual chart choice.
 Concurrent edits return a safe conflict instead of saving obsolete inference.
 Author Run carries a separate definition reference through execution and
 composition, rejecting incompatible SQL, panel sets and response references.
-Conditional success recording remains pending.
+Run success now requires server-signed execution/composition receipts and an
+atomic definition check; draft PATCH cannot forge last-run metadata.
 See [inference publication and its limits](docs/architecture/sqlviz-inference-publication.md).
 See [Run definition references](docs/architecture/sqlviz-sql-execution-definition.md).
+See [verified Run completion and limits](docs/architecture/sqlviz-sql-run-completion.md).
 
 ## Architecture today
 

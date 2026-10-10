@@ -23,8 +23,12 @@ del árbol de carpetas. Un dashboard inexistente devuelve 404, también para `{}
 | `sort_order` | Entero estricto entre −2³¹ y 2³¹−1, incluido cero | Rechazado |
 | `description` | String de hasta 16 384 caracteres | Borra la descripción |
 | `sql_content` | Texto exacto del borrador, hasta 1 MiB en UTF-8; `""` válido | Rechazado |
-| `last_run_at` | Timestamp ISO parseable, con separador `T` y zona horaria | Borra el timestamp |
-| `last_run_sql` | Texto exacto, hasta 1 MiB en UTF-8; `""` válido | Borra el SQL de última ejecución |
+
+**Actualización S1.1c.2c.1c — 2026-10-09:** `last_run_at` y `last_run_sql` son
+campos de respuesta administrados por el servidor. Incluirlos en PATCH, incluso
+con null, devuelve 422 sin guardar ningún campo. El [cierre verificado de Run](sqlviz-sql-run-completion.md)
+los guarda con prueba del servidor y definición vigente. Core/repositorio siguen
+validando esos campos para escrituras internas confiables, sin admitirlos por HTTP.
 
 Los IDs compuestos solo por espacios se rechazan. `""` se normaliza a `null` en
 `folder_id`, `connection_id` y `description`; conserva el borrado heredado de

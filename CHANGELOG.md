@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Breaking
 
+- Última ejecución pasa a ser metadata del servidor: PATCH de dashboards rechaza
+  `last_run_at`/`last_run_sql`. Run requiere recibos firmados de ejecución/composición
+  y `/sql-script/complete`; frontend/backend deben actualizarse juntos.
+
 - Run requiere `definition_revision` en el snapshot/commit, ejecución con
   referencia de definición y composición de autor `/sql-script/compose`.
   Rechaza recibos incompatibles y no vuelve al contrato legacy ante fallos.
@@ -33,12 +37,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- S1.1c.2c.1c: recibos app-local con HMAC-SHA256, hash de inferencia, ID/definición
+  y expiración de 15 minutos. Solo consultas reales y composición completa producen
+  prueba de éxito; fallback o script vacío no lo registran. Cierre transaccional
+  verifica definición vigente, usa fuente exacta/reloj del servidor y preserva
+  borrador; rollback ante cambios concurrentes/COMMIT fallido. Reintentos válidos
+  conservan el timestamp y pruebas antiguas no reemplazan un cierre más reciente.
+  Reiniciar app invalida recibos pendientes; no hay snapshot común de datos,
+  ledger durable ni recuperación de commits con respuesta perdida.
+
 - S1.1c.2c.1b: referencia de definición independiente de borrador, inferencia y
   presentación. Run la transmite y comprueba en consultas/fallbacks y composición
   tipada de autor; cubre el script completo, IDs/orden y cambios concurrentes de
   paneles vecinos con rollback. Recibos incompatibles no publican vista ni
   registran éxito, conservando IDs guardados. Registro verificado del lado servidor
-  sigue en 1c; no constituye un snapshot común de datos ni firma de resultados.
+  se completa en 1c; la referencia sola no es un snapshot común ni firma de resultados.
 
 - S1.1c.2c.1a: publicación de inferencia de consultas reales del autor condicionada
   al SQL y elección manual de gráfico capturados; inferencia y clasificación en

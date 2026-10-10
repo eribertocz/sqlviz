@@ -19,11 +19,15 @@ def seeded(client):
         "connection_id": "source-ref",
     }).json()
     response = client.patch(f"/api/v1/dashboards/{dashboard['id']}", json={
-        "sql_content": "SELECT 1", "last_run_sql": "SELECT 0",
-        "last_run_at": "2026-10-07T12:00:00Z",
+        "sql_content": "SELECT 1",
     })
     assert response.status_code == 200, response.text
-    return response.json()
+    client.app.state.db_conn.execute(
+        "UPDATE dashboards SET last_run_sql = 'SELECT 0', "
+        "last_run_at = '2026-10-07T12:00:00Z' WHERE id = ?",
+        [dashboard['id']],
+    )
+    return client.get(f"/api/v1/dashboards/{dashboard['id']}").json()
 
 
 def snapshot(client):
@@ -33,7 +37,7 @@ def snapshot(client):
 
 
 @pytest.mark.parametrize("field", [
-    "folder_id", "connection_id", "description", "last_run_at", "last_run_sql",
+    "folder_id", "connection_id", "description",
 ])
 def test_null_clears_only_the_supplied_nullable_field(client, field):
     before = seeded(client)
@@ -88,14 +92,13 @@ def test_draft_and_last_run_keep_exact_text_and_can_be_cleared_independently(cli
     dashboard = seeded(client)
     draft = "-- texto español\r\nSELECT 'a;b' AS text;\n\n"
     response = client.patch(f"/api/v1/dashboards/{dashboard['id']}", json={
-        "sql_content": draft, "last_run_sql": draft,
-        "last_run_at": "2026-10-07T12:00:00.123Z", "sort_order": 0,
+        "sql_content": draft, "sort_order": 0,
     })
     assert response.status_code == 200 and response.json()["sql_content"] == draft
-    assert response.json()["last_run_sql"] == draft
+    assert response.json()["last_run_sql"] == "SELECT 0"
     cleared = client.patch(f"/api/v1/dashboards/{dashboard['id']}", json={"sql_content": ""})
     assert cleared.status_code == 200 and cleared.json()["sql_content"] == ""
-    assert cleared.json()["last_run_sql"] == draft
+    assert cleared.json()["last_run_sql"] == "SELECT 0"
 
 
 @pytest.mark.parametrize("with_placement", [False, True])

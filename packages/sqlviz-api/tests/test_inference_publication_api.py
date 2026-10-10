@@ -17,9 +17,10 @@ def seeded(client, sql="SELECT 42 AS answer"):
     panel = client.post("/api/v1/panels", json={
         "dashboard_id": dashboard, "name": "P", "sql_content": sql,
     }).json()
-    client.patch(f"/api/v1/dashboards/{dashboard}", json={
-        "last_run_at": "2026-10-08T12:00:00+00:00", "last_run_sql": "previous source",
-    })
+    client.app.state.db_conn.execute(
+        "UPDATE dashboards SET last_run_at = ?, last_run_sql = ? WHERE id = ?",
+        ["2026-10-08T12:00:00+00:00", "previous source", dashboard],
+    )
     return panel
 
 

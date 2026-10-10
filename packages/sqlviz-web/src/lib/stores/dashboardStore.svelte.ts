@@ -1,7 +1,7 @@
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { apiDelete, apiGet, apiPatch, apiPost, recompose, type ExecResult } from '$lib/api';
-import { requireSqlExecution, recomposeSqlRun, type BoundExecResult } from '$lib/sql/sqlExecution';
+import { requireSqlExecution, recomposeSqlRun, completeSqlRun, type BoundExecResult } from '$lib/sql/sqlExecution';
 import type { DashboardInfo, DashboardLayout, FilterControl, FilterDomain, FolderInfo, InferenceResult } from '$lib/types';
 import { dashboardCache } from './dashboardCache.svelte';
 import { editorRef } from './editorRef';
@@ -471,26 +471,25 @@ export function createDashboardStore() {
             const composed = await recomposeSqlRun(results, committed.definition);
             if (!isCurrent()) return;
             executedResults = results;
-            layout = composed;
+            layout = composed.layout;
             executedSource = ranSql;
             filterValues.reset();
             executionStore.statusMsg = null;
 
-            // This acknowledgement records execution only. Never overwrite a
-            // newer editor draft with the SQL that happened to finish running.
-            if (results.length) {
-                const runAt = new Date().toISOString();
+            // The server verifies actual execution and current definitions;
+            // its acknowledgement cannot overwrite a newer editor draft.
+            if (composed.completionReceipt !== null) {
                 try {
-                    await apiPatch(`/api/v1/dashboards/${activeDashId}`, {
-                        last_run_at: runAt, last_run_sql: ranSql,
-                    });
+                    const completed = await completeSqlRun(composed.completionReceipt, committed.definition, ranSql);
                     if (!isCurrent()) return;
-                    lastRunAt = runAt;
-                    lastRunSql = ranSql;
+                    lastRunAt = completed.lastRunAt;
+                    lastRunSql = completed.lastRunSql;
                     confirmedSqlIdentity = savedIdentity;
                 } catch {
                     if (isCurrent()) executionStore.errorMsg = 'Definitions saved and queries executed. Could not record the last run.';
                 }
+            } else if (results.length) {
+                executionStore.errorMsg = 'Definitions saved. Some queries could not execute or need filter values. This run was not recorded as successful.';
             }
 
             // Load rich-control domains (dropdown options / slider bounds).

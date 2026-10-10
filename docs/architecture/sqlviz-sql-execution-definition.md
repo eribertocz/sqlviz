@@ -8,7 +8,8 @@ si hubiera ejecutado el que el autor confirmó.
 La [publicación de inferencia de 1a](sqlviz-inference-publication.md) comprueba los
 inputs leídos por una consulta. Este incremento conecta esa comprobación con el
 [commit confirmado por Run](sqlviz-sql-run-atomic-commit.md) y el conjunto completo
-de paneles del script. El registro condicionado de última ejecución sigue en 1c.
+de paneles del script. El [registro condicionado de 1c](sqlviz-sql-run-completion.md)
+está entregado y añade recibos firmados; las referencias de 1b siguen sin ser firmas.
 
 ## Dos referencias con responsabilidades diferentes
 
@@ -95,12 +96,12 @@ autor debe revisar/reintentar; no se cambia silenciosamente la revisión esperad
 
 La referencia de una respuesta describe su procedencia; no es una firma del
 resultado ni prueba de que un cliente haya ejecutado consultas. Composición sigue
-recibiendo inferencias del autor. **1c debe verificar ejecución del lado servidor
-antes de registrar éxito; no basta confiar en una referencia declarada.**
+recibiendo inferencias del autor. **1c ya verifica recibos firmados del servidor
+antes de registrar éxito; no confía en la referencia declarada.**
 
-Todavía queda el PATCH legacy de `last_run_at`/`last_run_sql`: un cambio de SQL
-posterior a composición puede llegar antes de ese registro. Esa carrera se cierra
-en **S1.1c.2c.1c**. Tampoco hay un snapshot analítico común del lote, protección de
+**1c reemplaza el PATCH de `last_run_at`/`last_run_sql`** por un cierre transaccional
+con prueba de composición y definición vigente; se rechazan esos campos por PATCH.
+No hay un snapshot analítico común del lote, protección de
 todos los refrescos de filtros/lectores, publicación estable del viewer, adopción
 idempotente tras respuesta perdida ni restauración de bindings al recargar.
 
@@ -132,5 +133,5 @@ Se conserva la copia de preview mediante cierre ordenado y respaldo antes de
 actualizar el backend; no se toca el proyecto o aprendizaje reales del usuario.
 Persisten los avisos conocidos de teardown Svelte y tamaño de chunks.
 
-Ver el [plan operativo](sqlviz-studio-delivery-plan.md). **Siguiente: 1c**, registro
-de éxito condicionado; después, recarga de snapshots y recuperación de borradores.
+Ver el [plan operativo](sqlviz-studio-delivery-plan.md). **Siguiente: 2c.2**,
+recarga de snapshots y asociaciones; después, recuperación de borradores.

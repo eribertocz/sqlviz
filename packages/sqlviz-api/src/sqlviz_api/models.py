@@ -78,8 +78,6 @@ class DashboardUpdate(BaseModel):
     sort_order: int | None = Field(default=None, ge=-(2**31), le=2**31 - 1)
     description: str | None = Field(default=None, max_length=MAX_DASHBOARD_DESCRIPTION_LENGTH)
     sql_content: str | None = None   # Draft editor text (auto-saved).
-    last_run_at: str | None = None   # ISO timestamp of the last successful run.
-    last_run_sql: str | None = None  # Exact SQL of the last successful run.
     # Omission preserves placement; null (or legacy "") moves to root.
 
     def changes(self) -> DashboardChanges:

@@ -201,6 +201,7 @@ def test_fallback_also_returns_a_definition_reference(client, monkeypatch, sourc
     result = response.json()
     assert result["data"] == [] and result["inference_result"]["fallback_applied"]
     assert result["execution_reference"]["definition"] == definition
+    assert result["query_executed"] is False and result["execution_receipt"]
     assert state(client) == before
 
 
@@ -280,7 +281,9 @@ def test_empty_script_still_requires_a_current_definition_when_composing(client)
     prefix, definition, ids = setup_run(client, "-- an intentionally empty dashboard")
     assert ids == []
     response = client.post(prefix + "/compose", json={"definition": definition, "panels": []})
-    assert response.status_code == 200 and response.json() == {"rows": [], "definition": definition}
+    assert response.status_code == 200 and response.json() == {
+        "rows": [], "definition": definition, "completion_receipt": None,
+    }
     client.post(
         "/api/v1/panels",
         json={

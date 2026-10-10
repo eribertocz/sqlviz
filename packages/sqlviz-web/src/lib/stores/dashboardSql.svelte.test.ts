@@ -10,7 +10,10 @@ import { filterValues } from './filterValues.svelte';
 vi.mock('$lib/api', () => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiPatch: vi.fn(), apiDelete: vi.fn(), recompose: vi.fn() }));
 vi.mock('$app/environment', () => ({ browser: false }));
 
-const result = { inference_result: { filter_controls: [] } as unknown as InferenceResult, data: [{ total: 1 }] };
+const proof = `fixture.${'a'.repeat(64)}`;
+const serverRunAt = '2026-10-09T17:00:00.123456+00:00';
+const result = { inference_result: { filter_controls: [] } as unknown as InferenceResult, data: [{ total: 1 }],
+    execution_receipt: proof, query_executed: true };
 const first = "SELECT 'a;b'"; const second = 'SELECT 2 -- tail;';
 const source = `${first};\n${second}`;
 const parsed = { version: 1, dialect: 'duckdb', statements: [
@@ -75,9 +78,12 @@ function transport() {
         if (path.endsWith('/sql-script/compose')) {
             const input = body as { definition: unknown; panels: { panel_id: string; inference_result: InferenceResult }[] };
             const template = await recompose([]);
-            return { ...template, definition: input.definition, rows: template.rows.length ? template.rows : input.panels.length
+            return { ...template, definition: input.definition, completion_receipt: input.panels.length ? proof : null,
+                rows: template.rows.length ? template.rows : input.panels.length
                 ? [{ panels: input.panels.map((panel, index) => ({ ...panel, final_col_span: 6, col_offset: index * 6, row_index: 0, data: [] })) }] : [] };
         }
+        if (path.endsWith('/sql-script/complete')) return { definition: (body as { definition: unknown }).definition,
+            last_run_at: serverRunAt, last_run_sql: saved.draft_source };
         throw new Error(`Unexpected request: ${path}`);
     });
 }
@@ -101,7 +107,9 @@ it('uses native slices for panel SQL, count and exact last-run source', async ()
     expect(vi.mocked(apiPost).mock.calls.filter(([path]) => path.endsWith('/sql-script/commit'))).toHaveLength(1);
     expect(vi.mocked(apiPost).mock.calls.some(([path]) => path === '/api/v1/panels')).toBe(false);
     expect(store.statementCount).toBe(2); expect(store.panelSQLs).toEqual([first, second]);
-    expect(apiPatch).toHaveBeenCalledWith('/api/v1/dashboards/d', expect.objectContaining({ last_run_sql: source }));
+    expect(apiPost).toHaveBeenCalledWith('/api/v1/dashboards/d/sql-script/complete', expect.objectContaining({ completion_receipt: proof }));
+    expect(store.lastRunAt).toBe(serverRunAt);
+    expect(apiPatch).not.toHaveBeenCalled();
 });
 
 it.each(['Invalid syntax', 'Network unavailable'])('a parse failure (%s) performs no panel or dashboard writes', async message => {
@@ -181,7 +189,8 @@ it('retains the exact executed snapshot if the draft changes after execution sta
     await vi.waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/v1/panels/p1/execute', expect.any(Object)));
     store.sql = 'SELECT 3'; response.resolve({ ...result, execution_reference: { version: 1, panel_id: 'p1',
         definition: { version: 1, dashboard_id: 'd', revision: `sql-definition-v1:${'1'.padStart(64, '0')}` } } }); await operation;
-    expect(apiPatch).toHaveBeenCalledWith('/api/v1/dashboards/d', expect.objectContaining({ last_run_sql: source }));
+    expect(store.lastRunAt).toBe(serverRunAt);
+    expect(apiPatch).not.toHaveBeenCalled();
     expect(store.sql).toBe('SELECT 3'); expect(store.canRestoreLastRun).toBe(true);
     store.restoreLastRun();
     expect(store.sqlIdentity?.statements.map(item => item.panel_id)).toEqual(['p1', 'p2']);
@@ -380,11 +389,29 @@ it.each(['execution', 'composition'])('a post-commit %s failure keeps IDs saved 
 });
 
 it('a failed execution acknowledgement does not claim that the definitions were not saved', async () => {
-    transport(); vi.mocked(apiPatch).mockRejectedValueOnce(new Error('Offline'));
+    transport(); const regular = vi.mocked(apiPost).getMockImplementation()!;
+    vi.mocked(apiPost).mockImplementation((path, body) => path.endsWith('/sql-script/complete')
+        ? Promise.reject(new Error('Offline')) : regular(path, body));
     const store = createDashboardStore(); store.sql = source; await store.run();
     expect(store.panelIds).toEqual(['p1', 'p2']); expect(store.executedResults).toHaveLength(2);
     expect(store.sqlRunResolution).toBeNull(); expect(store.lastRunAt).toBeNull();
     expect(executionStore.errorMsg).toContain('Definitions saved and queries executed');
+});
+
+it('a mixed fallback Run preserves controls and never records successful execution', async () => {
+    transport(); const regular = vi.mocked(apiPost).getMockImplementation()!;
+    vi.mocked(apiPost).mockImplementation(async (path, body) => {
+        const response = await regular(path, body) as Record<string, unknown>;
+        if (path === '/api/v1/panels/p2/execute') return { ...response, query_executed: false };
+        if (path.endsWith('/sql-script/compose')) return { ...response, completion_receipt: null };
+        return response;
+    });
+    const store = createDashboardStore(); store.sql = source; await store.run();
+    expect(store.executedResults).toHaveLength(2); expect(store.layout).not.toBeNull();
+    expect(store.panelIds).toEqual(['p1', 'p2']); expect(store.lastRunAt).toBeNull();
+    expect(executionStore.errorMsg).toContain('not recorded as successful');
+    expect(vi.mocked(apiPost).mock.calls.some(([path]) => path.endsWith('/sql-script/complete'))).toBe(false);
+    expect(apiPatch).not.toHaveBeenCalled();
 });
 
 it('explicit removal is submitted in the same commit as kept SQL; cancellation performs no writes', async () => {
@@ -434,7 +461,7 @@ it('a commit acknowledgement does not overwrite text edited while that commit wa
     store.sql = 'SELECT 99'; response.resolve(receipt); await operation;
     expect(store.sql).toBe('SELECT 99'); expect(store.panelIds).toEqual(['p1', 'p2']);
     expect(executionStore.saveStatus).toBe('draft');
-    expect(apiPatch).toHaveBeenCalledWith('/api/v1/dashboards/d', expect.objectContaining({ last_run_sql: source }));
+    expect(store.lastRunAt).toBe(serverRunAt); expect(apiPatch).not.toHaveBeenCalled();
     expect(vi.mocked(apiPatch).mock.calls.every(([, body]) => !('sql_content' in (body as object)))).toBe(true);
 });
 
