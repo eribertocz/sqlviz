@@ -85,6 +85,11 @@ al terminar. Recuperarlo tras cerrar la página durante esa operación sigue en 
 
 ## Qué falta en S1.1c.2c
 
+**1b entregado:** [Run ligado a una definición](sqlviz-sql-execution-definition.md)
+valida el script esperado antes/después de consulta y al componer, incluidos
+fallbacks y cambios de paneles vecinos. La referencia acompaña los recibos y el
+cliente rechaza resultados/layout incompatibles; no es una firma de ejecución.
+
 **1a entregado:** la [publicación de inferencia](sqlviz-inference-publication.md)
 rechaza cambios de SQL/elección de gráfico durante una consulta real del autor
 y guarda inferencia/clasificación juntas. Protege los inputs capturados por esa
@@ -97,10 +102,10 @@ solicitud; no confirma todavía que coincidan con el commit previo de Run.
   pérdida de respuesta; reintentar con el mismo token no duplica creaciones.
 - Completar autosave/recarga y coherencia del cache ante otros editores y cambios
   legacy, preservando borrador y estado confirmado.
-- Vincular la revisión ejecutada a su resultado y registro de éxito. Los endpoints
-  actuales ejecutan la definición que leen en cada solicitud; todavía no congelan
-  un lote de consultas contra cambios concurrentes posteriores al commit. No se
-  declara coherencia de toda la ejecución bajo edición concurrente del SQL.
+- Completar el registro condicionado de éxito. Run ya valida la definición de
+  consulta/composición, pero su PATCH legacy puede registrar la fuente anterior
+  si hay un cambio posterior a composición. No hay snapshot analítico común del
+  lote; lectores/refrescos legacy no se ligan todavía a una definición esperada.
 
 Crear el primer dashboard sigue siendo una operación separada del commit de sus
 paneles. Si el commit posterior falla, puede quedar el dashboard sin paneles;
@@ -125,8 +130,7 @@ verifican a 1440 × 1000 y 390 × 650; sin errores JavaScript. Persisten los avi
 conocidos de teardown Svelte y tamaño de chunks. Artefactos en
 `build/sql-run-commit-review/`, ignorados por Git.
 
-Siguiente: **S1.1c.2c.1b**, referencia de definición esperada para Run y
-composición; después **1c**, registro de éxito condicionado, antes de cerrar
-recarga y recuperación.
+Siguiente: **S1.1c.2c.1c**, registro de éxito condicionado, antes de cerrar recarga
+y recuperación.
 
 Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

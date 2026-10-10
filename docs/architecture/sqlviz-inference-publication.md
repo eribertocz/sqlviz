@@ -6,8 +6,9 @@ Su inferencia no debe escribirse sobre esa nueva definición ni responder como
 si la publicación hubiera sido exitosa.
 
 Este incremento protege la publicación de una consulta ejecutada por el autor.
-Todavía no vincula todo Run con una revisión esperada: ver las siguientes partes
-en el [plan operativo](sqlviz-studio-delivery-plan.md).
+Por sí solo no vincula todo Run con una revisión esperada; esa integración está
+entregada en [1b](sqlviz-sql-execution-definition.md). El registro condicionado
+sigue pendiente en el [plan operativo](sqlviz-studio-delivery-plan.md).
 
 ## Contrato y límite de la transacción
 
@@ -79,7 +80,12 @@ atómicos de Run, conservación de overrides, reintentos, cancelación y elimina
 explícita, también en móvil; ninguna escritura individual de paneles desde Run
 y ningún error JavaScript. No hay cambios de frontend en este incremento.
 
-## Pendiente: referencia de Run y registro condicionado
+## Alcance de 1a y trabajo posterior
+
+**1b entregado:** [referencia de definición de Run](sqlviz-sql-execution-definition.md)
+cubre ejecución/composición y fallback ligados al commit; amplía la barrera de
+escritura a los paneles vecinos del script. Los siguientes límites describen
+1a usado por sí solo, sin esa referencia, y los caminos legacy.
 
 Esto no entrega aislamiento de un lote de consultas. Cada solicitud todavía
 empieza leyendo la definición actual: si cambia entre el commit de Run y esa
@@ -101,6 +107,5 @@ La referencia futura debe distinguir definiciones de metadata derivada. El token
 de snapshot actual incluye timestamps e inferencia: cambia tras una publicación
 normal y no puede reutilizarse sin más como referencia esperada del lote.
 
-**Siguiente: S1.1c.2c.1b**, referencia de definición esperada para ejecución y
-composición de Run. Después, **1c**, registro de éxito condicionado a esa
-definición, antes de continuar con recarga y recuperación.
+**Siguiente: S1.1c.2c.1c**, registro de éxito condicionado del lado servidor antes
+de continuar con recarga y recuperación.

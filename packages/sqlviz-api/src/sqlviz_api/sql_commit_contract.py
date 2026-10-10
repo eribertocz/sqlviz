@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from sqlviz_api.sql_execution_contract import DefinitionRevision
 from sqlviz_api.sql_script_contract import PanelRef, SqlIdentityChoice, SqlScriptParseRequest
 
 ScriptRevision = Annotated[
@@ -45,6 +46,7 @@ class SqlSnapshotResponse(BaseModel):
     version: Literal[1] = 1
     dashboard_id: str
     revision: ScriptRevision
+    definition_revision: DefinitionRevision | None
     draft_source: str
     panels: list[SqlScriptPanelResponse] = Field(max_length=256)
     publication: SqlPublicationResponse | None

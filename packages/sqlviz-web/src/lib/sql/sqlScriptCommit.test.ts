@@ -12,7 +12,8 @@ function fixture(): { resolution: SqlRunResolution; receipt: SqlScriptCommit } {
             { kind: 'create', statement_index: 1, creation_key: 'new' }, { kind: 'remove', panel_id: 'b' }],
     };
     const receipt: SqlScriptCommit = { version: 1, created_panels: [{ creation_key: 'new', panel_id: 'c' }],
-        snapshot: { version: 1, dashboard_id: 'd', revision: `sql-script-v1:${'1'.repeat(64)}`, draft_source: resolution.source,
+        snapshot: { version: 1, dashboard_id: 'd', revision: `sql-script-v1:${'1'.repeat(64)}`,
+            definition_revision: `sql-definition-v1:${'1'.repeat(64)}`, draft_source: resolution.source,
             panels: [{ id: 'a', name: 'A', sql_content: 'SELECT 2', sort_order: 0 },
                 { id: 'c', name: 'New', sql_content: 'SELECT 3', sort_order: 1 }],
             publication: { version: 1, revision: 1, source: resolution.source, bindings: [
@@ -25,16 +26,18 @@ function fixture(): { resolution: SqlRunResolution; receipt: SqlScriptCommit } {
 
 it('adopts only explicit existing IDs and correlated creations from the committed source', () => {
     const { resolution, receipt } = fixture();
-    expect(requireSqlRunCommit(receipt, 'd', resolution)).toEqual({ ids: ['a', 'c'], statements: resolution.statements });
+    expect(requireSqlRunCommit(receipt, 'd', resolution)).toEqual({ ids: ['a', 'c'], statements: resolution.statements,
+        definition: { version: 1, dashboard_id: 'd', revision: receipt.snapshot.definition_revision } });
     expect(receipt.created_panels[0].creation_key).toBe('new');
 });
 
-it.each(['dashboard', 'token', 'same-token', 'source', 'binding', 'offset', 'sql', 'order', 'duplicate', 'missing', 'creation', 'old-id', 'counter'])
+it.each(['dashboard', 'token', 'definition', 'same-token', 'source', 'binding', 'offset', 'sql', 'order', 'duplicate', 'missing', 'creation', 'old-id', 'counter'])
 ('does not execute after an inconsistent %s receipt', field => {
     const { resolution, receipt } = fixture();
     const saved = receipt.snapshot;
     if (field === 'dashboard') saved.dashboard_id = 'foreign';
     if (field === 'token') saved.revision = 'opaque-invalid-token';
+    if (field === 'definition') saved.definition_revision = null;
     if (field === 'same-token') saved.revision = resolution.expectedRevision!;
     if (field === 'source') saved.publication!.source = 'SELECT 99';
     if (field === 'binding') saved.publication!.bindings[0].panel_id = 'b';

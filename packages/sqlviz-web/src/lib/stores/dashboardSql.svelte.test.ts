@@ -43,7 +43,7 @@ function transport() {
     let panels = 0;
     let revision = 0;
     const token = () => `sql-script-v1:${revision.toString(16).padStart(64, '0')}`;
-    let saved = { version: 1, dashboard_id: 'd', revision: token(), draft_source: '',
+    let saved = { version: 1, dashboard_id: 'd', revision: token(), draft_source: '', definition_revision: null as string | null,
         panels: [] as { id: string; name: string; sql_content: string; sort_order: number }[],
         publication: null as unknown };
     vi.mocked(apiGet).mockImplementation(async path => path.endsWith('/sql-script') ? saved : []);
@@ -64,12 +64,20 @@ function transport() {
                 return { statement_index: index, panel_id: id, start_offset: statement.start_offset, end_offset: statement.end_offset };
             });
             revision++;
-            saved = { ...saved, revision: token(), draft_source: input.sql, panels: bindings.map((binding, i) => ({
+            saved = { ...saved, revision: token(), definition_revision: `sql-definition-v1:${revision.toString(16).padStart(64, '0')}`,
+                draft_source: input.sql, panels: bindings.map((binding, i) => ({
                 id: binding.panel_id, name: `Panel ${i + 1}`, sql_content: proposedStatements[i].sql, sort_order: i,
             })), publication: { version: 1, revision, source: input.sql, bindings } };
             return { version: 1, snapshot: saved, created_panels };
         }
-        if (path.endsWith('/execute')) return result;
+        if (path.endsWith('/execute')) return { ...result, execution_reference: { version: 1,
+            panel_id: path.split('/').at(-2), definition: (body as { definition: unknown }).definition } };
+        if (path.endsWith('/sql-script/compose')) {
+            const input = body as { definition: unknown; panels: { panel_id: string; inference_result: InferenceResult }[] };
+            const template = await recompose([]);
+            return { ...template, definition: input.definition, rows: template.rows.length ? template.rows : input.panels.length
+                ? [{ panels: input.panels.map((panel, index) => ({ ...panel, final_col_span: 6, col_offset: index * 6, row_index: 0, data: [] })) }] : [] };
+        }
         throw new Error(`Unexpected request: ${path}`);
     });
 }
@@ -115,7 +123,8 @@ it('comment-only input creates no phantom panel or dashboard', async () => {
 it('a syntax failure preserves the confirmed panels, layout and applied filters', async () => {
     transport();
     vi.mocked(recompose).mockResolvedValue({ rows: [{ panels: [{ panel_id: 'p1', ...result,
-        final_col_span: 6, col_offset: 0, row_index: 0 }] }] });
+        final_col_span: 6, col_offset: 0, row_index: 0 }, { panel_id: 'p2', ...result,
+        final_col_span: 6, col_offset: 6, row_index: 0 }] }] });
     const store = createDashboardStore(); store.sql = source; await store.run();
     const before = { layout: store.layout, results: store.executedResults, panelIds: store.panelIds, panelSQLs: store.panelSQLs };
     filterValues.replace({ period: '2026' }); store.sql = "SELECT 'unfinished";
@@ -169,8 +178,9 @@ it('retains the exact executed snapshot if the draft changes after execution sta
     const regular = vi.mocked(apiPost).getMockImplementation()!;
     vi.mocked(apiPost).mockImplementation((path, body) => path === '/api/v1/panels/p1/execute' ? response.promise : regular(path, body));
     const store = createDashboardStore(); store.sql = source; const operation = store.run();
-    await vi.waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/v1/panels/p1/execute'));
-    store.sql = 'SELECT 3'; response.resolve(result); await operation;
+    await vi.waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/v1/panels/p1/execute', expect.any(Object)));
+    store.sql = 'SELECT 3'; response.resolve({ ...result, execution_reference: { version: 1, panel_id: 'p1',
+        definition: { version: 1, dashboard_id: 'd', revision: `sql-definition-v1:${'1'.padStart(64, '0')}` } } }); await operation;
     expect(apiPatch).toHaveBeenCalledWith('/api/v1/dashboards/d', expect.objectContaining({ last_run_sql: source }));
     expect(store.sql).toBe('SELECT 3'); expect(store.canRestoreLastRun).toBe(true);
     store.restoreLastRun();
@@ -449,4 +459,33 @@ it('confirmation retains the reviewed revision instead of fetching a new token s
     await store.confirmSqlRunResolution();
     expect(vi.mocked(apiGet).mock.calls.filter(([path]) => path.endsWith('/sql-script'))).toHaveLength(1);
     expect(apiPost).toHaveBeenCalledWith('/api/v1/dashboards/d/sql-script/commit', expect.objectContaining({ expected_revision: revision }));
+});
+
+it('Run sends one confirmed definition to every execution and to composition', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    const expected = { version: 1, dashboard_id: 'd', revision: `sql-definition-v1:${'1'.padStart(64, '0')}` };
+    const executions = vi.mocked(apiPost).mock.calls.filter(([path]) => path.endsWith('/execute'));
+    expect(executions).toHaveLength(2);
+    executions.forEach(([, body]) => expect(body).toEqual({ definition: expected }));
+    const composition = vi.mocked(apiPost).mock.calls.find(([path]) => path.endsWith('/sql-script/compose'))!;
+    expect(composition[1]).toEqual(expect.objectContaining({ definition: expected }));
+    expect(vi.mocked(apiPost).mock.calls.some(([path]) => path === '/api/v1/compose')).toBe(false);
+});
+
+it.each(['execution', 'composition'])('a mismatched %s reference cannot enter the view or record success', async stage => {
+    transport(); const regular = vi.mocked(apiPost).getMockImplementation()!;
+    vi.mocked(apiPost).mockImplementation(async (path, body) => {
+        const response = await regular(path, body) as Record<string, unknown>;
+        if (stage === 'execution' && path === '/api/v1/panels/p1/execute') return { ...response,
+            execution_reference: { version: 1, panel_id: 'p1', definition: {
+                version: 1, dashboard_id: 'd', revision: `sql-definition-v1:${'b'.repeat(64)}` } } };
+        if (stage === 'composition' && path.endsWith('/sql-script/compose')) return { ...response,
+            definition: { version: 1, dashboard_id: 'other', revision: `sql-definition-v1:${'b'.repeat(64)}` } };
+        return response;
+    });
+    const store = createDashboardStore(); store.sql = source; await store.run();
+    expect(store.panelIds).toEqual(['p1', 'p2']); expect(store.layout).toBeNull();
+    expect(store.executedResults).toEqual([]); expect(store.lastRunAt).toBeNull();
+    expect(apiPatch).not.toHaveBeenCalled(); expect(executionStore.errorMsg).toContain('Definitions saved.');
+    if (stage === 'execution') expect(vi.mocked(apiPost).mock.calls.some(([path]) => path.endsWith('/sql-script/compose'))).toBe(false);
 });

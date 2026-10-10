@@ -9,6 +9,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Breaking
 
+- Run requiere `definition_revision` en el snapshot/commit, ejecución con
+  referencia de definición y composición de autor `/sql-script/compose`.
+  Rechaza recibos incompatibles y no vuelve al contrato legacy ante fallos.
+  Desplegar frontend y backend compatibles; filtros/lectores mantienen su API.
+
 - Run del workspace requiere parsing/preflight y la API de snapshot/commit del
   script por dashboard. Guarda las definiciones en una sola transacción antes de
   ejecutar; eliminar SQL exige asignar o confirmar la eliminación de los paneles
@@ -27,6 +32,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   también se rechazan; los clientes deben corregir esas entradas.
 
 ### Added
+
+- S1.1c.2c.1b: referencia de definición independiente de borrador, inferencia y
+  presentación. Run la transmite y comprueba en consultas/fallbacks y composición
+  tipada de autor; cubre el script completo, IDs/orden y cambios concurrentes de
+  paneles vecinos con rollback. Recibos incompatibles no publican vista ni
+  registran éxito, conservando IDs guardados. Registro verificado del lado servidor
+  sigue en 1c; no constituye un snapshot común de datos ni firma de resultados.
 
 - S1.1c.2c.1a: publicación de inferencia de consultas reales del autor condicionada
   al SQL y elección manual de gráfico capturados; inferencia y clasificación en

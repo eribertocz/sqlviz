@@ -3,9 +3,17 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Path
-from sqlviz_storage.sql_script_repository import SqlScriptSnapshot
+from fastapi.responses import JSONResponse
+from sqlviz_storage.sql_script_repository import (
+    SqlDefinitionConflict,
+    SqlScriptRepository,
+    SqlScriptSnapshot,
+    definition_revision,
+)
+from sqlviz_storage.transactions import project_transaction
 
-from sqlviz_api.dependencies import SqlAuthoringDep
+from sqlviz_api.dependencies import DbDep, SqlAuthoringDep
+from sqlviz_api.routers.compose import compose_items
 from sqlviz_api.sql_commit_contract import (
     CreatedSqlPanelResponse,
     SqlCommitRequest,
@@ -15,6 +23,7 @@ from sqlviz_api.sql_commit_contract import (
     SqlScriptPanelResponse,
     SqlSnapshotResponse,
 )
+from sqlviz_api.sql_execution_contract import BoundComposeRequest
 from sqlviz_api.sql_identity_adapter import identity_decisions
 
 router = APIRouter(
@@ -36,6 +45,7 @@ def _snapshot_response(snapshot: SqlScriptSnapshot) -> SqlSnapshotResponse:
     return SqlSnapshotResponse(
         dashboard_id=snapshot.dashboard_id,
         revision=snapshot.revision,
+        definition_revision=definition_revision(snapshot),
         draft_source=snapshot.draft_source,
         panels=[
             SqlScriptPanelResponse(
@@ -96,3 +106,28 @@ def commit_script(
             for key, panel_id in committed.created_panels
         ],
     )
+
+
+@router.post(
+    "/compose",
+    responses={
+        409: {"description": "Definition changed; results cannot be composed together"},
+        422: {"description": "Invalid inference contract or inconsistent execution references"},
+    },
+)
+def compose_definition(
+    dashboard_id: DashboardId, body: BoundComposeRequest, db: DbDep,
+) -> JSONResponse:
+    if body.definition.dashboard_id != dashboard_id:
+        raise SqlDefinitionConflict("Definition belongs to another dashboard")
+    with project_transaction(db):
+        snapshot = SqlScriptRepository(db).require_definition(body.definition.to_domain())
+        assert snapshot.publication is not None  # require_definition verified a real publication.
+        ids = [binding.panel_id for binding in snapshot.publication.bindings]
+        if [item.panel_id for item in body.panels] != ids:
+            raise SqlDefinitionConflict("Composition does not cover the requested definition")
+        # The reference covers the metadata snapshot used for composition, not
+        # a shared analytical data snapshot or a cryptographic execution proof.
+        return JSONResponse(content={
+            **compose_items(body.panels, db), "definition": body.definition.model_dump(),
+        })

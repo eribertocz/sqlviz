@@ -104,8 +104,11 @@ The remaining dimension review belongs to S1 in the Studio delivery plan.
 Author executions now publish inference and dashboard classification in one
 short transaction, conditional on the captured SQL and manual chart choice.
 Concurrent edits return a safe conflict instead of saving obsolete inference.
-Full Run revision binding and conditional success recording remain pending.
+Author Run carries a separate definition reference through execution and
+composition, rejecting incompatible SQL, panel sets and response references.
+Conditional success recording remains pending.
 See [inference publication and its limits](docs/architecture/sqlviz-inference-publication.md).
+See [Run definition references](docs/architecture/sqlviz-sql-execution-definition.md).
 
 ## Architecture today
 

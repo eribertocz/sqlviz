@@ -28,10 +28,14 @@ no una reserva ni una autorización para saltarse la comprobación del commit.
 ## Snapshot
 
 La respuesta tiene `version: 1`, `dashboard_id`, `revision`, `draft_source`,
-`panels` y `publication`. Cada panel expone ID, nombre, SQL y orden. La lista se
+`definition_revision`, `panels` y `publication`. Cada panel expone ID, nombre, SQL y orden. La lista se
 ordena por `sort_order`, fecha de creación e ID para resolver empates.
 La revisión cubre también los ajustes y campos persistidos que no se incluyen
 en esta respuesta mínima. **Es un token de estado, no una credencial.**
+
+`definition_revision` es una referencia independiente de definición, nullable,
+para [ejecución/composición de Run](sqlviz-sql-execution-definition.md). Excluye
+borrador, ajustes e inferencia; no sustituye `revision` como precondición del commit.
 
 `publication` es `null` si nunca se publicaron asociaciones explícitas, o si una
 operación legacy cambió SQL o el conjunto de paneles. No se reconstruye por orden

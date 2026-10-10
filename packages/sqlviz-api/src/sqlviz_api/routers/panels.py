@@ -37,6 +37,8 @@ from sqlviz_storage.panel_view_overrides import (
     apply_view_overrides,
     get_view_overrides,
 )
+from sqlviz_storage.sql_script_repository import SqlDefinitionConflict, SqlScriptRepository
+from sqlviz_storage.transactions import project_transaction
 
 from sqlviz_api.dependencies import DbDep, ParametersDep, QueriesDep
 from sqlviz_api.models import (
@@ -60,6 +62,7 @@ from sqlviz_api.serialization import json_safe
 from sqlviz_api.services.access import AccessDenied
 from sqlviz_api.services.parameters import FilterPlan
 from sqlviz_api.services.query_policy import validate_viewer_query
+from sqlviz_api.sql_execution_contract import DefinitionReferenceInput, ExecutionReferenceInput
 
 router = APIRouter(
     prefix="/api/v1/panels", tags=["panels"], dependencies=[Depends(require_reader)],
@@ -209,6 +212,20 @@ def _render_contract(
     )
 
 
+def _execution_response(
+    content: dict[str, Any], db: DbDep, panel: PanelResponse,
+    definition: DefinitionReferenceInput | None,
+) -> JSONResponse:
+    """Verify fallback provenance after calculation; no metadata writes."""
+    if definition is None:
+        return JSONResponse(content=content)
+    with project_transaction(db):
+        SqlScriptRepository(db).require_definition(definition.to_domain())
+        return JSONResponse(content={**content, "execution_reference": ExecutionReferenceInput(
+            panel_id=panel.id, definition=definition,
+        ).model_dump()})
+
+
 def _inference_only_response(
     sql: str,
     db: DbDep,
@@ -216,6 +233,7 @@ def _inference_only_response(
     debug: bool,
     panel: PanelResponse,
     queries: QueriesDep,
+    definition: DefinitionReferenceInput | None = None,
 ) -> JSONResponse:
     """Render the filter bar without data when the query can't be executed.
 
@@ -244,10 +262,10 @@ def _inference_only_response(
         fallback_applied=True,
         fallback_reason="Set filter values to see data",
     )
-    return JSONResponse(content={
+    return _execution_response({
         "inference_result": _render_contract(db, panel, result),
         "data": [],
-    })
+    }, db, panel, definition)
 
 
 @router.post(
@@ -281,6 +299,18 @@ def execute_panel(
     """
     require_panel_access(db, principal, panel_id)
     panel = _fetch_one(db, panel_id)
+    definition = body.definition if body else None
+    if definition is not None:
+        if not principal.is_admin:
+            raise HTTPException(403, "Definition-bound execution requires author access")
+        if panel.dashboard_id != definition.dashboard_id:
+            raise SqlDefinitionConflict("Panel does not belong to the requested definition")
+        with project_transaction(db):
+            snapshot = SqlScriptRepository(db).require_definition(definition.to_domain())
+            current = next((item for item in snapshot.panels if item.id == panel_id), None)
+            if current is None:
+                raise SqlDefinitionConflict("Panel is absent from the requested definition")
+            panel = _to_response(current)
     sql = panel.sql_content
     raw_vars: dict[str, Any] = body.variables if body else {}
 
@@ -308,7 +338,7 @@ def execute_panel(
     if plan.sql is None:
         # A variable outside a predicate cannot safely mean All. Render its
         # controls without data until a concrete value is supplied.
-        return _inference_only_response(sql, db, brain, debug, panel, queries)
+        return _inference_only_response(sql, db, brain, debug, panel, queries, definition)
 
     try:
         execution = queries.execute(
@@ -323,14 +353,14 @@ def execute_panel(
             fallback_applied=True,
             fallback_reason="SQL syntax error — query could not be parsed",
         )
-        return JSONResponse(content={
+        return _execution_response({
             "inference_result": _render_contract(db, panel, result),
             "data": [],
-        })
+        }, db, panel, definition)
     except duckdb.Error as exc:
         # First Run / all-"All": reveal the filter bar instead of failing hard.
         if is_reveal:
-            return _inference_only_response(sql, db, brain, debug, panel, queries)
+            return _inference_only_response(sql, db, brain, debug, panel, queries, definition)
         if plan.bindings:
             raise HTTPException(
                 status_code=422, detail="SQL could not execute with these filter values"
@@ -359,6 +389,7 @@ def execute_panel(
         with inference_publication(
             db, panel_id, expected_sql=sql,
             expected_chart_override=panel.chart_user_override,
+            definition=definition.to_domain() if definition else None,
         ) as current:
             store_inference(
                 db,
@@ -371,7 +402,12 @@ def execute_panel(
             )
             _update_dashboard_classification(db, panel_id, col_names)
             rendered = _render_contract(db, _to_response(current), result)
-        return JSONResponse(content={"inference_result": rendered, "data": data})
+        content = {"inference_result": rendered, "data": data}
+        if definition is not None:
+            content["execution_reference"] = ExecutionReferenceInput(
+                panel_id=panel_id, definition=definition,
+            ).model_dump()
+        return JSONResponse(content=content)
 
     return JSONResponse(content={
         "inference_result": _render_contract(db, panel, result),

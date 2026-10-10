@@ -26,8 +26,9 @@ contratos estrictos, autorización y admisión de consultas de lectura.
 eliminación explícita, IDs confirmados al guardar y ejecución/composición separadas.
 **S1.1c.2c.1a implementado:** [publicación de inferencia compatible](architecture/sqlviz-inference-publication.md),
 transacción breve de inferencia/clasificación y conflicto seguro ante inputs
-cambiados. Sigue **1b**, referencia de definición de Run; después **1c**, registro
-condicionado, antes de recarga y recuperación. No se declara S1 completa.
+cambiados. **1b implementado:** [definición esperada de Run](architecture/sqlviz-sql-execution-definition.md),
+consultas/fallback y composición ligados al commit confirmado. Sigue **1c**,
+registro de éxito condicionado, antes de recarga y recuperación. No se declara S1 completa.
 
 **Alcance de inferencia ampliado, pendiente de implementar:**
 [AST, ámbitos, linaje y evidencias](architecture/sqlviz-semantic-inference-architecture.md)

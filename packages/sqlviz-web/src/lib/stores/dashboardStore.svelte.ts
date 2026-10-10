@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { apiDelete, apiGet, apiPatch, apiPost, recompose, type ExecResult } from '$lib/api';
+import { requireSqlExecution, recomposeSqlRun, type BoundExecResult } from '$lib/sql/sqlExecution';
 import type { DashboardInfo, DashboardLayout, FilterControl, FilterDomain, FolderInfo, InferenceResult } from '$lib/types';
 import { dashboardCache } from './dashboardCache.svelte';
 import { editorRef } from './editorRef';
@@ -453,21 +454,21 @@ export function createDashboardStore() {
             propertiesPanelId = null;
             filterDomains = {};
             filterValues.reset();
-            const results: ExecResult[] = [];
+            const results: BoundExecResult[] = [];
             for (let i = 0; i < statements.length; i++) {
                 if (!isCurrent()) return;
                 executionStore.statusMsg = `Statement ${i + 1} / ${statements.length}…`;
                 const panelId = committed.ids[i];
-                const exec = await apiPost<{ inference_result: InferenceResult; data: Record<string, unknown>[] }>(
-                    `/api/v1/panels/${panelId}/execute`
+                const exec = await apiPost<unknown>(
+                    `/api/v1/panels/${panelId}/execute`, { definition: committed.definition },
                 );
-                results.push({ panel_id: panelId, ...exec });
+                results.push(requireSqlExecution(exec, committed.definition, panelId));
             }
 
             // Only commit results if the dashboard hasn't changed mid-flight.
             if (!isCurrent()) return;
             executionStore.statusMsg = 'Composing layout…';
-            const composed = await recompose(results);
+            const composed = await recomposeSqlRun(results, committed.definition);
             if (!isCurrent()) return;
             executedResults = results;
             layout = composed;

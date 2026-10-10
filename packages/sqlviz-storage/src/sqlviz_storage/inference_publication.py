@@ -10,6 +10,11 @@ from sqlviz_core.models.panels import Panel
 
 from sqlviz_storage.dashboard_repository import DashboardNotFound, DashboardRepository
 from sqlviz_storage.panel_repository import PanelNotFound, PanelRepository
+from sqlviz_storage.sql_script_repository import (
+    SqlDefinitionConflict,
+    SqlDefinitionReference,
+    SqlScriptRepository,
+)
 from sqlviz_storage.timestamps import modification_timestamp
 from sqlviz_storage.transactions import project_transaction
 
@@ -25,6 +30,7 @@ def inference_publication(
     *,
     expected_sql: str,
     expected_chart_override: str | None,
+    definition: SqlDefinitionReference | None = None,
 ) -> Iterator[Panel]:
     """Verify captured inputs, fence metadata writes and publish all or nothing.
 
@@ -55,6 +61,19 @@ def inference_publication(
                 "UPDATE dashboards SET updated_at = ? WHERE id = ?",
                 [modification_timestamp(parent.updated_at), parent.id],
             )
+            if definition is not None:
+                if definition.dashboard_id != parent.id:
+                    raise SqlDefinitionConflict("Panel does not belong to the requested definition")
+                SqlScriptRepository(db).require_definition(definition)
+                # Legacy peer edits/deletes may not touch the parent. Fence the
+                # complete bounded panel set so their changes cannot escape a
+                # verification made from this transaction's earlier snapshot.
+                stamp = modification_timestamp("")
+                db.execute(
+                    "UPDATE panels SET updated_at = CASE WHEN updated_at = ? THEN ? ELSE ? END "
+                    "WHERE dashboard_id = ?",
+                    [stamp, modification_timestamp(stamp), stamp, parent.id],
+                )
             yield panel
             # Last write guarantees a real modification even when the inference
             # primitive used the same second-granularity timestamp as before.

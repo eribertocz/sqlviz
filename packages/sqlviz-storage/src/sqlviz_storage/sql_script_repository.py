@@ -1,7 +1,7 @@
 """Atomic script definitions and durable identity, without execution or HTTP.
 
 The application injects native full-script parsing, never client-provided slices.
-Each public method owns a transaction on an independent project cursor.
+read/write own their transaction; require_definition uses its caller's transaction.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from sqlviz_core.models.sql_script import (
     validate_sql_script,
 )
 
-from sqlviz_storage.dashboard_repository import DashboardRepository
+from sqlviz_storage.dashboard_repository import DashboardNotFound, DashboardRepository
 from sqlviz_storage.panel_repository import PanelRepository
 from sqlviz_storage.timestamps import modification_timestamp
 from sqlviz_storage.transactions import project_transaction
@@ -62,6 +62,35 @@ class SqlScriptSnapshot:
 class SqlScriptCommit:
     snapshot: SqlScriptSnapshot
     created_panels: tuple[tuple[str, str], ...]  # creation_key -> allocated panel_id
+
+
+@dataclass(frozen=True)
+class SqlDefinitionReference:
+    dashboard_id: str
+    revision: str
+
+
+class SqlDefinitionConflict(Exception):
+    """The requested definition is absent, incompatible or no longer current."""
+
+
+def definition_revision(snapshot: SqlScriptSnapshot) -> str | None:
+    """Stable through inference, drafts and presentation; changes with definitions.
+
+    This content reference is not a credential, result attestation or data snapshot.
+    Including the publication counter detects even an identical subsequent commit.
+    """
+    publication = snapshot.publication
+    if publication is None:
+        return None
+    encoded = json.dumps(
+        [
+            snapshot.dashboard_id, asdict(publication),
+            [(panel.id, panel.sql_content, panel.sort_order)
+             for panel in sorted(snapshot.panels, key=lambda panel: panel.id)],
+        ], ensure_ascii=True, separators=(",", ":"), sort_keys=True,
+    )
+    return "sql-definition-v1:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 class SqlScriptWriteConflict(Exception):
@@ -191,6 +220,17 @@ class SqlScriptRepository:
     def read(self, dashboard_id: str) -> SqlScriptSnapshot:
         with project_transaction(self._db):
             snapshot, _ = self._read(dashboard_id)
+        return snapshot
+
+    def require_definition(self, reference: SqlDefinitionReference) -> SqlScriptSnapshot:
+        """Read and verify inside an ALREADY OWNED transaction; never nest one."""
+        try:
+            snapshot, _ = self._read(reference.dashboard_id)
+        except DashboardNotFound as exc:
+            raise SqlDefinitionConflict("Requested definition no longer exists") from exc
+        actual = definition_revision(snapshot)
+        if actual is None or actual != reference.revision:
+            raise SqlDefinitionConflict("Requested definition changed")
         return snapshot
 
     def write(

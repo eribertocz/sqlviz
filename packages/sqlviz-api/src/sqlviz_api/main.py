@@ -51,6 +51,7 @@ from sqlviz_storage.folder_repository import FolderWriteConflict
 from sqlviz_storage.inference_publication import InferencePublicationConflict
 from sqlviz_storage.panel_repository import PanelNotFound, PanelWriteConflict
 from sqlviz_storage.sql_script_repository import (
+    SqlDefinitionConflict,
     SqlScriptMetadataError,
     SqlScriptStateLimitError,
     SqlScriptWriteConflict,
@@ -172,6 +173,14 @@ def create_app(
                       "Refresh and retry.",
             "code": "dashboard_write_conflict",
         })
+    @app.exception_handler(SqlDefinitionConflict)
+    async def _definition_conflict(request: Request, exc: SqlDefinitionConflict) -> JSONResponse:
+        return JSONResponse(status_code=409, content={
+            "detail": "Dashboard definitions changed during Run. "
+                      "Reload and review query associations.",
+            "code": "sql_definition_conflict",
+        })
+
     @app.exception_handler(InferencePublicationConflict)
     async def _inference_conflict(
         request: Request, exc: InferencePublicationConflict,

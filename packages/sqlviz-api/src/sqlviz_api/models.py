@@ -24,6 +24,8 @@ from sqlviz_core.models.panel_presentation import (
 )
 from sqlviz_core.models.panels import MAX_PANEL_NAME_LENGTH, PanelChanges, validate_panel_changes
 
+from sqlviz_api.sql_execution_contract import DefinitionReferenceInput
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 class LoginRequest(BaseModel):
@@ -225,6 +227,7 @@ class ExecuteBody(BaseModel):
     # Keep raw JSON primitives intact; ParameterService enforces the shared
     # typed contract without Pydantic coercion or renderer-specific heuristics.
     variables: dict[str, object] = Field(default_factory=dict)
+    definition: DefinitionReferenceInput | None = None
 
 
 class FilterDomainBody(BaseModel):

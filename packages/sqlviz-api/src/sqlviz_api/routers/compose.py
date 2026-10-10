@@ -8,12 +8,14 @@ execute endpoint responses.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlviz_core.models.panel_overrides import valid_dimension
 from sqlviz_inference.dashboard import DashboardEngine
 
-from sqlviz_api.compose_contract import ComposeRequest
+from sqlviz_api.compose_contract import ComposeItem, ComposeRequest
 from sqlviz_api.dependencies import DbDep
 from sqlviz_api.security import ReaderDep, require_panel_access
 
@@ -52,6 +54,13 @@ def compose_layout(body: ComposeRequest, db: DbDep, principal: ReaderDep) -> JSO
     if not principal.is_admin:
         for item in items:
             require_panel_access(db, principal, item.panel_id)
+    return JSONResponse(content=compose_items(items, db))
+
+
+def compose_items(items: Sequence[ComposeItem], db: DbDep) -> dict[str, object]:
+    """Compose validated inputs; authorization and transaction belong to callers."""
+    if not items:
+        return {"rows": []}
     panels = [(item.panel_id, item.inference_result.to_domain()) for item in items]
 
     layout = DashboardEngine().compose(
@@ -62,7 +71,7 @@ def compose_layout(body: ComposeRequest, db: DbDep, principal: ReaderDep) -> JSO
     # Return original ir dicts unchanged (no re-serialization drift)
     ir_by_id = {item.panel_id: item.inference_result.wire_result() for item in items}
 
-    return JSONResponse(content={
+    return {
         "rows": [
             {
                 "panels": [
@@ -79,4 +88,4 @@ def compose_layout(body: ComposeRequest, db: DbDep, principal: ReaderDep) -> JSO
             }
             for row in layout.rows
         ]
-    })
+    }

@@ -1,11 +1,13 @@
 import type { SqlStatement } from './sqlScript.svelte';
 import type { SqlRunResolution } from './sqlRunResolution';
 import { runResolutionComplete } from './sqlRunResolution';
+import type { SqlDefinitionReference } from './sqlExecution';
 
 export type SqlScriptSnapshot = {
     version: 1;
     dashboard_id: string;
     revision: string;
+    definition_revision: string | null;
     draft_source: string;
     panels: { id: string; name: string; sql_content: string; sort_order: number }[];
     publication: null | {
@@ -32,12 +34,13 @@ export function requireSqlRunSnapshot(snapshot: SqlScriptSnapshot, dashboardId: 
 
 /** Adopt IDs only from a verified commit receipt, never from order or SQL matching. */
 export function requireSqlRunCommit(receipt: SqlScriptCommit, dashboardId: string,
-    resolution: SqlRunResolution): { ids: string[]; statements: SqlStatement[] } {
+    resolution: SqlRunResolution): { ids: string[]; statements: SqlStatement[]; definition: SqlDefinitionReference } {
     const fail = () => { throw new Error('Could not verify saved definitions. Reload the dashboard before running again.'); };
     const saved = receipt?.snapshot;
     const publication = saved?.publication;
     if (!runResolutionComplete(resolution) || receipt?.version !== 1 || saved?.version !== 1 ||
         saved.dashboard_id !== dashboardId || !/^sql-script-v1:[0-9a-f]{64}$/.test(saved.revision) ||
+        !/^sql-definition-v1:[0-9a-f]{64}$/.test(saved.definition_revision ?? '') ||
         saved.revision === resolution.expectedRevision || saved.draft_source !== resolution.source ||
         publication?.version !== 1 || !Number.isSafeInteger(publication.revision) || publication.revision < 1 ||
         publication.source !== resolution.source || !Array.isArray(saved.panels) ||
@@ -62,5 +65,5 @@ export function requireSqlRunCommit(receipt: SqlScriptCommit, dashboardId: strin
         statements.push({ ...statement });
     }
     if (new Set(saved.panels.map(panel => panel.id)).size !== ids.length) return fail();
-    return { ids, statements };
+    return { ids, statements, definition: { version: 1, dashboard_id: dashboardId, revision: saved.definition_revision! } };
 }
