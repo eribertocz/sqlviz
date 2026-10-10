@@ -2,9 +2,12 @@
 
 **Revisión:** 2026-10-08. **Estado:** diseño pendiente de implementación.
 La matriz es un módulo central de SQLviz con entregas propias. Su primer flujo
-entra en S4, antes de ampliar todas las familias de gráficos en S5. El siguiente
-incremento de código sigue siendo S1.1b; las dependencias de identidad y datasets
-se conservan en el [plan operativo](sqlviz-studio-delivery-plan.md).
+entra en S3/S4, antes de ampliar todas las familias de gráficos en S5. El siguiente
+incremento y las dependencias de identidad/datasets se consultan en el
+[plan operativo](sqlviz-studio-delivery-plan.md).
+
+La [evaluación del informe v2](sqlviz-report-v2-assessment.md) recomienda ampliar
+por etapas el mismo núcleo de medidas, sin introducir un segundo motor semántico.
 
 ## Estado observado y referencia de producto
 

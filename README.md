@@ -55,6 +55,12 @@ totals, field drag-and-drop and a dedicated grid renderer. Its first workflow
 belongs to S3/S4, before broad chart expansion. The current flat table does not
 implement it. The Studio plan breaks dashboard panel drag/resize into six increments.
 
+The [architecture report v2 assessment](docs/architecture/sqlviz-report-v2-assessment.md)
+checks semantic modeling, Rill, Polars and materialization proposals against the
+repository. It distinguishes optional Quack serving from current HTTP execution
+and confirms that `.sqlviz` uses DuckDB. These recommendations preserve the
+Studio sequence and do not introduce a new engine or storage migration.
+
 Start with the [documentation index](docs/README.md),
 [target architecture](docs/architecture/sqlviz-product-architecture.md), and
 [current delivery plan](docs/architecture/sqlviz-product-roadmap.md).

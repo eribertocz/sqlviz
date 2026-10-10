@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Documentation
+
+- Evaluación del informe de arquitectura v2 sobre semántica, Rill, Polars y
+  materialización, contrastada con código y fuentes oficiales. Corrige supuestos
+  sobre `.sqlviz`/SQLite y Quack, distingue inferencia de medidas y recomienda
+  integración gradual sin sustituir el plan del Studio. Actualiza referencias
+  antiguas al próximo incremento en inferencia/matriz; sin cambios de runtime.
+
 ### Breaking
 
 - La carga del workspace requiere `publication_status`, `last_run_at` y

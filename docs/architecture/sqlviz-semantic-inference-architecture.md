@@ -4,7 +4,10 @@
 Amplía la [decisión de autoría](sqlviz-visual-authoring-decision.md) y el
 [plan operativo](sqlviz-studio-delivery-plan.md). No cambia contratos publicados,
 la política de ejecución ni el formato `.sqlviz`. El siguiente incremento de
-código sigue siendo S1.1b: identidad y reconciliación.
+código se consulta en el plan operativo, que mantiene el estado de las entregas.
+
+La [evaluación del informe v2](sqlviz-report-v2-assessment.md) distingue esta
+inferencia visual de la semántica de medidas y gobernanza propuesta.
 
 La [matriz analítica](sqlviz-analytical-matrix-spec.md) amplía el objetivo BI:
 jerarquías cruzadas, medidas y totales por contexto. Tiene grilla dedicada y

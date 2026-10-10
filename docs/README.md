@@ -47,6 +47,12 @@ el siguiente incremento de código es S1.1c.2c.3b: API del borrador con revisió
 
 ## Orden de lectura
 
+La [evaluación del informe de arquitectura v2](architecture/sqlviz-report-v2-assessment.md)
+separa estado comprobado de propuestas de semántica, Rill, Polars y DuckLake.
+Corrige los supuestos sobre Quack y SQLite, y recomienda integración gradual
+con matriz/datasets. Mantiene el orden operativo; no anuncia esas funciones
+como implementadas ni adopta las fases del informe automáticamente.
+
 La [matriz analítica BI](architecture/sqlviz-analytical-matrix-spec.md) es ahora
 un módulo central pendiente, con entregas M1–M9: jerarquías de filas/columnas,
 medidas, totales por contexto, builder con drag de campos y grilla dedicada.

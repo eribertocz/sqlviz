@@ -39,6 +39,12 @@ Tampoco presentaremos una etiqueta comercial o una supuesta originalidad mundial
 como resultado de ingeniería: la diferencia debe observarse al crear y leer
 dashboards reales.
 
+La [evaluación del informe v2](sqlviz-report-v2-assessment.md) contrasta propuestas
+de semántica, Rill, Polars y materialización con el código actual. Recomienda
+ampliar el núcleo de medidas M1–M3 sin hacer de Polars/DuckLake requisitos del
+Studio. Es una evaluación, no aprobación de las fases P0–P6 ni cambio del orden
+operativo; el próximo incremento sigue siendo S1.1c.2c.3b.
+
 ## Qué existe y qué falta
 
 Ya existen ejecución SQL, recomendaciones básicas, gráficos, ajustes parciales,
