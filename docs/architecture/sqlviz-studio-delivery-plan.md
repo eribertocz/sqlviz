@@ -39,11 +39,20 @@ Tampoco presentaremos una etiqueta comercial o una supuesta originalidad mundial
 como resultado de ingeniería: la diferencia debe observarse al crear y leer
 dashboards reales.
 
-La [evaluación del informe v2](sqlviz-report-v2-assessment.md) contrasta propuestas
-de semántica, Rill, Polars y materialización con el código actual. Recomienda
-ampliar el núcleo de medidas M1–M3 sin hacer de Polars/DuckLake requisitos del
-Studio. Es una evaluación, no aprobación de las fases P0–P6 ni cambio del orden
-operativo; el próximo incremento sigue siendo S1.1c.2c.3b.
+**Dirección aceptada — 2026-10-09:** SQLviz se construye como proyecto analítico
+de recursos reutilizables: conexiones/fuentes, datasets/modelos, dimensiones/
+medidas, visuales, dashboards, APIs y alertas. La
+[decisión de recursos](sqlviz-project-resources-decision.md) fija biblioteca bajo
+demanda, mapa editable sobre referencias reales, semántica compartida y
+definiciones exportables, con partes R1–R7 integradas en esta secuencia. Son
+capacidades comprometidas para desarrollar, todavía no implementadas.
+
+La [evaluación del informe v2](sqlviz-report-v2-assessment.md) conserva las
+correcciones sobre Quack, DuckDB/SQLite y consistencia. No se adoptan las fases
+P0–P6 ni se convierten Polars/DuckLake en requisitos del Studio; el núcleo de
+medidas M1–M3 se amplía como base común. El próximo incremento sigue siendo
+S1.1c.2c.3b. R1–R3 entran en S3–S5; R4 en S8; R5–R7 son extensiones después del
+primer recorrido publicado, con dependencias y criterios en la decisión.
 
 ## Qué existe y qué falta
 
@@ -366,6 +375,7 @@ con integración y evidencias; no se cierran solo entregando modelos.
 | S3.4b | Plan de impacto de SQL compartido: compatibilidad por consumidor, evidencia/límites, reparaciones y alcance de adopción explícito |
 | S3.4c | Adopción atómica de referencias seleccionadas, revisiones esperadas y resultados coherentes; variante sin perder ID/layout del panel, fallos y publicación fijada |
 | S3.5 | Selector de consulta/dataset, resultados con esquema/preview acotado y promoción/reutilización desde editor multiconsulta; sin duplicar SQL ni crear vistas físicas |
+| S3.5.R2a | Biblioteca inicial bajo demanda: datasets, visuales y dashboards entregados, búsqueda y navegación por ID/revisión; sin árbol técnico para el viewer |
 | S3.6 | F1 del Mapa del dashboard: proyección autorizada de referencias reales, IDs/revisiones y diagnósticos; sin segundo repositorio de dependencias |
 | S4.1 | Propuesta completa para el corpus inicial cartesiano; tipos/nulos, múltiples medidas y alternativas coherentes; no depender de primera/última columna |
 | S4.2 | Builder contextual al dataset: elegir campos/roles/series y presentación; preview/draft, cambio de esquema/dataset con diagnóstico y cambios reversibles |
@@ -400,6 +410,13 @@ precisión, nulos o rechazo de referencias inválidas a la expansión de S5.
 M8 de matriz se integra en S7 para interacción avanzada y M9 en S8 para publicación/
 exportación y tareas de referencia. M1–M9 son partes del plan vigente, no una
 segunda secuencia que posponga permisos, filtros básicos o cálculo correcto.
+
+R1–R3 de la [dirección de recursos](sqlviz-project-resources-decision.md) se
+integran con estas partes: catálogo reutilizable, biblioteca/mapa y un núcleo
+semántico compartido por matriz, gráficos y Explore. R4 incorpora bundles de
+definiciones a S8. Las extensiones R5–R7 entregan fuentes externas, alertas y API
+analítica pública, por incrementos después del primer recorrido publicado; no
+son simples recomendaciones ni requisitos que bloqueen el primer gráfico.
 
 El [recorrido del editor multiconsulta](sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables)
 precisa cómo los bloques separados por `;` alimentan datasets y varios visuales.

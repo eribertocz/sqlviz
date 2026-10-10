@@ -5,6 +5,11 @@ Vista de dependencias reales durante la autoría, vinculada al
 [recorrido multiconsulta](sqlviz-visual-authoring-decision.md#del-editor-multiconsulta-a-campos-reutilizables).
 No sustituye el lienzo ni habilita un editor de pipelines ETL.
 
+La [dirección de recursos aceptada](sqlviz-project-resources-decision.md) integra
+este mapa y la biblioteca sobre el mismo catálogo autorizado. Al entregar fuentes,
+medidas, APIs o alertas, el mapa puede proyectar sus referencias reales; no agrega
+nodos funcionales para módulos todavía inexistentes ni expone secretos.
+
 **Renderer elegido:** Drawflow, solicitado por el usuario el 2026-10-08. El
 [adaptador interno](sqlviz-interaction-adapters.md) está probado sobre proyecciones
 sintéticas; F1 y la UI de F2 siguen pendientes. Bloquear edición nativa de conexiones

@@ -1,6 +1,7 @@
 # Dirección de producto y arquitectura objetivo
 
-**Fecha:** 2026-10-05; decisión de autoría aceptada: 2026-10-07.
+**Fecha:** 2026-10-05; decisión de autoría aceptada: 2026-10-07;
+dirección de recursos aceptada: 2026-10-09.
 **Estado:** dirección para la siguiente etapa;
 los componentes objetivo aquí descritos no se consideran implementados.
 Base factual: [auditoría](sqlviz-audit-2026-10-05.md).
@@ -13,8 +14,14 @@ tres niveles aceptados y sustituye la exclusión anterior del editor ECharts nat
 
 ## 1. Producto y público
 
-**Propuesta:** SQLviz convierte datos y consultas en dashboards de alta calidad,
+**Dirección aceptada:** SQLviz convierte datos y consultas en dashboards de alta calidad,
 editables visualmente y confiables para compartir.
+
+El producto se construye como proyecto analítico con recursos reutilizables:
+conexiones/fuentes, datasets/modelos, dimensiones/medidas, visuales, dashboards,
+APIs y alertas. La [decisión de recursos](sqlviz-project-resources-decision.md)
+fija biblioteca, mapa, semántica compartida y definiciones exportables. Es parte
+del alcance de desarrollo; no significa que esos módulos estén implementados.
 
 Hipótesis de público inicial: analistas, consultores y equipos pequeños que
 necesitan entregar dashboards a personas que no escriben SQL. Priorizar
@@ -177,8 +184,13 @@ incompletos como totales reales. Aprendizaje recibe correcciones explícitas con
 | Publication | Referencia explícita a una revisión; borradores no alteran lo publicado |
 | QueryExecution | Actor, recurso, parámetros, estado, tiempos, filas/bytes, truncamiento y frescura |
 | Share / Grant | Alcance, permisos, expiración y revocación; nunca permiso general al proyecto por accidente |
+| Analytical API | Consulta autorizada de dataset/medidas con el mismo planificador y presupuestos |
+| Alert | Regla versionada, contexto, programación e historial; evaluación y entrega separadas, con identidad autorizada |
 
 No crear todas las tablas a la vez. Entregar invariantes en las fases del roadmap.
+La distinción conexión/fuente se concreta dentro de la evolución de `DataSource`;
+modelo SQL y dataset no crean definiciones duplicadas. Biblioteca y mapa son
+proyecciones autorizadas del mismo catálogo, no repositorios paralelos.
 Contrato visual efectivo = propuesta aceptada + ajustes del builder + opciones
 expertas validadas, con precedencia y conflictos definidos. Guardar su procedencia
 por separado. Una publicación fija revisiones; editar una visualización compartida
@@ -235,13 +247,18 @@ alcance acotado se adelanta a la gobernanza de métricas de equipos y modelado
 general descritos a continuación. La matriz tiene grilla dedicada; comparte
 dataset/visual/panel y permisos con los gráficos ECharts.
 
-**Después semántica explícita.** Dimensiones, métricas, tiempo, granularidad y
+**Ampliar la semántica compartida.** Dimensiones, métricas, tiempo, granularidad y
 relaciones con cardinalidad. Definir medidas aditivas/no aditivas, razón de sumas
 frente a promedio de razones, moneda y comparación de periodos. Evitar dobles
 conteos al hacer joins. Sugerencias por nombres requieren confirmación del autor.
 La compilación de métricas a SQL es una responsabilidad real de una capa
 semántica; MetricFlow documenta esa separación.
 [Referencia de dbt](https://docs.getdbt.com/docs/build/build-metrics-intro).
+
+Matriz, gráficos de medidas, Explore, APIs y alertas usan el mismo núcleo de
+planificación/contexto. M1–M3 establece la base en S3/S4; gobernanza de equipos y
+relaciones avanzadas la amplían. La inferencia visual propone, no confirma por
+sí sola una medida ni reemplaza su cálculo bajo filtros.
 
 **Modelado ligero, progresivo.** Catálogo, relaciones verificadas y linaje
 dataset → panel → publicación. Un modelador visual de relaciones puede venir
@@ -251,6 +268,13 @@ después de probar corrección de joins y agregaciones.
 credenciales mínimas; luego refresh, materializaciones SQL, historial y avisos
 de frescura. Integrarse con transformaciones externas cuando se necesiten.
 CDC, orquestador general y cientos de conectores quedan fuera del núcleo inicial.
+
+**Biblioteca, exportación y automatización comprometidas.** R1–R3 integra recursos
+y mapa en S3–S5. R4 incorpora exportación/importación versionada sin secretos en
+S8. R5–R7 desarrolla fuentes externas, evaluación/notificación de alertas y APIs
+analíticas públicas después del primer recorrido publicado. Las partes y sus
+criterios están en la decisión de recursos; no se usan temporizadores del browser
+ni un segundo camino privilegiado de ejecución para automatizaciones.
 
 IA opcional para explicar consultas, proponer títulos o asistir en SQL solo
 después de estos límites. La IA no decide permisos ni certifica métricas.
@@ -280,6 +304,7 @@ la entrega, no una tarea posterior.
 | ETL ligero e integraciones | Mantener foco en dashboards | Usuarios paguen por necesidades repetidas de preparación |
 | Investigación cognitiva opcional | Beneficio aún no validado | Un experimento supere una solución simple con usuarios reales |
 
-Los PATCH de dashboards/paneles, presentación y tipo de gráfico están entregados.
-La siguiente acción concreta es completar la revisión de dimensiones en E1 del
-[plan vigente](sqlviz-product-roadmap.md), antes de migraciones y contrato visual.
+Los PATCH y el recorrido de identidad/guardado de Run ya tienen incrementos
+entregados. La siguiente acción y su estado se consultan en el
+[plan operativo del Studio](sqlviz-studio-delivery-plan.md); no hay otra cola
+de prioridades en este documento.

@@ -1,6 +1,6 @@
 # Plan de entregas vigente
 
-**Actualizado:** 2026-10-08. Reemplaza el orden de trabajo del
+**Actualizado:** 2026-10-09. Reemplaza el orden de trabajo del
 [roadmap histórico](sqlviz-roadmap.md), no el historial de releases.
 **Estado:** base local E0 implementada; E1 en curso, E2–E5 pendientes. Las cuatro
 unidades E0, integridad y composición tipada de E1, y navegación parcial de E2
@@ -31,9 +31,10 @@ el lienzo y el nivel experto demasiado lejos del recorrido central.
 
 **S0 entregado:** [geometría manual](sqlviz-canvas-contract.md), todavía sin UI,
 almacenamiento o endpoints. **S1 en curso:**
-[S1.1a parsing](sqlviz-sql-script-parsing.md) implementado; **siguiente S1.1b**,
-identidad segura de paneles. Después se integra reconciliación transaccional,
-documento de layout persistido y controles de posición/tamaño. S2 añade
+[S1.1a parsing](sqlviz-sql-script-parsing.md), identidad y commits de Run entregados
+por incrementos; el estado y siguiente parte se consultan en el plan operativo.
+Después se integran el documento de layout persistido y los controles de
+posición/tamaño. S2 añade
 drag/resize sobre ese mismo contrato. La revisión de dimensiones de E1 se
 incorpora a S1; no es una línea independiente de mantenimiento.
 
@@ -48,7 +49,14 @@ plan vigente. Contrato y grano/medidas mínimos en S3, primer flujo funcional co
 totales por contexto y drag de campos en S4, formato/escala en S5 e interacción/
 publicación en S7/S8. No esperar a cubrir todas las familias ECharts ni a E4 para
 calcular totales correctos. S2 tiene seis partes de drag/resize, undo y validación;
-el siguiente incremento inmediato sigue siendo S1.1b.
+el siguiente incremento inmediato se consulta en el plan operativo.
+
+**Dirección de recursos aceptada — 2026-10-09:**
+[biblioteca, semántica y automatización](sqlviz-project-resources-decision.md)
+son parte del alcance a construir. R1–R3 se integra en S3–S5; R4 entrega bundles
+de definiciones en S8; R5–R7 amplía conexiones/fuentes, alertas y APIs después del
+primer recorrido publicado. Conserva una única secuencia y los tres niveles
+visuales; no declara esas capacidades implementadas ni adopta todo el informe.
 
 Cabecera, selector, control de marca y filtros confirmados ya existen, pero no
 cierran el Studio. Presets compartidos, favoritos y URLs/historial conservan su

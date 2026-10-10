@@ -1,6 +1,9 @@
 # Autoría visual: automático, builder y ECharts nativo
 
 **Decisión aceptada por el usuario:** 2026-10-07.
+**Dirección de recursos aceptada:** 2026-10-09; ver
+[biblioteca, semántica y automatización](sqlviz-project-resources-decision.md).
+Esos recursos alimentan los tres niveles de autoría; no los sustituyen.
 **Prioridad de entrega actualizada:** 2026-10-08; ver el
 [plan operativo del Studio](sqlviz-studio-delivery-plan.md).
 **Alcance ampliado:** 2026-10-08; [AST e inferencia semántica](sqlviz-semantic-inference-architecture.md)

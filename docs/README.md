@@ -47,6 +47,13 @@ el siguiente incremento de código es S1.1c.2c.3b: API del borrador con revisió
 
 ## Orden de lectura
 
+**Dirección aceptada — 2026-10-09:**
+[proyecto analítico por recursos](architecture/sqlviz-project-resources-decision.md).
+Biblioteca bajo demanda, datasets/medidas reutilizables, mapa, definiciones
+exportables, APIs y alertas forman parte del desarrollo comprometido. R1–R7 fija
+partes pequeñas integradas con S3–S8 y extensiones posteriores. Son capacidades
+pendientes, no una lista de sugerencias ni una segunda secuencia de trabajo.
+
 La [evaluación del informe de arquitectura v2](architecture/sqlviz-report-v2-assessment.md)
 separa estado comprobado de propuestas de semántica, Rill, Polars y DuckLake.
 Corrige los supuestos sobre Quack y SQLite, y recomienda integración gradual

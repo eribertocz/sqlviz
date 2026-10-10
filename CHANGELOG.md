@@ -9,6 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Documentation
 
+- Dirección de proyecto por recursos aceptada: biblioteca/mapa sobre un catálogo,
+  datasets y medidas reutilizables, semántica común, definiciones exportables,
+  APIs y alertas. Partes R1–R7 integradas con Studio y extensiones posteriores,
+  con criterios de cierre; actualiza arquitectura/roadmap y distingue decisión
+  aceptada de capacidad implementada. Sin cambios de runtime ni de formato.
+
 - Evaluación del informe de arquitectura v2 sobre semántica, Rill, Polars y
   materialización, contrastada con código y fuentes oficiales. Corrige supuestos
   sobre `.sqlviz`/SQLite y Quack, distingue inferencia de medidas y recomienda

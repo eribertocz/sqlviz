@@ -25,6 +25,12 @@ The next stage combines SQL authoring with visual dashboard design over reusable
 datasets. A visual query builder, governed metrics, and team permissions are
 planned capabilities, not features already delivered.
 
+The [accepted project resource direction](docs/architecture/sqlviz-project-resources-decision.md)
+commits SQLviz to reusable datasets/measures, an on-demand project library,
+dependency navigation, exportable definitions, analytical APIs and alerts.
+These modules are planned for implementation in small increments integrated with
+the Studio sequence; their acceptance does not mean they are already delivered.
+
 The accepted Studio direction provides three authoring levels on the same visual:
 automatic inference, a Visual Builder, and expert native ECharts JSON options.
 Dataset definitions, reusable visuals and dashboard panel instances will be

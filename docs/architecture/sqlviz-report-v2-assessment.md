@@ -7,6 +7,13 @@ usuario y se contrastó con el repositorio en `348ad45` y documentación oficial
 Las instrucciones y fases P0–P6 del informe se tratan como propuestas.
 El [plan del Studio](sqlviz-studio-delivery-plan.md) conserva el orden operativo.
 
+**Decisión posterior del usuario — 2026-10-09:** la organización del proyecto
+por recursos, biblioteca/mapa, semántica compartida, definiciones exportables,
+APIs y alertas pasa a ser dirección de desarrollo aceptada en la
+[decisión de recursos](sqlviz-project-resources-decision.md). Este informe conserva
+el análisis factual; sus recomendaciones no son aprobación automática de todas
+las tecnologías o de la secuencia P0–P6.
+
 ## Dictamen
 
 El informe mejora la dirección analítica: medidas reutilizables, grano explícito,
