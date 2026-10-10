@@ -16,6 +16,7 @@ import duckdb
 from sqlviz_core.models.dashboards import Dashboard, DashboardChanges, normalize_dashboard_changes
 
 from sqlviz_storage.folder_repository import FolderRepository
+from sqlviz_storage.sql_draft_revision import next_draft_generation
 from sqlviz_storage.timestamps import modification_timestamp
 from sqlviz_storage.transactions import project_transaction
 
@@ -107,8 +108,16 @@ class DashboardRepository:
             with transaction:
                 previous = self.get(dashboard_id)
                 values: dict[str, object] = dict(normalized)
+                if "sql_content" in normalized:
+                    row = self._db.execute(
+                        "SELECT sql_draft_generation FROM dashboards WHERE id = ?", [dashboard_id],
+                    ).fetchone()
+                    assert row is not None  # Parent was read inside this transaction.
+                    # Even identical SQL invalidates a save captured before this write.
+                    values["sql_draft_generation"] = next_draft_generation(row[0])
                 values["updated_at"] = modification_timestamp(previous.updated_at)
-                # Field names are whitelisted by core; values are always bound.
+                # User columns are whitelisted by core; revision/timestamp are storage-owned.
+                # Values are always bound.
                 assignments = ", ".join(f"{column} = ?" for column in values)
                 self._db.execute(
                     f"UPDATE dashboards SET {assignments} WHERE id = ?",

@@ -41,6 +41,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- S1.1c.2c.3a: generación durable propia del borrador y escritor condicionado
+  interno; contador avanza junto a PATCH de SQL y commit de Run, incluso para
+  texto idéntico. Reutiliza el bloqueo transaccional del padre, rechaza revisiones
+  obsoletas y revierte fuente/contador/timestamp ante fallos o competencia.
+  Preserva definiciones, ajustes y última ejecución; permite borradores vacíos
+  e incompletos sin parsing. Migración aditiva 0023 probada en copia y errores
+  HTTP seguros ante metadata inválida/capacidad agotada. API del escritor y
+  autoguardado web con revisión siguen pendientes en 3b/3c; PATCH sigue sin CAS.
+
 - S1.1c.2c.2: snapshot coherente de borrador, paneles, publicación y última
   ejecución; recarga verifica bindings persistidos con parsing nativo y conserva
   IDs, incluso con consultas idénticas. Preserva borradores nuevos/vacíos/invalidos

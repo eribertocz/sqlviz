@@ -33,14 +33,17 @@ servidor y registro atómico condicionado sin reescribir el borrador. **2c.2 imp
 [recarga de snapshots/asociaciones](architecture/sqlviz-sql-snapshot-reload.md),
 parsing nativo de bindings confirmados, borrador exacto y caché compatible tras
 leer definiciones actuales. Sigue **2c.3**, autoguardado/conflicto y recuperación
-de respuesta perdida; no se declara S1 completa.
+de respuesta perdida. **3a implementado:** [revisiones de borrador](architecture/sqlviz-sql-draft-revisions.md),
+escritor condicionado interno, contador compartido por PATCH/Run y migración
+en copia. Sigue **3b**, su API; el autoguardado web todavía mantiene su contrato
+legacy hasta 3c. No se declara S1 completa.
 
 **Alcance de inferencia ampliado, pendiente de implementar:**
 [AST, ámbitos, linaje y evidencias](architecture/sqlviz-semantic-inference-architecture.md)
 y [matriz de familias ECharts](architecture/sqlviz-visual-capability-matrix.md).
 Documentan los tres niveles, inputs SQL múltiples, adaptación de jerarquías/redes,
 23 familias core y dependencias GL/custom. El plan desglosa S3–S5 en partes pequeñas;
-el siguiente incremento de código es S1.1c.2c.3: borrador y recuperación coherentes.
+el siguiente incremento de código es S1.1c.2c.3b: API del borrador con revisión.
 
 ## Orden de lectura
 

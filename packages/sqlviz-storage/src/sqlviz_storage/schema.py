@@ -79,7 +79,8 @@ SCHEMA_STATEMENTS: list[str] = [
         dashboard_domain VARCHAR,
         description      VARCHAR,
         last_run_at      VARCHAR,
-        last_run_sql     VARCHAR
+        last_run_sql     VARCHAR,
+        sql_draft_generation BIGINT NOT NULL DEFAULT 0
     )
     """,
     # Sharing — each share has its own nonce (DOC7 §4.1 fix, prevents

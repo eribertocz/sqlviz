@@ -29,6 +29,7 @@ from sqlviz_core.models.sql_script import (
 
 from sqlviz_storage.dashboard_repository import DashboardNotFound, DashboardRepository
 from sqlviz_storage.panel_repository import PanelRepository
+from sqlviz_storage.sql_draft_revision import next_draft_generation, require_draft_generation
 from sqlviz_storage.timestamps import modification_timestamp
 from sqlviz_storage.transactions import project_transaction
 
@@ -59,6 +60,7 @@ class SqlScriptSnapshot:
     last_run_at: str | None = None
     last_run_sql: str | None = None
     has_script_record: bool = False
+    draft_generation: int = 0
 
 
 @dataclass(frozen=True)
@@ -183,6 +185,11 @@ class SqlScriptRepository:
 
     def _read(self, dashboard_id: str) -> tuple[SqlScriptSnapshot, int]:
         dashboard = DashboardRepository(self._db).get(dashboard_id)
+        draft_row = self._db.execute(
+            "SELECT sql_draft_generation FROM dashboards WHERE id = ?", [dashboard_id],
+        ).fetchone()
+        assert draft_row is not None  # Parent was read inside this transaction.
+        draft_generation = require_draft_generation(draft_row[0])
         count = self._db.execute(
             "SELECT count(*) FROM panels WHERE dashboard_id = ?",
             [dashboard_id],
@@ -205,7 +212,8 @@ class SqlScriptRepository:
         # A deterministic full-state token, not SQL matching or a resource ID.
         # Raw publication metadata is covered too, including a stale publication.
         encoded = json.dumps(
-            [asdict(dashboard), [asdict(panel) for panel in panels], intents, row],
+            [asdict(dashboard), [asdict(panel) for panel in panels],
+             intents, row, draft_generation],
             ensure_ascii=True,
             separators=(",", ":"),
             sort_keys=True,
@@ -220,6 +228,7 @@ class SqlScriptRepository:
             last_run_at=dashboard.last_run_at,
             last_run_sql=dashboard.last_run_sql,
             has_script_record=row is not None,
+            draft_generation=draft_generation,
         )
         return snapshot, row[0] if row is not None else 0
 
@@ -282,8 +291,10 @@ class SqlScriptRepository:
                 plan.require_complete()
                 dashboard = DashboardRepository(self._db).get(dashboard_id)
                 self._db.execute(
-                    "UPDATE dashboards SET sql_content = ?, updated_at = ? WHERE id = ?",
-                    [source, modification_timestamp(dashboard.updated_at), dashboard_id],
+                    "UPDATE dashboards SET sql_content = ?, updated_at = ?, "
+                    "sql_draft_generation = ? WHERE id = ?",
+                    [source, modification_timestamp(dashboard.updated_at),
+                     next_draft_generation(previous.draft_generation), dashboard_id],
                 )
                 old_panels = {panel.id: panel for panel in previous.panels}
                 bindings: list[SqlPanelBinding] = []

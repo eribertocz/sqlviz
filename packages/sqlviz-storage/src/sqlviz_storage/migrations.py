@@ -109,6 +109,12 @@ MIGRATIONS: list[tuple[str, str]] = [
     ("0021_panels_add_view_y_label",
      "ALTER TABLE panels ADD COLUMN IF NOT EXISTS view_y_label VARCHAR"),
     ("0022_dashboard_sql_scripts", SQL_SCRIPT_SCHEMA),
+    # Zero preserves unknown legacy provenance; opening never counts as saving.
+    (
+        "0023_dashboard_sql_draft_generation",
+        "ALTER TABLE dashboards ADD COLUMN IF NOT EXISTS sql_draft_generation BIGINT DEFAULT 0; "
+        "ALTER TABLE dashboards ALTER COLUMN sql_draft_generation SET NOT NULL",
+    ),
 ]
 
 

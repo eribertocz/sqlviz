@@ -87,8 +87,9 @@ página inicia la caché vacía y exige Run para obtener resultados.
 - Viewer compartido, filtros legacy, layout persistido y drag/resize conservan
   sus contratos actuales; no quedan completados por esta recarga.
 
-Sigue **S1.1c.2c.3**, dividido al iniciarse: revisión/procedencia de borrador,
-autoguardado, conflicto y recuperación de respuesta perdida. Después continúa
+**3a entregada:** [revisión durable y escritor interno](sqlviz-sql-draft-revisions.md).
+Sigue **3b**, su API; 3c integra autoguardado y conflicto, 3d recupera respuestas
+perdidas. La UI mantiene todavía su contrato legacy. Después continúa
 S1.2, persistencia del lienzo. Ver el [plan operativo](sqlviz-studio-delivery-plan.md).
 
 ## Evidencia

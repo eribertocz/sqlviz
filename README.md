@@ -116,7 +116,11 @@ Workspace reload now verifies persisted SQL bindings against native parsing,
 preserves newer drafts and loads definitions before restoring compatible cached
 results. It never executes queries automatically. See
 [snapshot reload and recovery limits](docs/architecture/sqlviz-sql-snapshot-reload.md).
-Draft concurrency and lost-response recovery are next in S1.1c.2c.3.
+Draft generations and an internal conditional writer are implemented in
+S1.1c.2c.3a; existing PATCH and Run commits advance the same durable counter.
+See [draft revisions and limits](docs/architecture/sqlviz-sql-draft-revisions.md).
+The draft API, autosave integration and lost-response recovery remain next in
+3b–d. The current UI still uses legacy autosave without an expected revision.
 
 ## Architecture today
 

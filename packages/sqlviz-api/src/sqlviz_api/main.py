@@ -50,6 +50,7 @@ from sqlviz_storage.dashboard_repository import DashboardNotFound, DashboardWrit
 from sqlviz_storage.folder_repository import FolderWriteConflict
 from sqlviz_storage.inference_publication import InferencePublicationConflict
 from sqlviz_storage.panel_repository import PanelNotFound, PanelWriteConflict
+from sqlviz_storage.sql_draft_revision import SqlDraftMetadataError, SqlDraftRevisionLimitError
 from sqlviz_storage.sql_script_repository import (
     SqlDefinitionConflict,
     SqlScriptMetadataError,
@@ -139,6 +140,22 @@ def create_app(
         return JSONResponse(status_code=500, content={
             "detail": "Stored SQL associations are invalid. The project requires repair.",
             "code": "sql_script_metadata_invalid",
+        })
+
+    @app.exception_handler(SqlDraftMetadataError)
+    async def _draft_metadata_failure(request: Request, exc: SqlDraftMetadataError) -> JSONResponse:
+        return JSONResponse(status_code=500, content={
+            "detail": "Stored SQL draft revision is invalid. The project requires repair.",
+            "code": "sql_draft_metadata_invalid",
+        })
+
+    @app.exception_handler(SqlDraftRevisionLimitError)
+    async def _draft_revision_limit(
+        request: Request, exc: SqlDraftRevisionLimitError,
+    ) -> JSONResponse:
+        return JSONResponse(status_code=413, content={
+            "detail": "SQL draft revision capacity is exhausted. No changes were saved.",
+            "code": "sql_draft_revision_limit",
         })
 
     @app.exception_handler(SqlScriptStateLimitError)

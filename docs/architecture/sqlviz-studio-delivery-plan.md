@@ -17,7 +17,8 @@ S1.1c.2c.1a protege la publicación de inferencias durante cambios concurrentes.
 S1.1c.2c.1b liga ejecución/composición con la definición confirmada por Run.
 S1.1c.2c.1c entrega el cierre verificado y condicionado del lado servidor.
 S1.1c.2c.2 entrega recarga del snapshot y asociaciones confirmadas.
-Sigue S1.1c.2c.3: borrador/autoguardado, conflicto y respuesta perdida.
+S1.1c.2c.3a entrega revisión durable y escritor interno del borrador.
+Sigue 3b: API de guardado condicionado, antes del autoguardado y recuperación.
 
 ## Dirección del producto
 
@@ -73,8 +74,10 @@ validación antes/después de consulta, fallback y composición del lote.
 recibos firmados y registro condicionado, sin PATCH de última ejecución.
 **S1.1c.2c.2 implementado:** [recarga verificada](sqlviz-sql-snapshot-reload.md),
 snapshot como autoridad, bindings nativos y caché compatible. Recuperación,
-autoguardado con revisión, coherencia amplia entre editores y layout siguen pendientes;
-no se declara S1 completa.
+autoguardado con revisión, coherencia amplia entre editores y layout siguen pendientes.
+**S1.1c.2c.3a implementado:** [revisión y escritor de borrador](sqlviz-sql-draft-revisions.md),
+contador durable compartido por PATCH/Run, bloqueo transaccional del padre y
+rollback. La UI continúa con autoguardado legacy hasta 3c; no se declara S1 completa.
 
 **Matriz analítica incorporada al alcance central:** la tabla actual es plana.
 El [módulo de matriz](sqlviz-analytical-matrix-spec.md) tiene entregas M1–M9,
@@ -196,7 +199,7 @@ transaccional ni la comprobación del estado esperado en almacenamiento.
 | **S1.1c.1** | Implementado | Snapshot esperado y escritor transaccional interno: fuente, IDs y estado revalidados; cambios/creaciones/borrados y asociaciones juntos; migración en copia, rollback y concurrencia probados. HTTP incorporado en 2a; Run en 2b |
 | **S1.1c.2a** | Implementado | HTTP tipado y autorizado para snapshot/commit; conflictos, fuente nativa, política de lectura y decisiones revalidadas; no aceptar planes del navegador como autoridad. Pruebas HTTP de permisos/rollback/reapertura; sin integrar Run |
 | **S1.1c.2b** | Implementado | Run con un único commit de definiciones, eliminación explícita y bindings persistidos; ejecución/composición posteriores, IDs adoptados al guardar y fallos diferenciados. Todavía sin congelar ejecución concurrente ni restaurar bindings al recargar |
-| **S1.1c.2c** | En curso | Publicación de inferencia, definición esperada y cierre verificado entregados en 1a/1b/1c; recarga entregada en 2; borrador/autoguardado, conflicto y respuesta perdida pendientes en 3 |
+| **S1.1c.2c** | En curso | Publicación de inferencia, definición esperada y cierre verificado entregados en 1a/1b/1c; recarga en 2 y revisión/escritor de borrador en 3a; API/autoguardado, conflicto y respuesta perdida pendientes en 3b–d |
 
 **Partes pequeñas de S1.1c.2c, en este orden:**
 
@@ -204,7 +207,16 @@ transaccional ni la comprobación del estado esperado en almacenamiento.
 | --- | --- |
 | **S1.1c.2c.1** | Referencia de definición ejecutada y registro de éxito condicionado; rechazar SQL/revisiones incompatibles, no persistir inferencia obsoleta ni atribuir un resultado a otra fuente; pruebas de cambios concurrentes |
 | **S1.1c.2c.2 — Implementado** | Snapshot como autoridad, bindings verificados con parsing nativo, borrador exacto y caché compatible; recargar → ejecutar sin reasignación por posición o SQL, guardas de navegación y sin autoejecución |
-| **S1.1c.2c.3** | Borrador/autoguardado, respuesta perdida, conflicto y recuperación explícita; no sustituir revisiones silenciosamente ni duplicar creaciones, preservar texto y estado confirmado |
+| **S1.1c.2c.3 — En curso** | Revisión/escritor interno entregados en 3a; API, autoguardado, conflicto y recuperación pendientes en 3b–d; no sustituir revisiones silenciosamente ni duplicar creaciones |
+
+**Partes pequeñas de S1.1c.2c.3, en este orden:**
+
+| Incremento | Estado | Cierre |
+| --- | --- | --- |
+| **3a** | Implementado | Revisión durable propia del borrador, escritor condicionado interno y migración en copia; PATCH/Run avanzan el contador, bloqueo del padre y rollback, sin cambios de identidad ni SQL ejecutado |
+| **3b** | Pendiente | API tipada y autorizada de borrador/revisión, snapshot integrado y errores seguros; guardar texto incompleto sin parsing, precondición validada en almacenamiento |
+| **3c** | Pendiente | Cola de autoguardado con revisión confirmada, conflicto visible y texto local preservado; Run/navegación/cierre de pestaña sin adoptar respuestas tardías ni sobrescribir automáticamente otro borrador |
+| **3d** | Pendiente | Recuperación explícita de respuesta perdida de guardado/commit, identificación durable de operaciones cuando corresponda; estado confirmado y sin duplicar creaciones al revisar/reintentar |
 
 **S1.1c.2c.1 se entrega en tres incrementos revisables:**
 
@@ -218,8 +230,9 @@ transaccional ni la comprobación del estado esperado en almacenamiento.
 liga el lote a una definición y [1c](sqlviz-sql-run-completion.md) verifica/cierra
 el éxito. **2c.1 queda entregada**, con sus límites documentados: no congela las
 filas analíticas ni resuelve recuperación. **2c.2 entregada:**
-[recarga verificada](sqlviz-sql-snapshot-reload.md). **Siguiente: 2c.3**,
-borrador/autoguardado, conflicto y recuperación explícita.
+[recarga verificada](sqlviz-sql-snapshot-reload.md). **3a entregada:**
+[revisión de borrador](sqlviz-sql-draft-revisions.md). **Siguiente: 3b**,
+API de guardado condicionado; después integración web y recuperación.
 
 1. Revisar cómo se asigna hoy la identidad de paneles al editar y ejecutar SQL.
    Establecer reconciliación segura antes de asociar geometría persistida. Un
