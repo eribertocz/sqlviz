@@ -25,6 +25,7 @@ from sqlviz_inference.filters.domain import build_domain_query
 from sqlviz_inference.filters.parameters import filter_parameter_names
 from sqlviz_storage.brain_db import get_brain_connection
 from sqlviz_storage.dashboard_repository import dashboard_write
+from sqlviz_storage.inference_publication import inference_publication
 from sqlviz_storage.override_system import (
     apply_layout_overrides,
     apply_override,
@@ -157,38 +158,37 @@ def _update_dashboard_classification(
     """Classify the parent dashboard from all its executed panels.
 
     Runs after every successful panel execution so the sidebar icon stays
-    current.  Errors are swallowed — classification is best-effort.
+    current. Classifier failures are best-effort; storage failures must abort
+    the surrounding inference publication instead of hiding a conflict.
     """
+    row = db.execute(
+        "SELECT dashboard_id FROM panels WHERE id = ?", [panel_id]
+    ).fetchone()
+    if not row:
+        return
+    dashboard_id: str = row[0]
+
+    # Collect intent_winner for all panels that have been executed.
+    panel_rows = db.execute(
+        "SELECT inferred_intent_type, sql_content "
+        "FROM panels WHERE dashboard_id = ? AND inferred_intent_type IS NOT NULL",
+        [dashboard_id],
+    ).fetchall()
+
+    panel_intents = [r[0] for r in panel_rows]
+    all_sql = " ".join(r[1] or "" for r in panel_rows)
+
+    if not panel_intents:
+        return
+
     try:
-        row = db.execute(
-            "SELECT dashboard_id FROM panels WHERE id = ?", [panel_id]
-        ).fetchone()
-        if not row:
-            return
-        dashboard_id: str = row[0]
-
-        # Collect intent_winner for all panels that have been executed.
-        panel_rows = db.execute(
-            "SELECT inferred_intent_type, sql_content "
-            "FROM panels WHERE dashboard_id = ? AND inferred_intent_type IS NOT NULL",
-            [dashboard_id],
-        ).fetchall()
-
-        panel_intents = [r[0] for r in panel_rows]
-        all_sql = " ".join(r[1] or "" for r in panel_rows)
-
-        if not panel_intents:
-            return
-
         classification = classify_dashboard(panel_intents, col_names, all_sql)
-        db.execute(
-            "UPDATE dashboards "
-            "SET dashboard_hint = ?, dashboard_domain = ?, updated_at = ? "
-            "WHERE id = ?",
-            [classification.hint, classification.domain, _now(), dashboard_id],
-        )
     except Exception:
-        pass  # classification is non-critical; never block the execute response
+        return  # A classifier failure does not invalidate the panel's inference.
+    db.execute(
+        "UPDATE dashboards SET dashboard_hint = ?, dashboard_domain = ? WHERE id = ?",
+        [classification.hint, classification.domain, dashboard_id],
+    )
 
 
 def _render_contract(
@@ -250,7 +250,10 @@ def _inference_only_response(
     })
 
 
-@router.post("/{panel_id}/execute")
+@router.post(
+    "/{panel_id}/execute",
+    responses={409: {"description": "Execution inputs changed or publication conflicted"}},
+)
 def execute_panel(
     panel_id: str,
     db: DbDep,
@@ -350,18 +353,25 @@ def execute_panel(
         debug=debug,
     )
 
-    # Persist inferred values to panels table (never overwrites existing overrides)
+    # Analytical execution/inference hold no metadata transaction. Publish only
+    # while their captured inputs remain compatible; classify in that same tx.
     if principal.is_admin:
-        store_inference(
-            db,
-            panel_id=panel_id,
-            fingerprint=result.fingerprint,
-            chart_type=result.chart_engine_winner or result.chart_winner,
-            col_span=result.col_span,
-            height_px=result.panel_height_px,
-            intent_type=result.intent_winner,
-        )
-        _update_dashboard_classification(db, panel_id, col_names)
+        with inference_publication(
+            db, panel_id, expected_sql=sql,
+            expected_chart_override=panel.chart_user_override,
+        ) as current:
+            store_inference(
+                db,
+                panel_id=panel_id,
+                fingerprint=result.fingerprint,
+                chart_type=result.chart_engine_winner or result.chart_winner,
+                col_span=result.col_span,
+                height_px=result.panel_height_px,
+                intent_type=result.intent_winner,
+            )
+            _update_dashboard_classification(db, panel_id, col_names)
+            rendered = _render_contract(db, _to_response(current), result)
+        return JSONResponse(content={"inference_result": rendered, "data": data})
 
     return JSONResponse(content={
         "inference_result": _render_contract(db, panel, result),

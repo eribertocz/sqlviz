@@ -101,6 +101,12 @@ honest retry when refresh fails; reset clears the choice instead of pinning the
 current recommendation. See [chart override behavior](docs/architecture/sqlviz-chart-overrides.md).
 The remaining dimension review belongs to S1 in the Studio delivery plan.
 
+Author executions now publish inference and dashboard classification in one
+short transaction, conditional on the captured SQL and manual chart choice.
+Concurrent edits return a safe conflict instead of saving obsolete inference.
+Full Run revision binding and conditional success recording remain pending.
+See [inference publication and its limits](docs/architecture/sqlviz-inference-publication.md).
+
 ## Architecture today
 
 Six packages in one monorepo:

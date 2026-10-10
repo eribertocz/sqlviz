@@ -13,7 +13,8 @@ cambios de formato. S1.1b.1 entrega ahora el núcleo de reconciliación;
 S1.1b.2 entrega asociaciones del borrador; S1.1b.3 entrega resolución accesible
 y Run por ID. S1.1c.1 entrega el escritor transaccional interno; S1.1c.2a entrega
 su API tipada y autorizada. S1.1c.2b conecta Run con un único commit de definiciones;
-sigue S1.1c.2c: recarga y recuperación coherentes.
+S1.1c.2c.1a protege la publicación de inferencias durante cambios concurrentes.
+Sigue S1.1c.2c.1b: referencia de definición esperada para Run.
 
 ## Dirección del producto
 
@@ -60,8 +61,11 @@ persistencia de asociaciones y migración aditiva. **S1.1c.2a implementado:**
 [API de snapshot y commit](sqlviz-sql-commit-api.md), autorización, contratos
 estrictos y admisión de consultas antes de escribir. **S1.1c.2b implementado:**
 [Run con commit único](sqlviz-sql-run-atomic-commit.md), eliminaciones explícitas y
-ejecución separada del guardado. Recarga/recuperación, coherencia de revisión
-ejecutada y layout siguen pendientes; no se declara S1 completa.
+ejecución separada del guardado. **S1.1c.2c.1a implementado:**
+[publicación de inferencia compatible](sqlviz-inference-publication.md), con
+validación de inputs, inferencia/clasificación atómicas y conflicto seguro.
+Recarga/recuperación, coherencia de revisión ejecutada y layout siguen pendientes;
+no se declara S1 completa.
 
 **Matriz analítica incorporada al alcance central:** la tabla actual es plana.
 El [módulo de matriz](sqlviz-analytical-matrix-spec.md) tiene entregas M1–M9,
@@ -183,7 +187,7 @@ transaccional ni la comprobación del estado esperado en almacenamiento.
 | **S1.1c.1** | Implementado | Snapshot esperado y escritor transaccional interno: fuente, IDs y estado revalidados; cambios/creaciones/borrados y asociaciones juntos; migración en copia, rollback y concurrencia probados. HTTP incorporado en 2a; Run en 2b |
 | **S1.1c.2a** | Implementado | HTTP tipado y autorizado para snapshot/commit; conflictos, fuente nativa, política de lectura y decisiones revalidadas; no aceptar planes del navegador como autoridad. Pruebas HTTP de permisos/rollback/reapertura; sin integrar Run |
 | **S1.1c.2b** | Implementado | Run con un único commit de definiciones, eliminación explícita y bindings persistidos; ejecución/composición posteriores, IDs adoptados al guardar y fallos diferenciados. Todavía sin congelar ejecución concurrente ni restaurar bindings al recargar |
-| **S1.1c.2c** | Siguiente | Recarga, borrador/autoguardado, conflicto y respuesta perdida; asociar fuentes compatibles, recuperar IDs sin duplicar creaciones y vincular revisión ejecutada/resultado/registro; preservar confirmado y viewer |
+| **S1.1c.2c** | En curso | Publicación de inferencia protegida en 1a; referencia de Run/registro, recarga, borrador/autoguardado, conflicto y respuesta perdida pendientes; preservar confirmado y viewer |
 
 **Partes pequeñas de S1.1c.2c, en este orden:**
 
@@ -192,6 +196,18 @@ transaccional ni la comprobación del estado esperado en almacenamiento.
 | **S1.1c.2c.1** | Referencia de definición ejecutada y registro de éxito condicionado; rechazar SQL/revisiones incompatibles, no persistir inferencia obsoleta ni atribuir un resultado a otra fuente; pruebas de cambios concurrentes |
 | **S1.1c.2c.2** | Cargar el snapshot como autoridad de definiciones y restaurar bindings solo para fuente exacta/procedencia válida; recargar → editar → ejecutar sin reasignación por posición o SQL |
 | **S1.1c.2c.3** | Borrador/autoguardado, respuesta perdida, conflicto y recuperación explícita; no sustituir revisiones silenciosamente ni duplicar creaciones, preservar texto y estado confirmado |
+
+**S1.1c.2c.1 se entrega en tres incrementos revisables:**
+
+| Incremento | Estado | Cierre |
+| --- | --- | --- |
+| **1a** | Implementado | Publicación condicionada al SQL y elección manual capturados por el servidor; inferencia/clasificación en una transacción breve, rechazo ante cambios/competencia, tamaños/textos actuales y pruebas de rollback/reapertura/permisos |
+| **1b** | Siguiente | Referencia de definición del script desde el commit de Run, validada antes/después de ejecutar y al componer; cubrir resultados normales y fallback sin adoptar SQL diferente ni mezclar revisiones |
+| **1c** | Pendiente | Registro de éxito del lado servidor condicionado a la definición ejecutada, su resultado y estado compatible; no atribuir un lote a otra fuente ni actualizar última ejecución ante conflicto |
+
+1a no congela el lote ni reemplaza todavía el PATCH legacy de última ejecución.
+La [protección entregada y sus límites](sqlviz-inference-publication.md) separa
+estos casos para que no se declare cerrada 1 antes de completar 1b/1c.
 
 1. Revisar cómo se asigna hoy la identidad de paneles al editar y ejecutar SQL.
    Establecer reconciliación segura antes de asociar geometría persistida. Un

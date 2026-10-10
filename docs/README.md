@@ -16,7 +16,7 @@ con decisiones explícitas, validación y propuestas pendientes. **S1.1b.2 imple
 Monaco y validación nativa de rangos. **S1.1b.3 implementado:**
 [resolución y Run por ID](architecture/sqlviz-sql-run-reconciliation.md), diálogo
 bajo demanda y preflight autorizado sin escrituras. Guardado atómico e identidad
-persistida se integrarán en Run mediante S1.1c.2; no se declara S1 completa.
+persistida se integraron en Run mediante S1.1c.2b; no se declara S1 completa.
 **S1.1c.1 implementado:** [escritor atómico interno](architecture/sqlviz-sql-atomic-writer.md),
 snapshot esperado, cambios/borrados y asociaciones persistidas en una transacción,
 con migración en copia y rollback/concurrencia probados.
@@ -24,7 +24,10 @@ con migración en copia y rollback/concurrencia probados.
 contratos estrictos, autorización y admisión de consultas de lectura.
 **S1.1c.2b implementado:** [Run con commit único](architecture/sqlviz-sql-run-atomic-commit.md),
 eliminación explícita, IDs confirmados al guardar y ejecución/composición separadas.
-Sigue S1.1c.2c: recarga, recuperación y revisión ejecutada; no se declara S1 completa.
+**S1.1c.2c.1a implementado:** [publicación de inferencia compatible](architecture/sqlviz-inference-publication.md),
+transacción breve de inferencia/clasificación y conflicto seguro ante inputs
+cambiados. Sigue **1b**, referencia de definición de Run; después **1c**, registro
+condicionado, antes de recarga y recuperación. No se declara S1 completa.
 
 **Alcance de inferencia ampliado, pendiente de implementar:**
 [AST, ámbitos, linaje y evidencias](architecture/sqlviz-semantic-inference-architecture.md)

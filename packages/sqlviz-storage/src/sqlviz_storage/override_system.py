@@ -45,6 +45,10 @@ def store_inference(
     Never overwrites existing user overrides (selected_* retains user_value
     if chart_user_override / *_user_override is already set).
 
+    This is a metadata write primitive, not transaction ownership. When the
+    inference was computed earlier, use inference_publication with its captured
+    SQL/chart choice to guard this write and related classification atomically.
+
     intent_type (optional): result.intent_winner — stored in inferred_intent_type
     for use by DashboardClassifier.  Pass None (default) to skip the column
     (backwards-compatible with callers that don't supply it).

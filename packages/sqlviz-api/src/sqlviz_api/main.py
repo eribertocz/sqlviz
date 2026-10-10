@@ -48,6 +48,7 @@ from sqlviz_core.models.sql_script import SqlScriptError
 from sqlviz_core.version import __version__
 from sqlviz_storage.dashboard_repository import DashboardNotFound, DashboardWriteConflict
 from sqlviz_storage.folder_repository import FolderWriteConflict
+from sqlviz_storage.inference_publication import InferencePublicationConflict
 from sqlviz_storage.panel_repository import PanelNotFound, PanelWriteConflict
 from sqlviz_storage.sql_script_repository import (
     SqlScriptMetadataError,
@@ -171,6 +172,16 @@ def create_app(
                       "Refresh and retry.",
             "code": "dashboard_write_conflict",
         })
+    @app.exception_handler(InferencePublicationConflict)
+    async def _inference_conflict(
+        request: Request, exc: InferencePublicationConflict,
+    ) -> JSONResponse:
+        return JSONResponse(status_code=409, content={
+            "detail": "Panel SQL or chart choice changed during execution, or inference "
+                      "publication conflicted. Refresh and retry.",
+            "code": "inference_publication_conflict",
+        })
+
     @app.exception_handler(PanelNotFound)
     async def _panel_missing(request: Request, exc: PanelNotFound) -> JSONResponse:
         return JSONResponse(status_code=404, content={

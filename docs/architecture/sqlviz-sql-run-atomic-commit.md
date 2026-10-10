@@ -85,6 +85,11 @@ al terminar. Recuperarlo tras cerrar la página durante esa operación sigue en 
 
 ## Qué falta en S1.1c.2c
 
+**1a entregado:** la [publicación de inferencia](sqlviz-inference-publication.md)
+rechaza cambios de SQL/elección de gráfico durante una consulta real del autor
+y guarda inferencia/clasificación juntas. Protege los inputs capturados por esa
+solicitud; no confirma todavía que coincidan con el commit previo de Run.
+
 - Restaurar bindings persistidos solo para fuente exacta o procedencia válida.
   Por ahora, recargar un borrador arbitrario vuelve a pedir asociación explícita.
 - Recuperar conflictos o respuestas perdidas con un snapshot nuevo y revisión del
@@ -120,7 +125,8 @@ verifican a 1440 × 1000 y 390 × 650; sin errores JavaScript. Persisten los avi
 conocidos de teardown Svelte y tamaño de chunks. Artefactos en
 `build/sql-run-commit-review/`, ignorados por Git.
 
-Siguiente: **S1.1c.2c.1**, vincular la definición ejecutada con resultados y
-registro de éxito, antes de cerrar recarga y recuperación.
+Siguiente: **S1.1c.2c.1b**, referencia de definición esperada para Run y
+composición; después **1c**, registro de éxito condicionado, antes de cerrar
+recarga y recuperación.
 
 Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

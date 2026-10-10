@@ -28,6 +28,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- S1.1c.2c.1a: publicación de inferencia de consultas reales del autor condicionada
+  al SQL y elección manual de gráfico capturados; inferencia y clasificación en
+  una transacción breve, con conflictos 409 seguros y rollback completo. Conserva
+  tamaños/textos manuales compatibles y no mantiene transacción durante ejecución
+  analítica. Pruebas con cursores competidores, fallos y reapertura. Referencia
+  de definición de todo Run/composición y registro condicionado siguen en 1b/1c.
+
 - S1.1c.2b: Run usa un único commit de definiciones y valida su recibo antes de
   adoptar IDs; ejecución y composición posteriores. Diálogo con eliminación
   explícita y reversible de paneles sin consulta, incluso para script vacío.
