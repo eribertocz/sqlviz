@@ -1,3 +1,4 @@
+import { legacySqlSnapshot } from '$lib/sql/sqlSnapshot.testFixtures';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { apiGet, apiPatch, apiPost, recompose, type ExecResult } from '$lib/api';
 import type { DashboardLayout, InferenceResult } from '$lib/types';
@@ -11,7 +12,10 @@ vi.mock('$app/environment', () => ({ browser: false }));
 beforeEach(() => {
     vi.resetAllMocks(); dashboardCache.clear(); filterValues.replace({});
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => [] }));
-    vi.mocked(apiGet).mockResolvedValue({ sql_content: 'SELECT 1', last_run_at: null });
+    vi.mocked(apiGet).mockImplementation(async path => {
+        const id = path.split('/').at(-2)!;
+        return legacySqlSnapshot(id, id === 'd' ? [{ id: 'p', sql_content: 'SELECT 1' }] : [], id === 'd' ? 'SELECT 1' : '');
+    });
     vi.mocked(recompose).mockImplementation(async (results: ExecResult[]) => ({ rows: [{ panels: results.map(r => ({ ...r, final_col_span: 6, col_offset: 0, row_index: 0 })) }] }));
 });
 

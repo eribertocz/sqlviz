@@ -103,7 +103,8 @@ antes de registrar éxito; no confía en la referencia declarada.**
 con prueba de composición y definición vigente; se rechazan esos campos por PATCH.
 No hay un snapshot analítico común del lote, protección de
 todos los refrescos de filtros/lectores, publicación estable del viewer, adopción
-idempotente tras respuesta perdida ni restauración de bindings al recargar.
+idempotente tras respuesta perdida. La restauración de bindings al recargar se
+incorpora en [2c.2](sqlviz-sql-snapshot-reload.md).
 
 Las comprobaciones corresponden a instantes consistentes de metadata; otro autor
 puede editar después de una respuesta válida. No se mantiene una transacción
@@ -133,5 +134,6 @@ Se conserva la copia de preview mediante cierre ordenado y respaldo antes de
 actualizar el backend; no se toca el proyecto o aprendizaje reales del usuario.
 Persisten los avisos conocidos de teardown Svelte y tamaño de chunks.
 
-Ver el [plan operativo](sqlviz-studio-delivery-plan.md). **Siguiente: 2c.2**,
-recarga de snapshots y asociaciones; después, recuperación de borradores.
+Ver el [plan operativo](sqlviz-studio-delivery-plan.md). Recarga de snapshots y
+asociaciones entregada en [2c.2](sqlviz-sql-snapshot-reload.md).
+**Siguiente: 2c.3**, borrador/autoguardado y recuperación explícita.

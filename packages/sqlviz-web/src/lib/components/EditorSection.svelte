@@ -8,7 +8,7 @@
 
 <div class="editor-section">
     <div class="editor-toolbar">
-        <button class="run-btn" data-sql-run-trigger onclick={dashboardStore.run} disabled={executionStore.executing}>
+        <button class="run-btn" data-sql-run-trigger onclick={dashboardStore.run} disabled={executionStore.executing || dashboardStore.viewLoading}>
             <span class="run-icon">
                 {#if executionStore.executing}
                     <Loader2 size={12} class="spin" />

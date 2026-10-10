@@ -29,15 +29,18 @@ transacción breve de inferencia/clasificación y conflicto seguro ante inputs
 cambiados. **1b implementado:** [definición esperada de Run](architecture/sqlviz-sql-execution-definition.md),
 consultas/fallback y composición ligados al commit confirmado. **1c implementado:**
 [cierre verificado de Run](architecture/sqlviz-sql-run-completion.md), recibos del
-servidor y registro atómico condicionado sin reescribir el borrador. Sigue **2c.2**,
-recarga de snapshots/asociaciones; no se declara S1 completa.
+servidor y registro atómico condicionado sin reescribir el borrador. **2c.2 implementado:**
+[recarga de snapshots/asociaciones](architecture/sqlviz-sql-snapshot-reload.md),
+parsing nativo de bindings confirmados, borrador exacto y caché compatible tras
+leer definiciones actuales. Sigue **2c.3**, autoguardado/conflicto y recuperación
+de respuesta perdida; no se declara S1 completa.
 
 **Alcance de inferencia ampliado, pendiente de implementar:**
 [AST, ámbitos, linaje y evidencias](architecture/sqlviz-semantic-inference-architecture.md)
 y [matriz de familias ECharts](architecture/sqlviz-visual-capability-matrix.md).
 Documentan los tres niveles, inputs SQL múltiples, adaptación de jerarquías/redes,
 23 familias core y dependencias GL/custom. El plan desglosa S3–S5 en partes pequeñas;
-el siguiente incremento de código es S1.1c.2c: recarga y recuperación coherentes.
+el siguiente incremento de código es S1.1c.2c.3: borrador y recuperación coherentes.
 
 ## Orden de lectura
 

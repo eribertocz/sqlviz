@@ -1,3 +1,5 @@
+import { legacySqlSnapshot } from '$lib/sql/sqlSnapshot.testFixtures';
+import type { SqlScriptSnapshot } from '$lib/sql/sqlScriptCommit';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { apiGet, apiPatch, apiPost, recompose } from '$lib/api';
 import type { InferenceResult } from '$lib/types';
@@ -30,7 +32,7 @@ beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => [] }));
     vi.mocked(apiPatch).mockResolvedValue({});
     vi.mocked(apiGet).mockImplementation(async path =>
-        path === '/api/v1/dashboards' || path === '/api/v1/folders' ? [] : { sql_content: '', last_run_at: null });
+        path === '/api/v1/dashboards' || path === '/api/v1/folders' ? [] : legacySqlSnapshot(path.split('/').at(-2)!));
     vi.mocked(recompose).mockResolvedValue({ rows: [] });
 });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); editorRef.set({}); });
@@ -47,6 +49,7 @@ function transport() {
     let revision = 0;
     const token = () => `sql-script-v1:${revision.toString(16).padStart(64, '0')}`;
     let saved = { version: 1, dashboard_id: 'd', revision: token(), draft_source: '', definition_revision: null as string | null,
+        publication_status: 'absent', last_run_at: null as string | null, last_run_sql: null as string | null,
         panels: [] as { id: string; name: string; sql_content: string; sort_order: number }[],
         publication: null as unknown };
     vi.mocked(apiGet).mockImplementation(async path => path.endsWith('/sql-script') ? saved : []);
@@ -67,7 +70,7 @@ function transport() {
                 return { statement_index: index, panel_id: id, start_offset: statement.start_offset, end_offset: statement.end_offset };
             });
             revision++;
-            saved = { ...saved, revision: token(), definition_revision: `sql-definition-v1:${revision.toString(16).padStart(64, '0')}`,
+            saved = { ...saved, publication_status: 'confirmed', revision: token(), definition_revision: `sql-definition-v1:${revision.toString(16).padStart(64, '0')}`,
                 draft_source: input.sql, panels: bindings.map((binding, i) => ({
                 id: binding.panel_id, name: `Panel ${i + 1}`, sql_content: proposedStatements[i].sql, sort_order: i,
             })), publication: { version: 1, revision, source: input.sql, bindings } };
@@ -82,8 +85,11 @@ function transport() {
                 rows: template.rows.length ? template.rows : input.panels.length
                 ? [{ panels: input.panels.map((panel, index) => ({ ...panel, final_col_span: 6, col_offset: index * 6, row_index: 0, data: [] })) }] : [] };
         }
-        if (path.endsWith('/sql-script/complete')) return { definition: (body as { definition: unknown }).definition,
-            last_run_at: serverRunAt, last_run_sql: saved.draft_source };
+        if (path.endsWith('/sql-script/complete')) {
+            saved = { ...saved, last_run_at: serverRunAt, last_run_sql: saved.draft_source };
+            return { definition: (body as { definition: unknown }).definition,
+                last_run_at: serverRunAt, last_run_sql: saved.draft_source };
+        }
         throw new Error(`Unexpected request: ${path}`);
     });
 }
@@ -250,16 +256,53 @@ it('a late parse of a replaced draft cannot attach old bindings to a restored te
 
 it.each([true, false])('load distinguishes saved arbitrary SQL from directly constructed panel source (saved=%s)', async saved => {
     const reconstructed = `${first}\n;\n\n${second}`;
-    vi.mocked(apiGet).mockResolvedValue({ id: 'loaded', sql_content: saved ? reconstructed : '', last_run_at: null });
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => [
-        { id: 'p1', sql_content: first, sort_order: 0 }, { id: 'p2', sql_content: second, sort_order: 1 },
-    ] }));
+    vi.mocked(apiGet).mockResolvedValue(legacySqlSnapshot('loaded', [
+        { id: 'p1', sql_content: first }, { id: 'p2', sql_content: second },
+    ], saved ? reconstructed : ''));
     vi.mocked(apiPost).mockResolvedValueOnce({ ...parsed, statements: [
         { sql: first, start_offset: 0, end_offset: first.length },
         { sql: second, start_offset: first.length + 4, end_offset: reconstructed.length },
     ] });
     const store = createDashboardStore(); await store.loadDashboard('loaded'); await store.handleEditSQL('p1');
     expect(store.sqlIdentity?.statements.map(item => item.panel_id)).toEqual(saved ? [null, null] : ['p1', 'p2']);
+});
+
+it('reloads persisted associations and reruns with the same IDs without a resolution dialog', async () => {
+    transport(); const firstStore = createDashboardStore(); firstStore.sql = source; await firstStore.run();
+    vi.mocked(apiPost).mockClear(); vi.mocked(apiPatch).mockClear();
+    const reloaded = createDashboardStore(); await reloaded.loadDashboard('d');
+    expect(reloaded.panelIds).toEqual(['p1', 'p2']); expect(reloaded.lastRunAt).toBe(serverRunAt);
+    expect(reloaded.executedResults).toEqual([]); expect(reloaded.layout).toBeNull();
+    expect(vi.mocked(apiPost).mock.calls.every(([path]) => path === '/api/v1/sql/parse')).toBe(true);
+    expect(apiPatch).not.toHaveBeenCalled();
+    await reloaded.run();
+    expect(reloaded.sqlRunResolution).toBeNull(); expect(reloaded.panelIds).toEqual(['p1', 'p2']);
+    expect(apiPost).toHaveBeenCalledWith('/api/v1/dashboards/d/sql-script/commit', expect.objectContaining({
+        decisions: [{ kind: 'keep', statement_index: 0, panel_id: 'p1' }, { kind: 'keep', statement_index: 1, panel_id: 'p2' }],
+    }));
+});
+
+it('reloads a newer draft and restores the verified last-run identity only for its exact publication', async () => {
+    transport(); const original = createDashboardStore(); original.sql = source; await original.run();
+    const snapshot = await apiGet<SqlScriptSnapshot>('/api/v1/dashboards/d/sql-script');
+    snapshot.draft_source = "SELECT 'unfinished";
+    const reloaded = createDashboardStore(); await reloaded.loadDashboard('d');
+    expect(reloaded.sql).toBe(snapshot.draft_source); expect(reloaded.sqlIdentity).toBeNull();
+    expect(reloaded.canRestoreLastRun).toBe(true);
+    reloaded.restoreLastRun(); await reloaded.handleEditSQL('p1');
+    expect(reloaded.sql).toBe(source);
+    expect(reloaded.sqlIdentity?.statements.map(item => item.panel_id)).toEqual(['p1', 'p2']);
+});
+
+it('saved definitions survive a failed execution and reload independently of last successful Run', async () => {
+    transport(); const regular = vi.mocked(apiPost).getMockImplementation()!;
+    vi.mocked(apiPost).mockImplementation((path, body) => path === '/api/v1/panels/p1/execute'
+        ? Promise.reject(new Error('Query failed')) : regular(path, body));
+    const original = createDashboardStore(); original.sql = source; await original.run();
+    const reloaded = createDashboardStore(); await reloaded.loadDashboard('d');
+    expect(reloaded.panelIds).toEqual(['p1', 'p2']); expect(reloaded.lastRunAt).toBeNull();
+    await reloaded.handleEditSQL('p1');
+    expect(reloaded.sqlIdentity?.statements.map(item => item.panel_id)).toEqual(['p1', 'p2']);
 });
 
 it('opaque reordering requires explicit IDs, then commits and focuses the selected panels', async () => {

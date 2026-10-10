@@ -3,7 +3,8 @@
 **Implementado — 2026-10-09: S1.1c.2c.1c.** La última ejecución se registra por
 un endpoint de autor con prueba del servidor y precondición de definición vigente.
 Run deja de enviar SQL/timestamp mediante PATCH. Este incremento cierra el registro
-de éxito de S1.1c.2c.1; recarga y recuperación siguen en 2c.2 y 2c.3.
+de éxito de S1.1c.2c.1; recarga entregada en
+[2c.2](sqlviz-sql-snapshot-reload.md), recuperación pendiente en 2c.3.
 
 ## Qué se verifica
 
@@ -100,8 +101,10 @@ al navegador. La firma tampoco representa una publicación estable del viewer.
 Una edición posterior a un cierre válido sigue siendo posible.
 
 No se incorpora una migración ni un ledger de ejecuciones. La recuperación durable
-de respuesta perdida/reinicio, restauración de bindings, caché entre editores y
-publicación del viewer siguen en sus entregas respectivas. Un reintento válido de
+de respuesta perdida/reinicio, coherencia amplia entre editores y publicación
+del viewer siguen en sus entregas respectivas. Recarga de bindings y compatibilidad
+de caché con definiciones están entregadas en [2c.2](sqlviz-sql-snapshot-reload.md).
+Un reintento válido de
 complete no resuelve todavía la respuesta perdida de un commit de definiciones.
 
 Se verifican contratos, firmas/IR/paneles incompatibles, expiración/reinicio,
@@ -122,6 +125,6 @@ cierre devuelve 409, conserva IDs y borrador nuevo y no registra éxito. Preview
 actualizada mediante cierre ordenado y copias de respaldo, sin tocar el proyecto
 o aprendizaje reales. Persisten los avisos conocidos de teardown Svelte y chunks.
 
-Ver el [plan operativo](sqlviz-studio-delivery-plan.md). Sigue **S1.1c.2c.2**:
-restaurar el snapshot y las asociaciones confirmadas al recargar, sin adivinar
-identidad desde posición o igualdad de SQL.
+Ver el [plan operativo](sqlviz-studio-delivery-plan.md). La recarga de snapshots
+y asociaciones confirmadas está entregada en [2c.2](sqlviz-sql-snapshot-reload.md).
+Sigue **S1.1c.2c.3**: borrador/autoguardado, conflicto y respuesta perdida.

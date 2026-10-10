@@ -1,3 +1,4 @@
+import { legacySqlSnapshot } from '$lib/sql/sqlSnapshot.testFixtures';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { apiGet, apiPost, type ExecResult } from '$lib/api';
 import { createDashboardStore } from './dashboardStore.svelte';
@@ -10,7 +11,12 @@ vi.mock('$app/environment', () => ({ browser: false }));
 beforeEach(() => {
     vi.clearAllMocks(); dashboardCache.clear(); filterValues.reset();
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => [] }));
-    vi.mocked(apiGet).mockResolvedValue({ sql_content: '', last_run_at: null });
+    vi.mocked(apiGet).mockImplementation(async path => {
+        const id = path.split('/').at(-2)!;
+        return legacySqlSnapshot(id, id === 'filters-dashboard' ? [
+            { id: 'a', sql_content: 'SELECT 1' }, { id: 'b', sql_content: 'SELECT 2' },
+        ] : []);
+    });
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -18,7 +24,7 @@ async function reader() {
     const results: ExecResult[] = ['a', 'b'].map(variable => ({ panel_id: variable, data: [{ total: 100 }],
         inference_result: { col_span: 6, row_span: 1, panel_height_px: 360, filter_controls: [{ variable, label: variable,
             column_name: variable, column_type: 'INTEGER', control_type: 'numeric', scope: 'global' }] } as InferenceResult }));
-    dashboardCache.set('filters-dashboard', { sql: '', panelIds: ['a', 'b'], panelSQLs: ['', ''],
+    dashboardCache.set('filters-dashboard', { sql: 'SELECT 1\n;\n\nSELECT 2', panelIds: ['a', 'b'], panelSQLs: ['SELECT 1', 'SELECT 2'],
         executedResults: results, layout: { rows: [{ panels: results.map(r => ({ ...r, final_col_span: 6, col_offset: 0, row_index: 0 })) }] },
         filterDomains: {}, filterValues: {} });
     const store = createDashboardStore(); await store.loadDashboard('filters-dashboard'); return store;

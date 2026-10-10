@@ -56,6 +56,9 @@ class SqlScriptSnapshot:
     # None means absent or incompatible with current panel IDs/SQL. An unrelated
     # presentation change does not invalidate explicit identity.
     publication: SqlScriptPublication | None
+    last_run_at: str | None = None
+    last_run_sql: str | None = None
+    has_script_record: bool = False
 
 
 @dataclass(frozen=True)
@@ -214,6 +217,9 @@ class SqlScriptRepository:
             dashboard.sql_content,
             panels,
             _publication(row, panels) if row is not None else None,
+            last_run_at=dashboard.last_run_at,
+            last_run_sql=dashboard.last_run_sql,
+            has_script_record=row is not None,
         )
         return snapshot, row[0] if row is not None else 0
 

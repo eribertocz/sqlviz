@@ -4,7 +4,9 @@
 guarda fuente, paneles y asociaciones en una sola transacción. **HTTP incorporado
 en [S1.1c.2a](sqlviz-sql-commit-api.md) y Run en
 [S1.1c.2b](sqlviz-sql-run-atomic-commit.md)**. Se confirma el guardado atómico de
-definiciones; recarga/recuperación y revisión ejecutada siguen pendientes en 2c.
+definiciones; revisión ejecutada y recarga se incorporan en
+[2c.1](sqlviz-sql-execution-definition.md) y [2c.2](sqlviz-sql-snapshot-reload.md).
+Autoguardado y recuperación siguen pendientes en 2c.3.
 
 ## Contrato y límites entre capas
 
@@ -130,5 +132,6 @@ por esta entrega interna.
 
 **S1.1c.2a entregado:** [contrato HTTP y autorización](sqlviz-sql-commit-api.md)
 para leer snapshot y guardar. **S1.1c.2b entregado:** Run con un único commit de
-definiciones. Siguiente: **S1.1c.2c**, recarga, conflictos, reintento y revisión ejecutada.
+definiciones. **S1.1c.2c.2 entregada:** [recarga verificada](sqlviz-sql-snapshot-reload.md).
+Siguiente: **S1.1c.2c.3**, autoguardado, conflictos y recuperación explícita.
 Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

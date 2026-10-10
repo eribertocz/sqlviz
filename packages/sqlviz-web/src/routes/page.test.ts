@@ -2,6 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { uiStore } from '$lib/stores/uiStore.svelte';
 import { editMode } from '$lib/stores/editMode';
+import { legacySqlSnapshot } from '$lib/sql/sqlSnapshot.testFixtures';
+import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 
@@ -19,10 +21,12 @@ beforeEach(() => {
     editMode.set(true);
     vi.stubGlobal('fetch', vi.fn((url: string) => {
         const path = String(url);
+        const snapshotDashboard = dashboards.find(d => path.endsWith(`/${d.id}/sql-script`));
         const body = path.endsWith('/auth/me') ? { status: 'ok', demo: false }
             : path.endsWith('/folders') ? [{ id: 'f1', name: 'Finance', sort_order: 0 }]
             : path.includes('/panels') ? []
             : path.endsWith('/dashboards') ? dashboards
+            : snapshotDashboard ? legacySqlSnapshot(snapshotDashboard.id)
             : dashboards.find(d => path.endsWith(`/${d.id}`));
         if (!body) throw new Error(`Unexpected fetch in test: ${path}`);
         return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) } as Response);
@@ -146,12 +150,16 @@ describe('minimal reader Preview', () => {
     });
     it('opens dashboard search from the title and keyboard without author commands', async () => {
         render(Page);
+        await waitFor(() => expect(vi.mocked(fetch).mock.calls.some(([url]) =>
+            String(url).endsWith('/d1/sql-script'))).toBe(true));
         const trigger = await screen.findByRole('button', { name: 'Switch dashboard: Revenue' });
+        await waitFor(() => expect(dashboardStore.viewLoading).toBe(false));
         expect(screen.queryByRole('button', { name: 'Search dashboards and commands' })).toBeNull();
         expect(screen.getByRole('button', { name: 'Show navigation' })).toBeTruthy();
         await fireEvent.keyDown(trigger, { key: 'k', ctrlKey: true });
         const search = await screen.findByLabelText('Search shared dashboards');
         await fireEvent.input(search, { target: { value: 'Operations' } });
+        await waitFor(() => expect(screen.getByRole('option', { name: 'Operations' }).getAttribute('data-disabled')).not.toBe('true'));
         await fireEvent.keyDown(search, { key: 'ArrowDown' });
         await fireEvent.keyDown(search, { key: 'Enter' });
         await screen.findByRole('button', { name: 'Switch dashboard: Operations' });

@@ -37,8 +37,9 @@ The [Studio delivery plan](docs/architecture/sqlviz-studio-delivery-plan.md)
 defines the current sequence and completion criteria; the
 [canvas contract](docs/architecture/sqlviz-canvas-contract.md) states what exists.
 The first S1 increment replaces delimiter splitting with backend DuckDB syntax
-analysis for Run, statement counts and editor focus. Stable panel reconciliation
-remains next; see the [script parsing contract](docs/architecture/sqlviz-sql-script-parsing.md).
+analysis for Run, statement counts and editor focus. Stable panel reconciliation,
+atomic script commits and verified Run completion are now implemented; see the
+[script parsing contract](docs/architecture/sqlviz-sql-script-parsing.md).
 
 The expanded, planned inference architecture adds scoped SQL AST analysis,
 lineage, evidence and explicit ambiguity. The visual target covers all 23 core
@@ -111,6 +112,11 @@ atomic definition check; draft PATCH cannot forge last-run metadata.
 See [inference publication and its limits](docs/architecture/sqlviz-inference-publication.md).
 See [Run definition references](docs/architecture/sqlviz-sql-execution-definition.md).
 See [verified Run completion and limits](docs/architecture/sqlviz-sql-run-completion.md).
+Workspace reload now verifies persisted SQL bindings against native parsing,
+preserves newer drafts and loads definitions before restoring compatible cached
+results. It never executes queries automatically. See
+[snapshot reload and recovery limits](docs/architecture/sqlviz-sql-snapshot-reload.md).
+Draft concurrency and lost-response recovery are next in S1.1c.2c.3.
 
 ## Architecture today
 

@@ -50,6 +50,9 @@ class SqlSnapshotResponse(BaseModel):
     draft_source: str
     panels: list[SqlScriptPanelResponse] = Field(max_length=256)
     publication: SqlPublicationResponse | None
+    publication_status: Literal["absent", "confirmed", "incompatible"]
+    last_run_at: str | None
+    last_run_sql: str | None
 
 
 class CreatedSqlPanelResponse(BaseModel):

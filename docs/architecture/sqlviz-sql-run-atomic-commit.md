@@ -95,13 +95,15 @@ rechaza cambios de SQL/elección de gráfico durante una consulta real del autor
 y guarda inferencia/clasificación juntas. Protege los inputs capturados por esa
 solicitud; no confirma todavía que coincidan con el commit previo de Run.
 
-- Restaurar bindings persistidos solo para fuente exacta o procedencia válida.
-  Por ahora, recargar un borrador arbitrario vuelve a pedir asociación explícita.
+- **2c.2 entregada:** [recarga verificada](sqlviz-sql-snapshot-reload.md), bindings
+  nativos para fuente confirmada exacta y última ejecución compatible. Un borrador
+  arbitrario conserva su texto y requiere asociación explícita.
 - Recuperar conflictos o respuestas perdidas con un snapshot nuevo y revisión del
   autor. No existe respuesta idempotente almacenada ni adopción automática tras
   pérdida de respuesta; reintentar con el mismo token no duplica creaciones.
-- Completar autosave/recarga y coherencia del cache ante otros editores y cambios
-  legacy, preservando borrador y estado confirmado.
+- Completar autosave con revisión y coherencia amplia del cache ante otros
+  editores/cambios legacy, preservando borrador y estado confirmado. Recarga ya
+  comprueba definición, fuente, IDs/SQL y cobertura antes de reutilizar resultados.
 - **1c entregado:** [cierre verificado de Run](sqlviz-sql-run-completion.md), recibos
   firmados y registro condicionado a definición vigente, con fuente/reloj del
   servidor. El PATCH de última ejecución deja de admitirse. No hay snapshot
@@ -130,7 +132,7 @@ verifican a 1440 × 1000 y 390 × 650; sin errores JavaScript. Persisten los avi
 conocidos de teardown Svelte y tamaño de chunks. Artefactos en
 `build/sql-run-commit-review/`, ignorados por Git.
 
-Siguiente: **S1.1c.2c.2**, restaurar snapshot/asociaciones al recargar; después,
-borrador y recuperación en 2c.3.
+Recarga entregada en [S1.1c.2c.2](sqlviz-sql-snapshot-reload.md).
+Siguiente: **2c.3**, borrador/autoguardado, conflicto y recuperación.
 
 Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

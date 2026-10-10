@@ -18,6 +18,7 @@ import { confirmedSqlDraft, editSqlIdentityDraft, projectSqlIdentity, settleSqlI
 import { initialRunChoices, requireRunPreflight, runResolutionComplete, selectRunPanel, selectRunRemoval,
     type SqlRunPreflight, type SqlRunResolution } from '$lib/sql/sqlRunResolution';
 import { requireSqlRunCommit, requireSqlRunSnapshot, type SqlScriptCommit, type SqlScriptSnapshot } from '$lib/sql/sqlScriptCommit';
+import { loadSqlSnapshot, sqlSnapshotMatchesCache, type LoadedSqlSnapshot } from '$lib/sql/sqlSnapshot';
 
 export type { ExecResult };
 
@@ -43,6 +44,7 @@ export function createDashboardStore() {
     let panelSQLs        = $state<string[]>([]);
     let executedResults  = $state<ExecResult[]>([]);
     let executedSource = $state('');
+    let executedDefinitionRevision = $state<string | null>(null);
     let layout           = $state<DashboardLayout | null>(null);
     let sql               = $state('');
     let sqlIdentity = $state.raw(unboundSqlDraft(''));
@@ -173,14 +175,6 @@ export function createDashboardStore() {
         return statements;
     }
 
-    function loadSqlIdentity(source: string, savedDraft: string) {
-        cancelSqlRunResolution();
-        confirmedSqlIdentity = null;
-        sqlIdentity = savedDraft ? unboundSqlDraft(source, panelIds) : sqlDraftFromPanels(
-            panelIds.map((id, index) => ({ id, sql_content: panelSQLs[index] })),
-        );
-    }
-
     // "Restore last run" is offered while there is a prior successful run whose
     // SQL differs from the current draft.
     const canRestoreLastRun = $derived(lastRunSql !== '' && sql !== lastRunSql);
@@ -300,56 +294,73 @@ export function createDashboardStore() {
         });
     }
 
-    /** Loads the first existing dashboard, if any. Called once on mount. */
+    /** Adopt only a complete, validated snapshot; cache supplies results, never IDs. */
+    function adoptSqlSnapshot(id: string, loaded: LoadedSqlSnapshot) {
+        const cached = dashboardCache.get(id);
+        const reusable = cached && sqlSnapshotMatchesCache(loaded, cached) ? cached : null;
+        if (cached && !reusable) dashboardCache.invalidate(id);
+        cancelSqlRunResolution();
+        dashboardId = id;
+        panelIds = loaded.panels.map(panel => panel.id);
+        panelSQLs = loaded.panels.map(panel => panel.sql_content);
+        panelNames = Object.fromEntries(loaded.panels.map(panel => [panel.id, panel.name]));
+        lastRunAt = loaded.lastRunAt;
+        lastRunSql = loaded.lastRunSql;
+        sql = loaded.source;
+        sqlIdentity = loaded.identity;
+        confirmedSqlIdentity = loaded.lastRunIdentity;
+        executedResults = reusable?.executedResults ?? [];
+        executedSource = reusable?.sql ?? '';
+        executedDefinitionRevision = reusable?.definitionRevision ?? null;
+        layout = reusable?.layout ?? null;
+        filterDomains = reusable?.filterDomains ?? {};
+        filterValues.replace(reusable?.filterValues ?? {});
+        propertiesPanelId = null;
+        markSqlSaved(loaded.source);
+        loadPaletteFor(id);
+        persistActive(id);
+        const generation = viewGeneration;
+        queueMicrotask(() => {
+            if (generation !== viewGeneration || dashboardId !== id || sql !== loaded.source) return;
+            get(editorRef).setContent?.(loaded.source);
+            get(editorRef).focusOffset?.(0);
+        });
+    }
+
+    /** Refresh loads definitions and last-run metadata together, without executing SQL. */
     async function bootstrap() {
+        const generation = ++viewGeneration;
+        const previousSource = sql;
         dashboardsLoading = true;
+        viewLoading = true;
         try {
             const [dashboards, fldrs] = await Promise.all([
                 apiGet<DashboardInfo[]>('/api/v1/dashboards'),
                 apiGet<FolderInfo[]>('/api/v1/folders').catch(() => [] as FolderInfo[]),
             ]);
+            if (generation !== viewGeneration) return;
             allDashboards = dashboards;
             folders = fldrs;
-            if (dashboards.length === 0) {
-                // No auto-seeded example data — a fresh install shows the
-                // welcome screen so the user creates their first dashboard.
-                return;
-            }
-
-            // Restore the last active dashboard (refresh), else the first one.
+            if (dashboards.length === 0) return;
             let saved: string | null = null;
             try { saved = localStorage.getItem(ACTIVE_KEY); } catch { /* no storage */ }
             const active = dashboards.find(d => d.id === saved) ?? dashboards[0];
-            dashboardId = active.id;
-            loadPaletteFor(active.id);
-            persistActive(active.id);
-            lastRunAt = active.last_run_at;
-            lastRunSql = active.last_run_sql ?? '';
-
-            const panels = await fetch(`/api/v1/panels?dashboard_id=${dashboardId}`)
-                .then(r => r.json()) as Array<{ id: string; sql_content: string; sort_order: number }>;
-            panels.sort((a, b) => a.sort_order - b.sort_order);
-            panelIds  = panels.map(p => p.id);
-            panelSQLs = panels.map(p => p.sql_content);
-            panelNames = Object.fromEntries(panels.map(p => [p.id, (p as { name?: string }).name ?? 'Panel']));
-
-            // Prefer the saved draft (exact editor text); fall back to the
-            // committed panel SQL for dashboards created before draft auto-save.
-            const draft = active.sql_content || joinSqlStatements(panelSQLs);
-            sql = draft;
-            loadSqlIdentity(draft, active.sql_content);
-            markSqlSaved(draft);
-            queueMicrotask(() => get(editorRef).setContent?.(draft));
-            // Do NOT auto-run — refresh shows "Last run X ago" + Run Again.
-        } catch {
-            // Fresh install — no existing state
+            const snapshot = await apiGet<unknown>(`/api/v1/dashboards/${encodeURIComponent(active.id)}/sql-script`);
+            const loaded = await loadSqlSnapshot(snapshot, active.id);
+            if (generation !== viewGeneration) return;
+            if (sql !== previousSource) throw new Error('The editor changed while loading. Your draft was preserved; select the dashboard again.');
+            resetFilterUpdates();
+            adoptSqlSnapshot(active.id, loaded);
+        } catch (error: unknown) {
+            if (generation === viewGeneration) uiStore.showToast(error instanceof Error ? error.message : 'Could not load dashboard.');
         } finally {
             dashboardsLoading = false;
+            if (generation === viewGeneration) viewLoading = false;
         }
     }
 
     async function run() {
-        if (executionStore.executing || sqlRunResolution) return;
+        if (executionStore.executing || sqlRunResolution || viewLoading) return;
 
         executionStore.executing = true;
         executionStore.errorMsg  = null;
@@ -450,6 +461,8 @@ export function createDashboardStore() {
             // complete execution/composition will publish a new result view.
             resetFilterUpdates();
             executedResults = [];
+            executedSource = '';
+            executedDefinitionRevision = null;
             layout = null;
             propertiesPanelId = null;
             filterDomains = {};
@@ -473,6 +486,7 @@ export function createDashboardStore() {
             executedResults = results;
             layout = composed.layout;
             executedSource = ranSql;
+            executedDefinitionRevision = committed.definition.revision;
             filterValues.reset();
             executionStore.statusMsg = null;
 
@@ -611,6 +625,8 @@ export function createDashboardStore() {
      */
     async function createDashboard(name = 'New Dashboard', folderId: string | null = null) {
         const finalName = name.trim() || 'New Dashboard';
+        const generation = ++viewGeneration;
+        viewLoading = false;
         uiStore.creatingDashboard = false;
         uiStore.newDashboardName  = '';
         try {
@@ -620,6 +636,7 @@ export function createDashboardStore() {
                 sort_order: allDashboards.length,
             });
             await refreshExplorer();
+            if (generation !== viewGeneration) return;
             resetFilterUpdates();
             // Switch to the empty new dashboard without running anything.
             dashboardId     = dash.id;
@@ -634,6 +651,8 @@ export function createDashboardStore() {
             lastRunAt       = null;
             lastRunSql      = '';
             executedResults = [];
+            executedSource = '';
+            executedDefinitionRevision = null;
             layout          = null;
             filterDomains   = {};
             filterValues.reset();
@@ -648,79 +667,23 @@ export function createDashboardStore() {
         }
     }
 
-    /**
-     * Switch to a different dashboard. Auto-saves the current draft first, then
-     * loads the target's draft + last-run info.
-     *
-     * Navigation is now instant when the target has a cached view (a prior run
-     * this session): its charts, layout, filter domains and filter selection are
-     * restored from memory. With no cache the view is empty — the user re-runs.
-     * Either way the Monaco editor shows the selected dashboard's own SQL, and
-     * nothing is auto-executed (UX spec §"Cambiar de Dashboard").
-     */
+    /** Load fresh definitions before restoring any cached view; never auto-execute. */
     async function loadDashboard(id: string) {
         if (id === dashboardId || executionStore.executing) return;
-
         const generation = ++viewGeneration;
+        const previousSource = sql;
         cancelSqlRunResolution();
         viewLoading = true;
-        // Silently persist the current dashboard's draft before leaving it.
         saveDraft();
-
-        // Drop any pending filter re-execution meant for the dashboard we leave.
         resetFilterUpdates();
-
         try {
-            const [dash, panels] = await Promise.all([
-                apiGet<DashboardInfo>(`/api/v1/dashboards/${id}`),
-                fetch(`/api/v1/panels?dashboard_id=${id}`).then(r => r.json()) as Promise<
-                    Array<{ id: string; sql_content: string; sort_order: number }>
-                >,
-            ]);
+            const snapshot = await apiGet<unknown>(`/api/v1/dashboards/${encodeURIComponent(id)}/sql-script`);
+            const loaded = await loadSqlSnapshot(snapshot, id);
             if (generation !== viewGeneration) return;
-            panels.sort((a, b) => a.sort_order - b.sort_order);
-
-            panelNames = Object.fromEntries(panels.map(p => [p.id, (p as { name?: string }).name ?? 'Panel']));
-
-            dashboardId = id;
-            loadPaletteFor(id);
-            persistActive(id);
-            lastRunAt   = dash.last_run_at;
-            lastRunSql  = dash.last_run_sql ?? '';
-
-            const cached = dashboardCache.get(id);
-            if (cached) {
-                // Cache hit — restore the executed view instantly (no re-run).
-                panelIds        = [...cached.panelIds];
-                panelSQLs       = [...cached.panelSQLs];
-                executedResults = cached.executedResults;
-                executedSource = cached.sql;
-                layout          = cached.layout;
-                filterDomains   = cached.filterDomains;
-                // Restore the filter selection; sync the change-detection
-                // snapshot so this does NOT trigger a filter re-execution.
-                filterValues.replace(cached.filterValues);
-            } else {
-                // Cache miss — empty view; results appear only on a manual re-run.
-                panelIds        = panels.map(p => p.id);
-                panelSQLs       = panels.map(p => p.sql_content);
-                executedResults = [];
-                layout          = null;
-                filterDomains   = {};
-                filterValues.reset();
-            }
-
-            // Prefer the saved draft; fall back to the committed panel SQL.
-            const draft = dash.sql_content || joinSqlStatements(panelSQLs);
-            sql = draft;
-            loadSqlIdentity(draft, dash.sql_content);
-            markSqlSaved(draft);
-            queueMicrotask(() => {
-                get(editorRef).setContent?.(draft);
-                get(editorRef).focusOffset?.(0);
-            });
-        } catch (e: unknown) {
-            if (generation === viewGeneration) uiStore.showToast(e instanceof Error ? e.message : 'Could not load dashboard.');
+            if (sql !== previousSource) throw new Error('The editor changed while loading. Your draft was preserved; select the dashboard again.');
+            adoptSqlSnapshot(id, loaded);
+        } catch (error: unknown) {
+            if (generation === viewGeneration) uiStore.showToast(error instanceof Error ? error.message : 'Could not load dashboard.');
         } finally {
             if (generation === viewGeneration) viewLoading = false;
         }
@@ -1211,9 +1174,10 @@ export function createDashboardStore() {
      * which is what `onSqlChanged` compares against to invalidate.
      */
     function cacheCurrentView() {
-        if (!dashboardId || executedResults.length === 0) return;
+        if (!dashboardId || executedResults.length === 0 || viewLoading) return;
         dashboardCache.set(dashboardId, {
             sql: executedSource,
+            definitionRevision: executedDefinitionRevision,
             panelIds: [...panelIds],
             panelSQLs: [...panelSQLs],
             executedResults,

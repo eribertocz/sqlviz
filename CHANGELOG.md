@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Breaking
 
+- La carga del workspace requiere `publication_status`, `last_run_at` y
+  `last_run_sql` en el snapshot de autor; frontend/backend deben actualizarse
+  juntos. No vuelve a lecturas separadas ni adopta respuestas incompatibles.
+
 - Última ejecución pasa a ser metadata del servidor: PATCH de dashboards rechaza
   `last_run_at`/`last_run_sql`. Run requiere recibos firmados de ejecución/composición
   y `/sql-script/complete`; frontend/backend deben actualizarse juntos.
@@ -36,6 +40,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   también se rechazan; los clientes deben corregir esas entradas.
 
 ### Added
+
+- S1.1c.2c.2: snapshot coherente de borrador, paneles, publicación y última
+  ejecución; recarga verifica bindings persistidos con parsing nativo y conserva
+  IDs, incluso con consultas idénticas. Preserva borradores nuevos/vacíos/invalidos
+  y recupera identidad de última ejecución solo para su publicación exacta.
+  Navegación descarta respuestas tardías y bloquea Run mientras carga; caché
+  requiere revisión, fuente, IDs/SQL y cobertura compatibles. No autoejecuta,
+  no adopta estado desde caché ni incorpora recuperación idempotente/autosave
+  con revisión; esos límites permanecen en 2c.3.
 
 - S1.1c.2c.1c: recibos app-local con HMAC-SHA256, hash de inferencia, ID/definición
   y expiración de 15 minutos. Solo consultas reales y composición completa producen

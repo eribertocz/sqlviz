@@ -1,6 +1,7 @@
+import { legacySqlSnapshot } from '$lib/sql/sqlSnapshot.testFixtures';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { apiGet, apiPatch, recompose, type ExecResult } from '$lib/api';
-import type { DashboardInfo, DashboardLayout, InferenceResult } from '$lib/types';
+import type { DashboardLayout, InferenceResult } from '$lib/types';
 import { dashboardCache } from './dashboardCache.svelte';
 import { createDashboardStore } from './dashboardStore.svelte';
 import { uiStore } from './uiStore.svelte';
@@ -16,7 +17,10 @@ beforeEach(() => {
     vi.clearAllMocks();
     dashboardCache.clear();
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => [] }));
-    vi.mocked(apiGet).mockResolvedValue({ sql_content: 'SELECT 1', last_run_at: null } as DashboardInfo);
+    vi.mocked(apiGet).mockImplementation(async path => {
+        const id = path.split('/').at(-2)!;
+        return legacySqlSnapshot(id, id === 'd' ? [{ id: 'p', sql_content: 'SELECT 1' }] : [], id === 'd' ? 'SELECT 1' : '');
+    });
     vi.mocked(recompose).mockImplementation(async (results: ExecResult[]) => ({
         rows: [{ panels: results.map(r => ({
             ...r, final_col_span: r.inference_result.col_span, col_offset: 0, row_index: 0,

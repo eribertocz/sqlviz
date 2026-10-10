@@ -53,6 +53,10 @@ def _snapshot_response(snapshot: SqlScriptSnapshot) -> SqlSnapshotResponse:
         revision=snapshot.revision,
         definition_revision=definition_revision(snapshot),
         draft_source=snapshot.draft_source,
+        publication_status=("confirmed" if publication is not None else
+                            "incompatible" if snapshot.has_script_record else "absent"),
+        last_run_at=snapshot.last_run_at,
+        last_run_sql=snapshot.last_run_sql,
         panels=[
             SqlScriptPanelResponse(
                 id=panel.id,

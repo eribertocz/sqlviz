@@ -9,6 +9,9 @@ export type SqlScriptSnapshot = {
     revision: string;
     definition_revision: string | null;
     draft_source: string;
+    publication_status: 'absent' | 'confirmed' | 'incompatible';
+    last_run_at: string | null;
+    last_run_sql: string | null;
     panels: { id: string; name: string; sql_content: string; sort_order: number }[];
     publication: null | {
         version: 1; revision: number; source: string;

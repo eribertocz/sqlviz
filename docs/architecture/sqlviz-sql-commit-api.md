@@ -28,7 +28,8 @@ no una reserva ni una autorización para saltarse la comprobación del commit.
 ## Snapshot
 
 La respuesta tiene `version: 1`, `dashboard_id`, `revision`, `draft_source`,
-`definition_revision`, `panels` y `publication`. Cada panel expone ID, nombre, SQL y orden. La lista se
+`definition_revision`, `panels`, `publication`, `publication_status`,
+`last_run_at` y `last_run_sql`. Cada panel expone ID, nombre, SQL y orden. La lista se
 ordena por `sort_order`, fecha de creación e ID para resolver empates.
 La revisión cubre también los ajustes y campos persistidos que no se incluyen
 en esta respuesta mínima. **Es un token de estado, no una credencial.**
@@ -45,7 +46,10 @@ o igualdad de consultas. Cuando existe, contiene `version: 1`, contador positivo
 
 `draft_source` puede diferir de `publication.source`: un autoguardado legacy del
 borrador no cambia por sí solo las asociaciones de la última fuente confirmada.
-La futura restauración deberá verificar fuente exacta o procedencia de edición.
+La [recarga implementada en 2c.2](sqlviz-sql-snapshot-reload.md) verifica la
+fuente confirmada con parsing nativo antes de restaurar identidad. Los campos
+de última ejecución salen de la misma lectura transaccional. `publication_status`
+distingue `confirmed`, `absent` e `incompatible`; metadata corrupta sigue fallando.
 GET no analiza SQL, ejecuta consultas ni escribe asociaciones. Ambas rutas usan
 `Cache-Control: no-store`.
 
@@ -148,5 +152,6 @@ completa; **118 casos focalizados** después de los ajustes finales de admisión
 OpenAPI. Ruff y mypy pasan. No hay cambios de frontend en esta entrega.
 
 **S1.1c.2b entregado:** Run usa un único commit y separa ejecución/composición.
-Siguiente: S1.1c.2c, recarga, autoguardado, recuperación y revisión ejecutada.
+Recarga entregada en [2c.2](sqlviz-sql-snapshot-reload.md). Siguiente: S1.1c.2c.3,
+autoguardado, conflicto y recuperación de respuesta perdida.
 Ver el [plan operativo](sqlviz-studio-delivery-plan.md).

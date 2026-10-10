@@ -13,6 +13,7 @@ function fixture(): { resolution: SqlRunResolution; receipt: SqlScriptCommit } {
     };
     const receipt: SqlScriptCommit = { version: 1, created_panels: [{ creation_key: 'new', panel_id: 'c' }],
         snapshot: { version: 1, dashboard_id: 'd', revision: `sql-script-v1:${'1'.repeat(64)}`,
+            publication_status: 'confirmed', last_run_at: null, last_run_sql: null,
             definition_revision: `sql-definition-v1:${'1'.repeat(64)}`, draft_source: resolution.source,
             panels: [{ id: 'a', name: 'A', sql_content: 'SELECT 2', sort_order: 0 },
                 { id: 'c', name: 'New', sql_content: 'SELECT 3', sort_order: 1 }],
