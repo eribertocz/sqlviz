@@ -45,10 +45,11 @@
     function selectOnMount(node: HTMLInputElement) { node.focus(); node.select(); }
 
     // Subtle save/run status shown only in the header (UX spec §"Estados visuales").
-    type Status = { text: string; kind: 'draft' | 'saving' | 'saved' | 'running' | 'error' } | null;
+    type Status = { text: string; kind: 'draft' | 'saving' | 'saved' | 'running' | 'error' | 'conflict' } | null;
     const status = $derived.by<Status>(() => {
         if (executionStore.executing) return { text: 'Running', kind: 'running' };
         if (executionStore.errorMsg)  return { text: 'Error', kind: 'error' };
+        if (executionStore.saveStatus === 'conflict') return { text: 'Not saved: draft changed elsewhere', kind: 'conflict' };
         if (executionStore.saveStatus === 'saving') return { text: 'Saving…', kind: 'saving' };
         if (executionStore.saveStatus === 'saved')  return { text: 'Saved', kind: 'saved' };
         if (executionStore.saveStatus === 'draft')  return { text: 'Draft', kind: 'draft' };
@@ -102,7 +103,9 @@
             {/if}
 
             {#if status}
-                <span class="save-status" class:running={status.kind === 'running'} class:error={status.kind === 'error'}>
+                <span class="save-status" class:running={status.kind === 'running'}
+                    class:error={status.kind === 'error' || status.kind === 'conflict'}
+                    role={status.kind === 'conflict' ? 'alert' : undefined}>
                     {#if status.kind === 'running'}
                         <Loader2 size={12} class="spin" />
                     {:else if status.kind === 'draft'}
@@ -110,6 +113,13 @@
                     {/if}
                     {status.text}
                 </span>
+                {#if status.kind === 'conflict'}
+                    <!-- Local text is preserved; the author decides, nothing is overwritten silently. -->
+                    <button class="restore-btn" onclick={dashboardStore.reloadSavedDraft}
+                        title="Discard local edits and load the draft saved on the server">Load saved</button>
+                    <button class="restore-btn" onclick={dashboardStore.keepLocalDraft}
+                        title="Replace the saved draft with the text in this editor">Keep mine</button>
+                {/if}
             {/if}
 
             {#if dashboardStore.canRestoreLastRun}
