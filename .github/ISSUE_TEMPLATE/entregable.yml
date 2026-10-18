@@ -1,0 +1,44 @@
+name: Entregable del roadmap
+description: Incremento pequeño (S) o mediano (M) de una fase del roadmap.
+title: "[F?-??] "
+labels: ["roadmap"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ver [roadmap de releases](../blob/main/docs/architecture/sqlviz-release-roadmap.md).
+        Asigna el milestone de la fase y las labels `fase:F*`, `tamaño:S|M`, `tipo:*`.
+        Si el trabajo supera M (3–5 días), divídelo antes de empezar.
+  - type: textarea
+    id: objetivo
+    attributes:
+      label: Objetivo
+      description: Qué resultado verificable entrega este issue.
+    validations:
+      required: true
+  - type: textarea
+    id: alcance
+    attributes:
+      label: Alcance
+      description: Cambios incluidos, por capa si cruza varias.
+    validations:
+      required: true
+  - type: textarea
+    id: fuera
+    attributes:
+      label: Fuera de alcance
+  - type: textarea
+    id: docs
+    attributes:
+      label: Referencias
+      description: Documentos de arquitectura e issues relacionados.
+  - type: textarea
+    id: cierre
+    attributes:
+      label: Criterio de cierre
+      value: |
+        - [ ] 
+        - [ ] Tests y validación local (ruff, mypy, pytest, web)
+        - [ ] Documentación actualizada
+    validations:
+      required: true
