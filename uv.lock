@@ -638,6 +638,7 @@ dev = [
 name = "sqlviz-api"
 source = { editable = "packages/sqlviz-api" }
 dependencies = [
+    { name = "duckdb" },
     { name = "fastapi" },
     { name = "pydantic" },
     { name = "sqlviz-core" },
@@ -648,6 +649,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "duckdb", specifier = ">=1.0" },
     { name = "fastapi", specifier = ">=0.139" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "sqlviz-core", editable = "packages/sqlviz-core" },

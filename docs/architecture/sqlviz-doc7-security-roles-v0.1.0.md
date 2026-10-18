@@ -1,4 +1,19 @@
 # SQLviz — Security & Roles
+
+> **Hallazgo crítico — 2026-10-05:** este documento describe garantías deseadas,
+> no garantías verificadas del código actual. Se reprodujo acceso sin login a
+> datos, edición y ejecución SQL. Los cursores de viewer no proporcionan aislamiento
+> de solo lectura y varias rutas no aplican autorización. Ver
+> [SEC-01–04 de la auditoría](sqlviz-audit-2026-10-05.md) y
+> [entrega E0](sqlviz-product-roadmap.md). No usar este texto como acreditación
+> de seguridad para compartir en redes no confiables.
+
+> **Seguimiento — 2026-10-06:** arranque y autorización HTTP corregidos en el
+> árbol de trabajo. La [política vigente](sqlviz-authorization.md) describe lo
+> implementado y sus pruebas. La [tercera unidad](sqlviz-analytical-execution.md)
+> incorpora aislamiento del catálogo HTTP y presupuestos;
+> las secciones históricas inferiores no reemplazan esa política.
+
 **Version:** v0.1.0 (Draft)
 **Status:** Work in Progress
 **Last Updated:** 2026-06-08

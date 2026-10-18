@@ -1,4 +1,16 @@
 # SQLviz — UI Design System
+
+> **Actualización de dirección — 2026-10-05:** para edición libre dentro de un
+> grid, modos pantalla/scroll y sidebar sin rail, prevalece la
+> [especificación del Dashboard Studio](sqlviz-dashboard-studio-spec.md).
+> La UI debe adaptar la geometría al contenedor y permitir editarla; esto no
+> equivale a inferir significado de negocio. Conservar los tokens y componentes
+> útiles de este documento, revisando las restricciones anteriores de layout.
+>
+> **Implementación de navegación — 2026-10-06:** consultar
+> [Navegación del workspace](sqlviz-navigation.md) para los componentes,
+> breakpoints, preferencias, accesibilidad y validación actuales.
+
 **Version:** v0.1.0 (Draft)
 **Status:** Work in Progress
 **Last Updated:** 2026-06-08

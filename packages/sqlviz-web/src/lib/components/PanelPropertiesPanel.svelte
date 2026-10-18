@@ -2,7 +2,7 @@
     import { dashboardStore } from '$lib/stores/dashboardStore.svelte';
     import type { DashboardPanel } from '$lib/types';
     import ChartSelectorPanel from './ChartSelectorPanel.svelte';
-    import { Input } from '$lib/components/ui/input/index.js';
+    import PanelPresentationInput from './PanelPresentationInput.svelte';
     import { Button } from '$lib/components/ui/button/index.js';
     import XIcon from '@lucide/svelte/icons/x';
     import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
@@ -17,26 +17,10 @@
         panel.data.length > 0 ? Object.keys(panel.data[0]) : []
     );
 
-    // ── Title ────────────────────────────────────────────────────────────────
-    let titleValue = $state('');
-    $effect(() => { titleValue = result.title ?? ''; });
-    function commitTitle() {
-        if (titleValue !== (result.title ?? '')) {
-            dashboardStore.setViewOverride(panel.panel_id, 'title', titleValue);
-        }
-    }
-
     // ── Axis titles ────────────────────────────────────────────────────────────
     const hasAxes = $derived(
         !!spec && ['line', 'bar', 'bar_horizontal', 'scatter', 'histogram'].includes(spec.chart_type)
     );
-    let xLabelValue = $state('');
-    let yLabelValue = $state('');
-    $effect(() => { xLabelValue = spec?.x_label ?? ''; });
-    $effect(() => { yLabelValue = spec?.y_label ?? ''; });
-    function commitXLabel() { dashboardStore.setViewOverride(panel.panel_id, 'x_label', xLabelValue); }
-    function commitYLabel() { dashboardStore.setViewOverride(panel.panel_id, 'y_label', yLabelValue); }
-
     // ── Panel SQL ──────────────────────────────────────────────────────────────
     const panelSql = $derived(
         dashboardStore.panelSQLs[dashboardStore.panelIds.indexOf(panel.panel_id)] ?? ''
@@ -54,20 +38,40 @@
     let heightValue = $state(0);
     $effect(() => { colsValue = panel.final_col_span; });
     $effect(() => { heightValue = result.panel_height_px; });
-    function commitCols(v: number) {
-        const c = Math.max(1, Math.min(12, Math.round(v)));
-        colsValue = c;
-        dashboardStore.handleWidthOverride(panel.panel_id, c);
+    let savingDimensions = $state(false);
+    async function commitCols(v: number) {
+        if (savingDimensions || !Number.isFinite(v)) return;
+        savingDimensions = true;
+        try {
+            await dashboardStore.handleWidthOverride(panel.panel_id, Math.max(1, Math.min(12, Math.round(v))));
+        } finally {
+            colsValue = panel.final_col_span;
+            savingDimensions = false;
+        }
     }
-    function commitHeight(v: number) {
-        const h = Math.max(120, Math.min(900, Math.round(v)));
-        heightValue = h;
-        dashboardStore.handleHeightOverride(panel.panel_id, h);
+    async function commitHeight(v: number) {
+        if (savingDimensions || !Number.isFinite(v)) return;
+        savingDimensions = true;
+        try {
+            await dashboardStore.handleHeightOverride(panel.panel_id, Math.max(120, Math.min(900, Math.round(v))));
+        } finally {
+            heightValue = result.panel_height_px;
+            savingDimensions = false;
+        }
     }
-    function resetDimensions() {
-        dashboardStore.handleWidthOverride(panel.panel_id, null);
-        dashboardStore.handleHeightOverride(panel.panel_id, null);
+    async function resetDimensions() {
+        if (savingDimensions) return;
+        savingDimensions = true;
+        try {
+            await dashboardStore.handleWidthOverride(panel.panel_id, null);
+            await dashboardStore.handleHeightOverride(panel.panel_id, null);
+        } finally {
+            colsValue = panel.final_col_span;
+            heightValue = result.panel_height_px;
+            savingDimensions = false;
+        }
     }
+
 
     // ── Axes ──────────────────────────────────────────────────────────────────
     function setX(field: string) {
@@ -99,19 +103,23 @@
         <!-- Chart type -->
         <section class="prop-section">
             <h3 class="section-title">Chart type</h3>
+            {#key panel.panel_id}
             <ChartSelectorPanel
                 embedded
                 {result}
-                onSelect={(ct) => dashboardStore.handleChartOverride(panel.panel_id, ct)}
+                onSelect={(ct, refreshOnly) => dashboardStore.handleChartOverride(panel.panel_id, ct, refreshOnly)}
                 onClose={() => {}}
             />
+            {/key}
         </section>
 
         <!-- Title -->
         <section class="prop-section">
             <h3 class="section-title">Title</h3>
-            <Input bind:value={titleValue} placeholder="Panel title"
-                onblur={commitTitle} onkeydown={(e) => e.key === 'Enter' && commitTitle()} />
+            {#key panel.panel_id}
+                <PanelPresentationInput panelId={panel.panel_id} field="title" label="Panel title"
+                    value={result.title} placeholder="Panel title" />
+            {/key}
         </section>
 
         <!-- Axes -->
@@ -143,12 +151,12 @@
         {#if hasAxes}
             <section class="prop-section">
                 <h3 class="section-title">Axis titles</h3>
-                <label class="field-label" for="axis-x-label">X axis title</label>
-                <Input id="axis-x-label" bind:value={xLabelValue} placeholder={spec?.x_field ?? 'X'}
-                    onblur={commitXLabel} onkeydown={(e) => e.key === 'Enter' && commitXLabel()} />
-                <label class="field-label" for="axis-y-label">Y axis title</label>
-                <Input id="axis-y-label" bind:value={yLabelValue} placeholder={spec?.y_fields[0] ?? 'Y'}
-                    onblur={commitYLabel} onkeydown={(e) => e.key === 'Enter' && commitYLabel()} />
+                {#key panel.panel_id}
+                    <PanelPresentationInput panelId={panel.panel_id} field="x_label" label="X axis title"
+                        value={spec?.x_label} placeholder={spec?.x_field ?? 'X'} />
+                    <PanelPresentationInput panelId={panel.panel_id} field="y_label" label="Y axis title"
+                        value={spec?.y_label} placeholder={spec?.y_fields[0] ?? 'Y'} />
+                {/key}
             </section>
         {/if}
 
@@ -160,17 +168,17 @@
             <h3 class="section-title">Dimensions</h3>
             <div class="dim-row">
                 <label class="field-label" for="dim-cols">Width (columns)</label>
-                <input id="dim-cols" type="range" min="1" max="12" step="1" value={colsValue}
-                    oninput={(e) => commitCols(Number((e.currentTarget as HTMLInputElement).value))} />
+                <input id="dim-cols" type="range" min="1" max="12" step="1" bind:value={colsValue} disabled={savingDimensions}
+                    onchange={(e) => commitCols(Number((e.currentTarget as HTMLInputElement).value))} />
                 <span class="dim-value">{colsValue}</span>
             </div>
             <div class="dim-row">
                 <label class="field-label" for="dim-h">Height (px)</label>
-                <input id="dim-h" type="number" min="120" max="900" step="20" value={heightValue}
+                <input id="dim-h" type="number" min="120" max="900" step="20" bind:value={heightValue} disabled={savingDimensions}
                     onchange={(e) => commitHeight(Number((e.currentTarget as HTMLInputElement).value))}
                     class="native-num" />
             </div>
-            <Button variant="ghost" size="sm" class="gap-2" onclick={resetDimensions}>
+            <Button variant="ghost" size="sm" class="gap-2" disabled={savingDimensions} onclick={resetDimensions}>
                 <RotateCcwIcon class="size-3.5" /> Reset to auto
             </Button>
         </section>

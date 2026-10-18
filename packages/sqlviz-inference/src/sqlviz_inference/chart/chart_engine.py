@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from sqlviz_core.models.chart_types import CHART_TYPES
+
 from ..context import ChartCandidate, RuntimeContext
 from ..parser.ast_helpers import has_percentile
 from ..utils.confidence import confidence_gap, quality_label, should_apply_fallback
@@ -12,10 +14,7 @@ from ..utils.yaml_loader import yaml_loader
 _log = get_logger("chart_engine")
 
 # V0 chart types -- exactly 8
-V0_CHARTS = [
-    "kpi", "line", "bar", "bar_horizontal",
-    "pie", "scatter", "histogram", "table",
-]
+V0_CHARTS = list(CHART_TYPES)
 
 # Feature vector indices used for penalty conditions
 PENALTY_FEATURE_INDEX = {

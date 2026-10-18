@@ -18,13 +18,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import duckdb
+from sqlviz_core.version import __version__
 
 from .migrations import run_migrations
 from .schema import SCHEMA_STATEMENTS
 
 _APP_NAME = "sqlviz"
-# Bump APP_VERSION on every release; SCHEMA_VERSION only on breaking DDL changes.
-APP_VERSION = "0.2.5"
+# Creation metadata uses the installed product version. Opening an existing
+# project keeps its original creation version; schema version is independent.
+APP_VERSION = __version__
 SCHEMA_VERSION = "1"
 _APP_VERSION = APP_VERSION
 _SCHEMA_VERSION = SCHEMA_VERSION

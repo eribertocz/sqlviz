@@ -2,6 +2,7 @@
   "chart_alternatives",
   "chart_confidence_gap",
   "chart_engine_winner",
+  "chart_user_override",
   "chart_normalized_score",
   "chart_quality",
   "chart_raw_score",

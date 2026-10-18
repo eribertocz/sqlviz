@@ -8,10 +8,13 @@ import sys
 import threading
 import time
 import webbrowser
+from contextlib import ExitStack, closing
 
 import duckdb
 import uvicorn
 from sqlviz_api.main import create_app
+
+from sqlviz_cli.quack import quack_session
 
 _HOST = "127.0.0.1"
 _PORT = 4000
@@ -35,17 +38,6 @@ def _lan_ip() -> str | None:
         return None
 
 
-def _try_start_quack(admin_conn: duckdb.DuckDBPyConnection) -> None:
-    """Start Quack HTTP server via DuckDB core extension (v1.5.3+), or degrade gracefully."""
-    try:
-        admin_conn.execute("INSTALL quack FROM core_nightly")
-        admin_conn.execute("LOAD quack")
-        admin_conn.execute("CALL quack_serve('quack:localhost', token = 'token')")
-        print("  Quack:    quack://localhost")
-    except Exception:  # noqa: BLE001
-        print("  [warn] quack not available — requires DuckDB v1.5.3+")
-
-
 def serve(
     conn: duckdb.DuckDBPyConnection,
     *,
@@ -53,6 +45,7 @@ def serve(
     host: str = _HOST,
     port: int = _PORT,
     open_browser: bool = True,
+    quack_token: str | None = None,
 ) -> None:
     """Start FastAPI + uvicorn.  Blocks until Ctrl+C.
 
@@ -63,78 +56,46 @@ def serve(
         host:         Bind host (default 127.0.0.1).
         port:         HTTP port (default 4000).
         open_browser: Open the default browser automatically.
+        quack_token:  Separate database credential; None disables Quack.
+                      The caller owns conn and must close it after serving.
     """
-    demo_mode = db_path is None
+    with ExitStack() as resources:
+        resources.enter_context(quack_session(conn, quack_token))
 
-    # Phase 6 — separate viewer connection for non-admin requests.
-    # A second *read-only* connection to the same on-disk DuckDB file cannot be
-    # opened in-process: `duckdb.connect(path, read_only=True)` spins up a new
-    # database instance, and DuckDB refuses two instances of the same file with
-    # differing read/write configs ("Can't open a connection to same database
-    # file with a different configuration"). Use a cursor on the admin
-    # connection instead — an independent connection to the *same* instance.
-    # Read-only isolation for viewers is enforced at the API layer (write
-    # endpoints require admin), not by a DuckDB connection flag.
-    viewer_conn: duckdb.DuckDBPyConnection | None = None
-    if db_path is not None:
+        # A cursor shares the same writable database instance. It is not a
+        # read-only security boundary; authorization/isolation are separate work.
+        viewer_conn = (
+            resources.enter_context(closing(conn.cursor())) if db_path is not None else None
+        )
+        app = create_app(conn, viewer_conn=viewer_conn, demo_mode=db_path is None)
+
+        # Explicit LAN binding keeps origin-based share URLs reachable.
+        if host == "0.0.0.0":
+            lan = _lan_ip()
+            open_url = f"http://{lan}:{port}" if lan else f"http://127.0.0.1:{port}"
+            print(f"  Local:    http://127.0.0.1:{port}")
+            if lan:
+                print(f"  Network:  http://{lan}:{port}")
+        else:
+            open_url = f"http://{host}:{port}"
+            print(f"  Listening on {open_url}")
+
+        if open_browser:
+            print("  Opening browser...")
+            threading.Thread(target=_open_browser, args=(open_url,), daemon=True).start()
+
+        print("  Press Ctrl+C to stop.\n")
+
+        # Selector avoids Proactor's noisy socket.shutdown() on reset connections.
+        # This process serves plain HTTP and does not spawn asyncio subprocesses.
+        if sys.platform == "win32":
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+        config = uvicorn.Config(app=app, host=host, port=port, log_level="warning")
+        server = uvicorn.Server(config)
         try:
-            viewer_conn = conn.cursor()
-        except Exception as exc:  # noqa: BLE001
-            print(f"  [warn] Could not open viewer connection: {exc}")
-
-    app = create_app(conn, viewer_conn=viewer_conn, demo_mode=demo_mode)
-
-    # Try to start the Quack HTTP server (DuckDB core extension).
-    _try_start_quack(conn)
-
-    # When bound to all interfaces, share links must use the LAN IP (not
-    # localhost/0.0.0.0) so other machines can reach them. Open the browser at
-    # that IP so the origin-based links the UI generates are already shareable.
-    if host == "0.0.0.0":
-        lan = _lan_ip()
-        open_url = f"http://{lan}:{port}" if lan else f"http://127.0.0.1:{port}"
-        print(f"  Local:    http://127.0.0.1:{port}")
-        if lan:
-            print(f"  Network:  http://{lan}:{port}")
-            print("            Open the Network URL — Public / Password share links")
-            print("            generated there work across your LAN.")
-    else:
-        open_url = f"http://{host}:{port}"
-        print(f"  Listening on {open_url}")
-
-    if open_browser:
-        print("  Opening browser...")
-        threading.Thread(
-            target=_open_browser, args=(open_url,), daemon=True
-        ).start()
-
-    print("  Press Ctrl+C to stop.\n")
-
-    # Windows: use the Selector event loop instead of the default Proactor one.
-    # Proactor's _call_connection_lost calls socket.shutdown() on a socket the
-    # client already reset (browser refresh/close), logging a benign but noisy
-    # ConnectionResetError (WinError 10054). Selector doesn't use that codepath,
-    # so the error can't arise — a mechanism change, not a suppression. Safe
-    # here: we serve plain HTTP on localhost and spawn no asyncio subprocesses.
-    if sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-    config = uvicorn.Config(
-        app=app,
-        host=host,
-        port=port,
-        log_level="warning",   # suppress INFO noise; our banner is the UI
-    )
-    server = uvicorn.Server(config)
-
-    try:
-        server.run()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        if viewer_conn is not None:
-            try:
-                viewer_conn.close()
-            except Exception:  # noqa: BLE001
-                pass
-        print("\nServer stopped.")
+            server.run()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            print("\nServer stopped.")

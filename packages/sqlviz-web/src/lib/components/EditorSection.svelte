@@ -8,7 +8,7 @@
 
 <div class="editor-section">
     <div class="editor-toolbar">
-        <button class="run-btn" onclick={dashboardStore.run} disabled={executionStore.executing}>
+        <button class="run-btn" data-sql-run-trigger onclick={dashboardStore.run} disabled={executionStore.executing || dashboardStore.viewLoading}>
             <span class="run-icon">
                 {#if executionStore.executing}
                     <Loader2 size={12} class="spin" />
@@ -28,6 +28,13 @@
                 </div>
             {:else if executionStore.executing && executionStore.statusMsg && dashboardStore.hasLayout}
                 <span class="exec-inline">{executionStore.statusMsg}</span>
+            {:else if dashboardStore.sqlCheckError}
+                <div class="error-chip" title={dashboardStore.sqlCheckError}>
+                    <X size={12} />
+                    <span class="error-text">SQL check failed</span>
+                </div>
+            {:else if dashboardStore.sql.trim() && !dashboardStore.sqlCheckReady}
+                <span class="exec-inline">Checking SQL…</span>
             {:else if dashboardStore.statementCount > 0}
                 <span class="statement-count">
                     {dashboardStore.statementCount} {dashboardStore.statementCount === 1 ? 'statement' : 'statements'}
@@ -42,7 +49,8 @@
     </div>
 
     <div class="editor-wrapper">
-        <SQLEditor bind:value={dashboardStore.sql} onRun={dashboardStore.run} disabled={executionStore.executing} theme={uiStore.theme} />
+        <SQLEditor bind:value={dashboardStore.sql} onEdit={dashboardStore.applySqlEditorChange}
+            onRun={dashboardStore.run} disabled={executionStore.executing} theme={uiStore.theme} />
     </div>
 </div>
 

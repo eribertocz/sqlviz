@@ -93,6 +93,8 @@ class InferenceResult:
     # Engine's pure winner before any panel-level chart_override is applied.
     # Stable across re-executes for same SQL/data; used for fixed list ordering in UI.
     chart_engine_winner: str | None = None
+    # Explicit authorship, including a manual choice equal to the engine's winner.
+    chart_user_override: str | None = None
 
     # ── V0.2.3 — Observability ─────────────────────────────────────────────
     trace_id: str = ""
@@ -194,6 +196,7 @@ class InferenceResult:
 
             feedback_preferred_chart=context.feedback_preferred,
             chart_engine_winner=context.chart_engine_winner or context.chart_winner,
+            chart_user_override=context.chart_override,
 
             trace_id=context.trace_id,
             execution_state=context.execution_state,

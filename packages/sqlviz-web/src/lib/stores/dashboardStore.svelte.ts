@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 import { apiDelete, apiGet, apiPatch, apiPost, recompose, type ExecResult } from '$lib/api';
+import { requireSqlExecution, recomposeSqlRun, completeSqlRun, type BoundExecResult } from '$lib/sql/sqlExecution';
 import type { DashboardInfo, DashboardLayout, FilterControl, FilterDomain, FolderInfo, InferenceResult } from '$lib/types';
 import { dashboardCache } from './dashboardCache.svelte';
 import { editorRef } from './editorRef';
@@ -9,34 +10,57 @@ import { executionStore } from './executionStore.svelte';
 import { filterValues } from './filterValues.svelte';
 import { uiStore } from './uiStore.svelte';
 import { getPaletteById } from '$lib/charts/palettes';
+import { fetchFilterDomains } from '$lib/filters/filterDomains';
+import { createFilterRuntime, patchFilterResults } from '$lib/filters/filterRuntime.svelte';
+import { createSqlScriptAnalysis, joinSqlStatements } from '$lib/sql/sqlScript.svelte';
+import { confirmedSqlDraft, editSqlIdentityDraft, projectSqlIdentity, settleSqlIdentityDraft,
+    sqlDraftFromPanels, unboundSqlDraft, type SqlEditorChange, type SqlIdentityDraft } from '$lib/sql/sqlIdentityDraft';
+import { initialRunChoices, requireRunPreflight, runResolutionComplete, selectRunPanel, selectRunRemoval,
+    type SqlRunPreflight, type SqlRunResolution } from '$lib/sql/sqlRunResolution';
+import { requireSqlRunCommit, requireSqlRunSnapshot, type SqlScriptCommit, type SqlScriptSnapshot } from '$lib/sql/sqlScriptCommit';
+import { loadSqlSnapshot, sqlSnapshotMatchesCache, type LoadedSqlSnapshot } from '$lib/sql/sqlSnapshot';
 
 export type { ExecResult };
 
-/** Compare two filter values (scalars, or arrays for multiselect). */
-function sameFilterValue(a: unknown, b: unknown): boolean {
-    if (Array.isArray(a) && Array.isArray(b)) {
-        return a.length === b.length && a.every((x, i) => x === b[i]);
-    }
-    return a === b;
-}
+export type ChartOverrideResult = { saved: boolean; error: string | null };
 
 /**
- * Owns the dashboard/panel state cluster that used to live directly in
- * routes/+page.svelte: which dashboard is active, its panels, their SQL,
- * the last executed results, and the composed layout. Methods here are
- * ported 1:1 from the pre-v0.2.5 +page.svelte — behavior is unchanged,
- * only where the state/logic lives.
+ * Owns the author workspace: active dashboard, SQL drafts, panel execution,
+ * confirmed results, layout and cache. Preview adapts the shared filter runtime
+ * to this state; scoped viewers keep their own state and transport.
  */
-function createDashboardStore() {
+export function createDashboardStore() {
+    let viewGeneration = 0;
+    let domainGeneration = 0;
+    let sizeWrites: Promise<void> = Promise.resolve();
+    let presentationWrites: Promise<void> = Promise.resolve();
+    let chartWrites: Promise<void> = Promise.resolve();
     let dashboardId      = $state<string | null>(null);
     let allDashboards    = $state<DashboardInfo[]>([]);
     let folders          = $state<FolderInfo[]>([]);
     let dashboardsLoading = $state(true);
+    let viewLoading = $state(false);
     let panelIds         = $state<string[]>([]);
     let panelSQLs        = $state<string[]>([]);
     let executedResults  = $state<ExecResult[]>([]);
+    let executedSource = $state('');
+    let executedDefinitionRevision = $state<string | null>(null);
     let layout           = $state<DashboardLayout | null>(null);
     let sql               = $state('');
+    let sqlIdentity = $state.raw(unboundSqlDraft(''));
+    let confirmedSqlIdentity: SqlIdentityDraft | null = null;
+    let sqlRunResolution = $state.raw<SqlRunResolution | null>(null);
+    let approvedSqlRunResolution: SqlRunResolution | null = null;
+    let panelNames: Record<string, string> = {};
+
+    function cancelSqlRunResolution() {
+        sqlRunResolution = null;
+        approvedSqlRunResolution = null;
+        if (!executionStore.executing && dashboardId && sql !== lastSavedSql) {
+            clearTimeout(saveDebounceTimer);
+            saveDebounceTimer = window.setTimeout(() => saveDraft(), 2000);
+        }
+    }
 
     // Panel Properties panel (v0.2.9): which panel's side panel is open, plus
     // session-only palette overrides per panel (keyed by panel_id).
@@ -74,15 +98,9 @@ function createDashboardStore() {
     // edit apart from a programmatic load (which must not mark the draft dirty).
     let lastSavedSql     = '';
 
-    let filterDebounceTimer = 0;
     let saveDebounceTimer   = 0;
+    let draftWrites: Promise<void> = Promise.resolve();
     const ACTIVE_KEY = 'sqlviz-active-dashboard';
-
-    // Filter change-detection state (declared up here so dashboard-switch logic
-    // can reset it in lockstep with a cache restore, suppressing a spurious
-    // re-execution). The reactive $effect that consumes them lives near the end.
-    let prevFilterSnapshot: Record<string, unknown> = {};
-    const pendingChangedVars = new Set<string>();
 
     const hasLayout = $derived(layout !== null && layout.rows.length > 0);
     const activeDashboard = $derived(allDashboards.find(d => d.id === dashboardId) ?? null);
@@ -109,6 +127,18 @@ function createDashboardStore() {
     });
 
     const hasFilters = $derived(allFilterControls.length > 0);
+    const filterRuntime = createFilterRuntime({
+        getScope: () => viewGeneration,
+        getResults: () => executedResults,
+        getValues: () => filterValues.current,
+        execute: (id, variables) => apiPost(`/api/v1/panels/${id}/execute`, { variables }),
+        commit: (results, values) => {
+            if (layout) layout = patchFilterResults(layout, results);
+            executedResults = results;
+            filterValues.replace(values);
+        },
+    });
+
 
     // The panel whose Properties panel is currently open (looked up in layout).
     const selectedPanel = $derived.by(() => {
@@ -121,12 +151,29 @@ function createDashboardStore() {
         return null;
     });
 
-    /** Splits editor SQL into individual statements — one statement becomes one panel. */
-    function splitStatements(text: string): string[] {
-        return text.split(';').map(s => s.trim()).filter(s => s.length > 0);
+    const sqlAnalysis = createSqlScriptAnalysis();
+    const statementCount = $derived(sqlAnalysis.get(sql)?.length ?? 0);
+
+    function applySqlEditorChange(event: SqlEditorChange): boolean {
+        // Monaco events are synchronous. A stale model cannot replace another view's draft.
+        if (event.before !== sql) return false;
+        cancelSqlRunResolution();
+        sqlIdentity = editSqlIdentityDraft(sqlIdentity, event);
+        sql = event.after;
+        onSqlChanged(sql);
+        return true;
     }
 
-    const statementCount = $derived(splitStatements(sql).length);
+    async function analyzeSqlIdentity(source: string) {
+        const captured = sqlIdentity;
+        const generation = viewGeneration;
+        const target = dashboardId;
+        const statements = await sqlAnalysis.analyze(source);
+        if (generation === viewGeneration && target === dashboardId && captured === sqlIdentity && source === sql) {
+            sqlIdentity = settleSqlIdentityDraft(captured, statements);
+        }
+        return statements;
+    }
 
     // "Restore last run" is offered while there is a prior successful run whose
     // SQL differs from the current draft.
@@ -163,6 +210,7 @@ function createDashboardStore() {
 
     /** Called from the public `sql` setter on every editor change. */
     function onSqlChanged(v: string) {
+        executionStore.errorMsg = null;
         if (!dashboardId) return;
         // The cached view is only valid while the draft matches the SQL that
         // produced it. Any divergence makes those charts stale — drop the entry
@@ -177,7 +225,6 @@ function createDashboardStore() {
             return;
         }
         // A real edit supersedes a prior error indicator.
-        executionStore.errorMsg = null;
         executionStore.saveStatus = 'draft';
         clearTimeout(saveDebounceTimer);
         // 2 seconds after the user stops typing.
@@ -191,9 +238,10 @@ function createDashboardStore() {
      */
     function saveDraft(useBeacon = false) {
         clearTimeout(saveDebounceTimer);
-        if (!dashboardId || sql === lastSavedSql) return;
+        if (!dashboardId || sql === lastSavedSql || executionStore.executing || sqlRunResolution) return;
         const id = dashboardId;
         const text = sql;
+        const generation = viewGeneration;
         const path = `/api/v1/dashboards/${id}`;
 
         if (useBeacon) {
@@ -209,8 +257,9 @@ function createDashboardStore() {
         }
 
         executionStore.saveStatus = 'saving';
-        apiPatch(path, { sql_content: text })
+        draftWrites = draftWrites.then(() => apiPatch(path, { sql_content: text }))
             .then(() => {
+                if (id !== dashboardId || generation !== viewGeneration) return;
                 lastSavedSql = text;
                 // Only flip to "saved" if nothing newer is pending.
                 if (sql === text) {
@@ -220,7 +269,9 @@ function createDashboardStore() {
                     }, 2000);
                 }
             })
-            .catch(() => { executionStore.saveStatus = 'draft'; });
+            .catch(() => {
+                if (id === dashboardId && generation === viewGeneration) executionStore.saveStatus = 'draft';
+            });
     }
 
     /**
@@ -231,158 +282,272 @@ function createDashboardStore() {
     function restoreLastRun() {
         if (lastRunSql === '' || sql === lastRunSql) return;
         sql = lastRunSql;
+        cancelSqlRunResolution();
+        sqlIdentity = confirmedSqlIdentity?.source === sql &&
+            confirmedSqlIdentity.panel_ids.length === panelIds.length &&
+            confirmedSqlIdentity.panel_ids.every(id => panelIds.includes(id))
+            ? confirmedSqlIdentity : unboundSqlDraft(sql, panelIds);
         onSqlChanged(sql);
         queueMicrotask(() => {
             get(editorRef).setContent?.(lastRunSql);
-            get(editorRef).focusStatement?.(0);
+            get(editorRef).focusOffset?.(0);
         });
     }
 
-    /** Loads the first existing dashboard, if any. Called once on mount. */
+    /** Adopt only a complete, validated snapshot; cache supplies results, never IDs. */
+    function adoptSqlSnapshot(id: string, loaded: LoadedSqlSnapshot) {
+        const cached = dashboardCache.get(id);
+        const reusable = cached && sqlSnapshotMatchesCache(loaded, cached) ? cached : null;
+        if (cached && !reusable) dashboardCache.invalidate(id);
+        cancelSqlRunResolution();
+        dashboardId = id;
+        panelIds = loaded.panels.map(panel => panel.id);
+        panelSQLs = loaded.panels.map(panel => panel.sql_content);
+        panelNames = Object.fromEntries(loaded.panels.map(panel => [panel.id, panel.name]));
+        lastRunAt = loaded.lastRunAt;
+        lastRunSql = loaded.lastRunSql;
+        sql = loaded.source;
+        sqlIdentity = loaded.identity;
+        confirmedSqlIdentity = loaded.lastRunIdentity;
+        executedResults = reusable?.executedResults ?? [];
+        executedSource = reusable?.sql ?? '';
+        executedDefinitionRevision = reusable?.definitionRevision ?? null;
+        layout = reusable?.layout ?? null;
+        filterDomains = reusable?.filterDomains ?? {};
+        filterValues.replace(reusable?.filterValues ?? {});
+        propertiesPanelId = null;
+        markSqlSaved(loaded.source);
+        loadPaletteFor(id);
+        persistActive(id);
+        const generation = viewGeneration;
+        queueMicrotask(() => {
+            if (generation !== viewGeneration || dashboardId !== id || sql !== loaded.source) return;
+            get(editorRef).setContent?.(loaded.source);
+            get(editorRef).focusOffset?.(0);
+        });
+    }
+
+    /** Refresh loads definitions and last-run metadata together, without executing SQL. */
     async function bootstrap() {
+        const generation = ++viewGeneration;
+        const previousSource = sql;
         dashboardsLoading = true;
+        viewLoading = true;
         try {
             const [dashboards, fldrs] = await Promise.all([
                 apiGet<DashboardInfo[]>('/api/v1/dashboards'),
                 apiGet<FolderInfo[]>('/api/v1/folders').catch(() => [] as FolderInfo[]),
             ]);
+            if (generation !== viewGeneration) return;
             allDashboards = dashboards;
             folders = fldrs;
-            if (dashboards.length === 0) {
-                // No auto-seeded example data — a fresh install shows the
-                // welcome screen so the user creates their first dashboard.
-                return;
-            }
-
-            // Restore the last active dashboard (refresh), else the first one.
+            if (dashboards.length === 0) return;
             let saved: string | null = null;
             try { saved = localStorage.getItem(ACTIVE_KEY); } catch { /* no storage */ }
             const active = dashboards.find(d => d.id === saved) ?? dashboards[0];
-            dashboardId = active.id;
-            loadPaletteFor(active.id);
-            persistActive(active.id);
-            lastRunAt = active.last_run_at;
-            lastRunSql = active.last_run_sql ?? '';
-
-            const panels = await fetch(`/api/v1/panels?dashboard_id=${dashboardId}`)
-                .then(r => r.json()) as Array<{ id: string; sql_content: string; sort_order: number }>;
-            panels.sort((a, b) => a.sort_order - b.sort_order);
-            panelIds  = panels.map(p => p.id);
-            panelSQLs = panels.map(p => p.sql_content);
-
-            // Prefer the saved draft (exact editor text); fall back to the
-            // committed panel SQL for dashboards created before draft auto-save.
-            const draft = active.sql_content || panelSQLs.join(';\n\n');
-            sql = draft;
-            markSqlSaved(draft);
-            queueMicrotask(() => get(editorRef).setContent?.(draft));
-            // Do NOT auto-run — refresh shows "Last run X ago" + Run Again.
-        } catch {
-            // Fresh install — no existing state
+            const snapshot = await apiGet<unknown>(`/api/v1/dashboards/${encodeURIComponent(active.id)}/sql-script`);
+            const loaded = await loadSqlSnapshot(snapshot, active.id);
+            if (generation !== viewGeneration) return;
+            if (sql !== previousSource) throw new Error('The editor changed while loading. Your draft was preserved; select the dashboard again.');
+            resetFilterUpdates();
+            adoptSqlSnapshot(active.id, loaded);
+        } catch (error: unknown) {
+            if (generation === viewGeneration) uiStore.showToast(error instanceof Error ? error.message : 'Could not load dashboard.');
         } finally {
             dashboardsLoading = false;
+            if (generation === viewGeneration) viewLoading = false;
         }
     }
 
     async function run() {
-        if (executionStore.executing) return;
-
-        const statements = splitStatements(sql);
-
-        if (statements.length === 0) {
-            executionStore.errorMsg = 'No SQL statements found. Write at least one query separated by ";".';
-            return;
-        }
+        if (executionStore.executing || sqlRunResolution || viewLoading) return;
 
         executionStore.executing = true;
         executionStore.errorMsg  = null;
+        executionStore.statusMsg = 'Checking SQL…';
+        clearTimeout(saveDebounceTimer);
 
         // Snapshot mutable state so mid-flight dashboard switches don't corrupt this run.
         let activeDashId = dashboardId;
         const activePanelIds = [...panelIds];
+        const activePanels = activePanelIds.map((id, index) => ({
+            id, sql: panelSQLs[index], label: panelNames[id] ?? `Panel ${index + 1}`,
+        }));
+        const approved = approvedSqlRunResolution;
+        approvedSqlRunResolution = null;
+        const ranSql = sql;
+        const generation = viewGeneration;
+        const isCurrent = () => generation === viewGeneration && dashboardId === activeDashId;
+        let candidate: SqlRunResolution | null = null;
+        let candidateIdentity: SqlIdentityDraft | null = null;
+        let definitionsSaved = false;
+        let commitSent = false;
 
         try {
+            const parsedStatements = await analyzeSqlIdentity(ranSql);
+            const statements = parsedStatements.map(statement => statement.sql);
+            if (!isCurrent() || sql !== ranSql) return;
+            if (statements.length === 0 && activePanelIds.length === 0) {
+                executionStore.errorMsg = 'No SQL statements found. Write at least one query.';
+                return;
+            }
+            const preparedIdentity = sqlIdentity;
+            // Drain older draft writes, then keep auto-save out of this operation.
+            await draftWrites;
+            if (!isCurrent() || sql !== ranSql || sqlIdentity !== preparedIdentity) return;
+            let expectedRevision = approved?.expectedRevision;
+            if (activeDashId && !approved) {
+                const snapshot = await apiGet<SqlScriptSnapshot>(`/api/v1/dashboards/${activeDashId}/sql-script`);
+                if (!isCurrent() || sql !== ranSql || sqlIdentity !== preparedIdentity) return;
+                requireSqlRunSnapshot(snapshot, activeDashId, activePanels);
+                expectedRevision = snapshot.revision;
+            }
+            const projection = projectSqlIdentity(sqlIdentity, parsedStatements);
+            const resolution: SqlRunResolution = approved ?? {
+                source: ranSql, statements: parsedStatements,
+                panels: activePanels, expectedRevision,
+                choices: initialRunChoices(projection, () => crypto.randomUUID()),
+            };
+            candidate = resolution;
+            candidateIdentity = sqlIdentity;
+            if (resolution.source !== ranSql || !runResolutionComplete(resolution)) {
+                sqlRunResolution = resolution;
+                return;
+            }
+            const preflight = await apiPost<SqlRunPreflight>('/api/v1/sql/reconcile', {
+                sql: ranSql, dashboard_id: activeDashId, expected_panel_ids: activePanelIds, decisions: resolution.choices,
+            });
+            if (!isCurrent() || sql !== ranSql || sqlIdentity !== candidateIdentity) return;
+            requireRunPreflight(preflight, resolution);
+            sqlRunResolution = null;
             if (!activeDashId) {
                 const dash = await apiPost<{ id: string }>('/api/v1/dashboards', {
                     name: 'My Dashboard',
                     sort_order: 0,
                 });
+                if (!isCurrent()) return;
                 activeDashId = dash.id;
                 dashboardId  = activeDashId;
+                persistActive(activeDashId);
+                const snapshot = await apiGet<SqlScriptSnapshot>(`/api/v1/dashboards/${activeDashId}/sql-script`);
+                if (!isCurrent() || sql !== ranSql || sqlIdentity !== candidateIdentity) return;
+                requireSqlRunSnapshot(snapshot, activeDashId, []);
+                expectedRevision = snapshot.revision;
+                candidate = { ...resolution, expectedRevision };
             }
-
-            const results: ExecResult[] = [];
-            const newPanelIds: string[] = [];
-
+            if (!expectedRevision) throw new Error('A dashboard snapshot is required before saving. Reload and retry.');
+            executionStore.statusMsg = 'Saving dashboard definitions…';
+            executionStore.saveStatus = 'saving';
+            commitSent = true;
+            const receipt = await apiPost<SqlScriptCommit>(`/api/v1/dashboards/${activeDashId}/sql-script/commit`, {
+                sql: ranSql, expected_revision: expectedRevision, decisions: resolution.choices,
+            });
+            const committed = requireSqlRunCommit(receipt, activeDashId, { ...resolution, expectedRevision });
+            definitionsSaved = true;
+            dashboardCache.invalidate(activeDashId);
+            if (!isCurrent()) return;
+            // Definitions are confirmed even if execution subsequently fails.
+            panelIds = committed.ids;
+            panelSQLs = committed.statements.map(statement => statement.sql);
+            panelNames = Object.fromEntries(receipt.snapshot.panels.map(panel => [panel.id, panel.name]));
+            const savedIdentity = confirmedSqlDraft(ranSql, committed.statements.map((statement, index) => ({
+                panel_id: committed.ids[index], statement,
+            })));
+            sqlIdentity = sql === ranSql && sqlIdentity === candidateIdentity
+                ? savedIdentity : unboundSqlDraft(sql, panelIds);
+            markSqlSaved(ranSql);
+            executionStore.saveStatus = sql === ranSql ? 'saved' : 'draft';
+            // Old results may reference removed panels or superseded SQL. Only a
+            // complete execution/composition will publish a new result view.
+            resetFilterUpdates();
+            executedResults = [];
+            executedSource = '';
+            executedDefinitionRevision = null;
+            layout = null;
+            propertiesPanelId = null;
+            filterDomains = {};
+            filterValues.reset();
+            const results: BoundExecResult[] = [];
             for (let i = 0; i < statements.length; i++) {
-                const stmt = statements[i];
+                if (!isCurrent()) return;
                 executionStore.statusMsg = `Statement ${i + 1} / ${statements.length}…`;
-
-                let panelId: string;
-                if (activePanelIds[i]) {
-                    await apiPatch(`/api/v1/panels/${activePanelIds[i]}`, {
-                        sql_content: stmt,
-                        sort_order: i,
-                    });
-                    panelId = activePanelIds[i];
-                } else {
-                    const panel = await apiPost<{ id: string }>('/api/v1/panels', {
-                        dashboard_id: activeDashId,
-                        name: `Panel ${i + 1}`,
-                        sql_content: stmt,
-                        sort_order: i,
-                    });
-                    panelId = panel.id;
-                }
-                newPanelIds.push(panelId);
-
-                const exec = await apiPost<{ inference_result: InferenceResult; data: Record<string, unknown>[] }>(
-                    `/api/v1/panels/${panelId}/execute`
+                const panelId = committed.ids[i];
+                const exec = await apiPost<unknown>(
+                    `/api/v1/panels/${panelId}/execute`, { definition: committed.definition },
                 );
-                results.push({ panel_id: panelId, ...exec });
+                results.push(requireSqlExecution(exec, committed.definition, panelId));
             }
 
             // Only commit results if the dashboard hasn't changed mid-flight.
-            if (dashboardId !== activeDashId) {
-                executionStore.statusMsg = null;
-                return;
-            }
-
-            panelIds        = newPanelIds;
-            panelSQLs       = statements;
-            executedResults = results;
-
+            if (!isCurrent()) return;
             executionStore.statusMsg = 'Composing layout…';
-            layout = await recompose(results);
+            const composed = await recomposeSqlRun(results, committed.definition);
+            if (!isCurrent()) return;
+            executedResults = results;
+            layout = composed.layout;
+            executedSource = ranSql;
+            executedDefinitionRevision = committed.definition.revision;
+            filterValues.reset();
             executionStore.statusMsg = null;
 
-            // Successful run: persist the exact draft + a last-run timestamp so a
-            // refresh can show "Last run X ago" (UX spec §"Run exitoso").
-            const runAt = new Date().toISOString();
-            const ranSql = sql;
-            lastRunAt = runAt;
-            lastRunSql = ranSql;
-            markSqlSaved(ranSql);
-            apiPatch(`/api/v1/dashboards/${activeDashId}`, {
-                sql_content: ranSql,
-                last_run_at: runAt,
-                last_run_sql: ranSql,
-            }).catch(() => {});
+            // The server verifies actual execution and current definitions;
+            // its acknowledgement cannot overwrite a newer editor draft.
+            if (composed.completionReceipt !== null) {
+                try {
+                    const completed = await completeSqlRun(composed.completionReceipt, committed.definition, ranSql);
+                    if (!isCurrent()) return;
+                    lastRunAt = completed.lastRunAt;
+                    lastRunSql = completed.lastRunSql;
+                    confirmedSqlIdentity = savedIdentity;
+                } catch {
+                    if (isCurrent()) executionStore.errorMsg = 'Definitions saved and queries executed. Could not record the last run.';
+                }
+            } else if (results.length) {
+                executionStore.errorMsg = 'Definitions saved. Some queries could not execute or need filter values. This run was not recorded as successful.';
+            }
 
             // Load rich-control domains (dropdown options / slider bounds).
             loadFilterDomains();
 
             // Refresh dashboard list to pick up updated hint/domain from classifier.
             try {
-                allDashboards = await fetch('/api/v1/dashboards')
+                const refreshed = await fetch('/api/v1/dashboards')
                     .then(r => r.json()) as DashboardInfo[];
+                if (isCurrent()) allDashboards = refreshed;
             } catch { /* non-critical */ }
         } catch (e: unknown) {
-            executionStore.errorMsg  = e instanceof Error ? e.message : String(e);
-            executionStore.statusMsg = null;
+            if (isCurrent()) {
+                const message = e instanceof Error ? e.message : String(e);
+                executionStore.errorMsg = definitionsSaved
+                    ? `Definitions saved. Execution or layout failed: ${message}`
+                    : commitSent ? `Could not confirm saving definitions: ${message}` : message;
+                if (!definitionsSaved && candidate?.source === sql && sqlIdentity === candidateIdentity) sqlRunResolution = candidate;
+            }
         } finally {
+            executionStore.statusMsg = null;
             executionStore.executing = false;
+            if (!definitionsSaved && executionStore.saveStatus === 'saving') executionStore.saveStatus = 'draft';
+            if (dashboardId && sql !== lastSavedSql && !sqlRunResolution) {
+                saveDebounceTimer = window.setTimeout(() => saveDraft(), 2000);
+            }
         }
+    }
+
+    function chooseSqlRunPanel(index: number, panelId: string | null | undefined) {
+        if (!sqlRunResolution || sqlRunResolution.source !== sql) return;
+        sqlRunResolution = selectRunPanel(sqlRunResolution, index, panelId, () => crypto.randomUUID());
+    }
+
+    function chooseSqlRunRemoval(panelId: string, remove: boolean) {
+        if (!sqlRunResolution || sqlRunResolution.source !== sql) return;
+        sqlRunResolution = selectRunRemoval(sqlRunResolution, panelId, remove);
+    }
+
+    async function confirmSqlRunResolution() {
+        if (!sqlRunResolution || sqlRunResolution.source !== sql || !runResolutionComplete(sqlRunResolution)) return;
+        approvedSqlRunResolution = sqlRunResolution;
+        sqlRunResolution = null;
+        await run();
     }
 
     async function handleDelete(panelId: string) {
@@ -403,7 +568,10 @@ function createDashboardStore() {
         executedResults = newResults;
         panelIds        = newPanelIds;
         panelSQLs       = newSQLs;
-        sql             = newSQLs.join(';\n\n');
+        sql             = joinSqlStatements(newSQLs);
+        cancelSqlRunResolution();
+        sqlIdentity = sqlDraftFromPanels(newPanelIds.map((id, index) => ({ id, sql_content: newSQLs[index] })));
+        confirmedSqlIdentity = null;
 
         if (newResults.length === 0) {
             layout = null;
@@ -421,10 +589,25 @@ function createDashboardStore() {
         }
     }
 
-    function handleEditSQL(panelId: string) {
+    async function handleEditSQL(panelId: string) {
         const idx = panelIds.indexOf(panelId);
         if (idx < 0) return;
-        get(editorRef).focusStatement?.(idx);
+        const source = sql;
+        const generation = viewGeneration;
+        const targetDashboard = dashboardId;
+        try {
+            const statements = await analyzeSqlIdentity(source);
+            if (generation !== viewGeneration || targetDashboard !== dashboardId || source !== sql) return;
+            const projection = projectSqlIdentity(sqlIdentity, statements);
+            const target = projection.statements.find(item => item.panel_id === panelId);
+            const statement = target ? statements[target.statement_index] : null;
+            if (statement) get(editorRef).focusOffset?.(statement.start_offset);
+            else uiStore.showToast('Confirm this query’s panel association with Run before editing it.');
+        } catch (error: unknown) {
+            if (generation === viewGeneration && targetDashboard === dashboardId && source === sql) {
+                uiStore.showToast(error instanceof Error ? error.message : 'SQL check failed. Retry.');
+            }
+        }
     }
 
     function handleExplain(panelId: string) {
@@ -442,6 +625,8 @@ function createDashboardStore() {
      */
     async function createDashboard(name = 'New Dashboard', folderId: string | null = null) {
         const finalName = name.trim() || 'New Dashboard';
+        const generation = ++viewGeneration;
+        viewLoading = false;
         uiStore.creatingDashboard = false;
         uiStore.newDashboardName  = '';
         try {
@@ -451,99 +636,56 @@ function createDashboardStore() {
                 sort_order: allDashboards.length,
             });
             await refreshExplorer();
+            if (generation !== viewGeneration) return;
+            resetFilterUpdates();
             // Switch to the empty new dashboard without running anything.
             dashboardId     = dash.id;
             persistActive(dash.id);
             panelIds        = [];
             panelSQLs       = [];
             sql             = '';
+            cancelSqlRunResolution();
+            sqlIdentity = unboundSqlDraft('');
+            confirmedSqlIdentity = null;
             markSqlSaved('');
             lastRunAt       = null;
             lastRunSql      = '';
             executedResults = [];
+            executedSource = '';
+            executedDefinitionRevision = null;
             layout          = null;
             filterDomains   = {};
             filterValues.reset();
-            prevFilterSnapshot = {};
             // Force the Monaco editor empty — a new dashboard must never inherit
             // the previous dashboard's query — then place the cursor at the start.
             queueMicrotask(() => {
                 get(editorRef).setContent?.('');
-                get(editorRef).focusStatement?.(0);
+                get(editorRef).focusOffset?.(0);
             });
         } catch (e: unknown) {
             uiStore.showToast(e instanceof Error ? e.message : 'Could not create dashboard.');
         }
     }
 
-    /**
-     * Switch to a different dashboard. Auto-saves the current draft first, then
-     * loads the target's draft + last-run info.
-     *
-     * Navigation is now instant when the target has a cached view (a prior run
-     * this session): its charts, layout, filter domains and filter selection are
-     * restored from memory. With no cache the view is empty — the user re-runs.
-     * Either way the Monaco editor shows the selected dashboard's own SQL, and
-     * nothing is auto-executed (UX spec §"Cambiar de Dashboard").
-     */
+    /** Load fresh definitions before restoring any cached view; never auto-execute. */
     async function loadDashboard(id: string) {
         if (id === dashboardId || executionStore.executing) return;
-
-        // Silently persist the current dashboard's draft before leaving it.
+        const generation = ++viewGeneration;
+        const previousSource = sql;
+        cancelSqlRunResolution();
+        viewLoading = true;
         saveDraft();
-
-        // Drop any pending filter re-execution meant for the dashboard we leave.
-        clearTimeout(filterDebounceTimer);
-        pendingChangedVars.clear();
-
+        resetFilterUpdates();
         try {
-            const [dash, panels] = await Promise.all([
-                apiGet<DashboardInfo>(`/api/v1/dashboards/${id}`),
-                fetch(`/api/v1/panels?dashboard_id=${id}`).then(r => r.json()) as Promise<
-                    Array<{ id: string; sql_content: string; sort_order: number }>
-                >,
-            ]);
-            panels.sort((a, b) => a.sort_order - b.sort_order);
-
-            dashboardId = id;
-            loadPaletteFor(id);
-            persistActive(id);
-            lastRunAt   = dash.last_run_at;
-            lastRunSql  = dash.last_run_sql ?? '';
-
-            const cached = dashboardCache.get(id);
-            if (cached) {
-                // Cache hit — restore the executed view instantly (no re-run).
-                panelIds        = [...cached.panelIds];
-                panelSQLs       = [...cached.panelSQLs];
-                executedResults = cached.executedResults;
-                layout          = cached.layout;
-                filterDomains   = cached.filterDomains;
-                // Restore the filter selection; sync the change-detection
-                // snapshot so this does NOT trigger a filter re-execution.
-                filterValues.replace(cached.filterValues);
-                prevFilterSnapshot = { ...cached.filterValues };
-            } else {
-                // Cache miss — empty view; results appear only on a manual re-run.
-                panelIds        = panels.map(p => p.id);
-                panelSQLs       = panels.map(p => p.sql_content);
-                executedResults = [];
-                layout          = null;
-                filterDomains   = {};
-                filterValues.reset();
-                prevFilterSnapshot = {};
-            }
-
-            // Prefer the saved draft; fall back to the committed panel SQL.
-            const draft = dash.sql_content || panelSQLs.join(';\n\n');
-            sql = draft;
-            markSqlSaved(draft);
-            queueMicrotask(() => {
-                get(editorRef).setContent?.(draft);
-                get(editorRef).focusStatement?.(0);
-            });
-        } catch (e: unknown) {
-            uiStore.showToast(e instanceof Error ? e.message : 'Could not load dashboard.');
+            const snapshot = await apiGet<unknown>(`/api/v1/dashboards/${encodeURIComponent(id)}/sql-script`);
+            const loaded = await loadSqlSnapshot(snapshot, id);
+            if (generation !== viewGeneration) return;
+            if (sql !== previousSource) throw new Error('The editor changed while loading. Your draft was preserved; select the dashboard again.');
+            adoptSqlSnapshot(id, loaded);
+        } catch (error: unknown) {
+            if (generation === viewGeneration) uiStore.showToast(error instanceof Error ? error.message : 'Could not load dashboard.');
+        } finally {
+            if (generation === viewGeneration) viewLoading = false;
         }
     }
 
@@ -573,7 +715,7 @@ function createDashboardStore() {
     async function moveDashboardToFolder(id: string, folderId: string | null) {
         try {
             // Backend treats "" as "move to root".
-            await apiPatch(`/api/v1/dashboards/${id}`, { folder_id: folderId ?? '' });
+            await apiPatch(`/api/v1/dashboards/${id}`, { folder_id: folderId });
             await refreshExplorer();
         } catch (e: unknown) {
             uiStore.showToast(e instanceof Error ? e.message : 'Move failed.');
@@ -591,11 +733,13 @@ function createDashboardStore() {
                 panelIds = [];
                 panelSQLs = [];
                 sql = '';
+                cancelSqlRunResolution();
+                sqlIdentity = unboundSqlDraft('');
+                confirmedSqlIdentity = null;
                 executedResults = [];
                 layout = null;
                 filterDomains = {};
                 filterValues.reset();
-                prevFilterSnapshot = {};
             }
             await refreshExplorer();
         } catch (e: unknown) {
@@ -684,7 +828,7 @@ function createDashboardStore() {
             await Promise.all(dest.map((d, i) => {
                 const body: Record<string, unknown> = {};
                 if (d.sort_order !== i) body.sort_order = i;
-                if (d.id === dragId && folderChanged) body.folder_id = targetFolderId ?? '';
+                if (d.id === dragId && folderChanged) body.folder_id = targetFolderId;
                 return Object.keys(body).length
                     ? apiPatch(`/api/v1/dashboards/${d.id}`, body)
                     : Promise.resolve();
@@ -695,17 +839,51 @@ function createDashboardStore() {
         }
     }
 
-    /** Chart type override: PATCH → re-execute → recompose (DOC6 §12.1). */
-    async function handleChartOverride(panelId: string, chartType: string) {
-        try {
-            await apiPatch(`/api/v1/panels/${panelId}/override`, {
-                field_name: 'chart_type',
-                user_value: chartType,
-            });
-            await refreshPanel(panelId);
-        } catch (e: unknown) {
-            uiStore.showToast(e instanceof Error ? e.message : 'Chart override failed.');
-        }
+    /** Publish a confirmed chart and composition together; keep the last chart on failure. */
+    function handleChartOverride(
+        panelId: string, chartType: string | null, refreshOnly = false,
+    ): Promise<ChartOverrideResult> {
+        const generation = viewGeneration;
+        const targetDashboard = dashboardId;
+        const current = () => generation === viewGeneration && targetDashboard === dashboardId;
+        const task = chartWrites.then(async (): Promise<ChartOverrideResult> => {
+            try {
+                if (!refreshOnly) {
+                    try {
+                        await apiPatch(`/api/v1/panels/${panelId}/override`, {
+                            field_name: 'chart_type', user_value: chartType,
+                        });
+                    } catch (cause: unknown) {
+                        const reason = cause instanceof Error ? cause.message : 'Could not save chart type.';
+                        return { saved: false, error: `${reason} The previous chart is kept; retry when ready.` };
+                    }
+                }
+                if (!current()) return { saved: true, error: null };
+                const snapshot = executedResults;
+                try {
+                    const exec = await apiPost<{
+                        inference_result: InferenceResult; data: Record<string, unknown>[];
+                    }>(`/api/v1/panels/${panelId}/execute`, { variables: { ...filterValues.current } });
+                    if (!current()) return { saved: true, error: null };
+                    const next = snapshot.map(r => r.panel_id === panelId ? { ...r, ...exec } : r);
+                    const composed = await recompose(next);
+                    if (!current()) return { saved: true, error: null };
+                    if (snapshot !== executedResults) {
+                        return { saved: true, error: 'Chart type saved. The view changed during refresh; retry refresh.' };
+                    }
+                    executedResults = next;
+                    layout = composed;
+                    return { saved: true, error: null };
+                } catch {
+                    return { saved: true, error: 'Chart type saved. Could not refresh the chart; retry refresh or run it again.' };
+                }
+            } finally {
+                // Also invalidate after transport failures whose commit status is unknown.
+                if (targetDashboard) dashboardCache.invalidate(targetDashboard);
+            }
+        });
+        chartWrites = task.then(() => {}, () => {});
+        return task;
     }
 
     /** Immutably patch one panel's inference_result inside executedResults. */
@@ -730,59 +908,61 @@ function createDashboardStore() {
         layout = await recompose(executedResults);
     }
 
-    /**
-     * Persist a panel size override. Not session-only: the size has to survive a
-     * re-run and reach shared links, and the only way it gets there is by riding
-     * on the inference_result the API returns for every execute.
-     *
-     * Setting a value needs no round trip to display — we know the exact result.
-     * Clearing one does, because only the engine knows the size it would infer.
-     */
-    async function persistSizeOverride(
+    /** Serialize size saves; reflect only values confirmed by the project. */
+    function persistSizeOverride(
         panelId: string,
         field: 'col_span' | 'height_px',
         value: number | null,
-    ) {
-        try {
-            await apiPatch(`/api/v1/panels/${panelId}/override`, {
-                field_name: field,
-                user_value: value === null ? null : String(value),
-            });
-            if (value === null) await refreshPanel(panelId);
-        } catch (e: unknown) {
-            uiStore.showToast(e instanceof Error ? e.message : 'Could not save the panel size.');
-        }
+    ): Promise<void> {
+        if (!layout) return Promise.resolve();
+        const generation = viewGeneration;
+        const targetDashboard = dashboardId;
+        const task = sizeWrites.then(async () => {
+            let saved: { selected_col_span: number | null; selected_height_px: number | null };
+            try {
+                saved = await apiPatch(`/api/v1/panels/${panelId}/override`, {
+                    field_name: field,
+                    user_value: value === null ? null : String(value),
+                });
+            } catch (e: unknown) {
+                uiStore.showToast(e instanceof Error ? e.message : 'Could not save the panel size.');
+                return;
+            }
+            if (targetDashboard) dashboardCache.invalidate(targetDashboard);
+            if (generation !== viewGeneration || targetDashboard !== dashboardId) return;
+            const effective = field === 'col_span' ? saved.selected_col_span : saved.selected_height_px;
+            if (effective === null) return;
+            const patch = field === 'col_span' ? { col_span: effective } : { panel_height_px: effective };
+            patchPanelResult(panelId, patch);
+            patchExecutedResult(panelId, patch);
+            if (field === 'col_span' && layout) {
+                layout = {
+                    ...layout,
+                    rows: layout.rows.map(row => ({
+                        ...row,
+                        panels: row.panels.map(p => p.panel_id === panelId
+                            ? { ...p, final_col_span: effective } : p),
+                    })),
+                };
+            }
+            const snapshot = executedResults;
+            try {
+                const composed = await recompose(snapshot);
+                if (generation === viewGeneration && snapshot === executedResults) layout = composed;
+            } catch {
+                uiStore.showToast('Size saved. Could not refresh the dashboard layout; run it again.');
+            }
+        });
+        sizeWrites = task.catch(() => {});
+        return task;
     }
 
-    /** col_span override — applied locally, then persisted. */
-    async function handleWidthOverride(panelId: string, cols: number | null) {
-        if (!layout) return;
-        if (cols !== null) {
-            layout = {
-                ...layout,
-                rows: layout.rows.map(row => ({
-                    panels: row.panels.map(p =>
-                        p.panel_id === panelId ? { ...p, final_col_span: cols } : p
-                    ),
-                })),
-            };
-            // Keep the executed results in step: a later recompose (filter
-            // change, chart override) builds the layout from them, and would
-            // otherwise snap the panel back to its inferred width.
-            patchPanelResult(panelId, { col_span: cols });
-            patchExecutedResult(panelId, { col_span: cols });
-        }
-        await persistSizeOverride(panelId, 'col_span', cols);
+    function handleWidthOverride(panelId: string, cols: number | null) {
+        return persistSizeOverride(panelId, 'col_span', cols);
     }
 
-    /** panel_height_px override — applied locally, then persisted. */
-    async function handleHeightOverride(panelId: string, px: number | null) {
-        if (!layout) return;
-        if (px !== null) {
-            patchPanelResult(panelId, { panel_height_px: px });
-            patchExecutedResult(panelId, { panel_height_px: px });
-        }
-        await persistSizeOverride(panelId, 'height_px', px);
+    function handleHeightOverride(panelId: string, px: number | null) {
+        return persistSizeOverride(panelId, 'height_px', px);
     }
 
     // ── Panel Properties panel (v0.2.9) ──────────────────────────────────────
@@ -826,18 +1006,64 @@ function createDashboardStore() {
 
     /**
      * Presentation override (panel title / axis label). Patches the local layout
-     * optimistically, then persists so it survives reload AND appears in shared
-     * viewers (the API overlays it onto every execute).
+     * after confirmation, so rejected writes never replace the current chart.
+     * Returns an actionable error while the input retains its unsaved draft.
      */
-    async function setViewOverride(panelId: string, field: 'title' | 'x_label' | 'y_label', value: string) {
-        const v = value.trim();
-        if (field === 'title') patchPanelResult(panelId, { title: v || undefined });
-        else patchPanelVisualSpec(panelId, { [field]: v || null });
-        try {
-            await apiPatch(`/api/v1/panels/${panelId}/view-override`, { field, value: v });
-        } catch {
-            // Non-fatal: the next execute reconciles from the persisted value.
-        }
+    function setViewOverride(
+        panelId: string, field: 'title' | 'x_label' | 'y_label', value: string,
+    ): Promise<string | null> {
+        const generation = viewGeneration;
+        const targetDashboard = dashboardId;
+        const current = () => generation === viewGeneration && targetDashboard === dashboardId;
+        const task = presentationWrites.then(async () => {
+            try {
+                let saved: { field: string; value: string | null };
+                try {
+                    saved = await apiPatch(`/api/v1/panels/${panelId}/view-override`, { field, value });
+                } catch (cause: unknown) {
+                    const reason = cause instanceof Error ? cause.message : 'Could not save.';
+                    return `${reason} Your text is kept; retry when ready.`;
+                }
+                if (!current()) return null;
+                if (field === 'title' && saved.value === null) {
+                    // An incoming result already contains its persisted title:
+                    // clearing it requires the engine's actual automatic title.
+                    const snapshot = executedResults;
+                    try {
+                        const exec = await apiPost<{
+                            inference_result: InferenceResult; data: Record<string, unknown>[];
+                        }>(`/api/v1/panels/${panelId}/execute`, { variables: { ...filterValues.current } });
+                        if (!current() || snapshot !== executedResults) return null;
+                        const next = snapshot.map(r => r.panel_id === panelId ? { ...r, ...exec } : r);
+                        const composed = await recompose(next);
+                        if (current() && snapshot === executedResults) {
+                            executedResults = next;
+                            layout = composed;
+                        }
+                    } catch {
+                        return 'Title reset saved. Could not refresh the chart; retry or run it again.';
+                    }
+                } else if (field === 'title') {
+                    patchPanelResult(panelId, { title: saved.value! });
+                    patchExecutedResult(panelId, { title: saved.value! });
+                } else {
+                    patchPanelVisualSpec(panelId, { [field]: saved.value });
+                    executedResults = executedResults.map(r =>
+                        r.panel_id === panelId && r.inference_result.visual_spec
+                            ? { ...r, inference_result: { ...r.inference_result, visual_spec: {
+                                ...r.inference_result.visual_spec, [field]: saved.value,
+                            } } } : r,
+                    );
+                }
+                return null;
+            } finally {
+                // Navigation may have cached the old chart while the save was
+                // pending. Also invalidate after an ambiguous transport failure.
+                if (targetDashboard) dashboardCache.invalidate(targetDashboard);
+            }
+        });
+        presentationWrites = task.then(() => {}, () => {});
+        return task;
     }
 
     /** Session-only X/Y axis override — mutates the panel's visual_spec. */
@@ -893,7 +1119,7 @@ function createDashboardStore() {
 
     /**
      * Fetch the domain (distinct values / numeric bounds) for every filter
-     * control that renders a rich widget, so the FilterBar can show a real
+     * control that renders a rich widget, so the filter editor can show a real
      * dropdown / multiselect / slider. Best-effort: failures leave the entry
      * absent and the control falls back to a text/number input.
      *
@@ -901,32 +1127,20 @@ function createDashboardStore() {
      * stripped, so they do not depend on the current filter selection and
      * only need to be loaded once per execution.
      */
-    async function loadFilterDomains() {
-        const domains: Record<string, FilterDomain> = {};
-        await Promise.all(
-            executedResults.flatMap((r, i) =>
-                r.inference_result.filter_controls.map(async (fc) => {
-                    const kind =
-                        fc.control_type === 'dropdown' || fc.control_type === 'multiselect'
-                            ? 'distinct'
-                            : fc.control_type === 'range_slider'
-                                ? 'range'
-                                : null;
-                    if (kind === null || domains[fc.variable]) return;
+    function resetFilterUpdates() {
+        domainGeneration++;
+        filterRuntime.reset();
+    }
 
-                    try {
-                        const dom = await apiPost<FilterDomain>(
-                            `/api/v1/panels/${panelIds[i]}/filter-domain`,
-                            { column: fc.column_name, kind },
-                        );
-                        domains[fc.variable] = dom;
-                    } catch {
-                        // leave absent → control falls back to text/number input
-                    }
-                })
-            )
-        );
-        filterDomains = domains;
+    async function loadFilterDomains() {
+        const request = ++domainGeneration;
+        const generation = viewGeneration;
+        const isCurrent = () => request === domainGeneration && generation === viewGeneration;
+        const domains = await fetchFilterDomains({
+            results: executedResults, isCurrent,
+            fetch: (id, column, kind) => apiPost(`/api/v1/panels/${id}/filter-domain`, { column, kind }),
+        });
+        if (isCurrent()) filterDomains = domains;
     }
 
     /**
@@ -953,74 +1167,17 @@ function createDashboardStore() {
         };
     }
 
-    async function executeFilteredPanels(
-        changedVars: Set<string>,
-        currentFV: Record<string, unknown>,
-    ) {
-        const updatedResults = [...executedResults];
-        let anyChanged = false;
-
-        for (let i = 0; i < executedResults.length; i++) {
-            const controls = executedResults[i].inference_result.filter_controls;
-            const panelVars = controls.flatMap(fc =>
-                fc.variable.split(',').map(v => v.trim())
-            );
-
-            // Re-run a panel once if any of its variables changed.
-            if (!panelVars.some(v => changedVars.has(v))) continue;
-
-            // Send every variable, including empty ones. An empty value means
-            // "All": the backend neutralizes that predicate and returns all
-            // rows for the dimension. Skipping empties here is what previously
-            // made the dropdown's "All" option render nothing.
-            const variables = Object.fromEntries(
-                panelVars.map(v => [v, currentFV[v] ?? '']),
-            );
-            const panelId = panelIds[i];
-
-            try {
-                const exec = await apiPost<{
-                    inference_result: InferenceResult;
-                    data: Record<string, unknown>[];
-                }>(`/api/v1/panels/${panelId}/execute`, { variables });
-                updatedResults[i] = { panel_id: panelId, ...exec };
-                anyChanged = true;
-            } catch {
-                // Keep existing result
-            }
-        }
-
-        if (!anyChanged) return;
-        executedResults = updatedResults;
-        // Update the charts in place — never re-run the optimizer here, or the
-        // panels would reorder on every filter change. Fall back to a full
-        // compose only if there is somehow no layout to patch yet.
-        if (layout) {
-            layout = applyResultsToLayout(layout, updatedResults);
-        } else {
-            try {
-                layout = await recompose(updatedResults);
-            } catch {
-                // Layout stays as-is if recompose fails
-            }
-        }
-    }
-
-    // A filter change is now purely a state write; the $effect below reacts.
-    function handleFilterChange(varName: string, value: unknown) {
-        filterValues.set(varName, value);
-    }
-
     /**
      * Snapshot the current dashboard's executed view into the in-memory cache,
      * keyed by dashboard_id, so navigating back restores it instantly. `sql` is
-     * stored as `lastRunSql` — the query these results actually correspond to —
+     * stored as `executedSource` — the query these results actually correspond to —
      * which is what `onSqlChanged` compares against to invalidate.
      */
     function cacheCurrentView() {
-        if (!dashboardId || executedResults.length === 0) return;
+        if (!dashboardId || executedResults.length === 0 || viewLoading) return;
         dashboardCache.set(dashboardId, {
-            sql: lastRunSql,
+            sql: executedSource,
+            definitionRevision: executedDefinitionRevision,
             panelIds: [...panelIds],
             panelSQLs: [...panelSQLs],
             executedResults,
@@ -1030,14 +1187,16 @@ function createDashboardStore() {
         });
     }
 
-    // ── Reactive filter re-execution (Svelte 5 runes) ─────────────────────────
-    // Re-run the affected panels whenever a filter value changes. The effect
-    // tracks filterValues.current (read synchronously below) and nothing else;
-    // the actual query runs inside a debounced callback whose reads
-    // (executedResults, panelIds) are NOT tracked, so writing executedResults
-    // there cannot retrigger the effect — no feedback loop.
+    // Cache only confirmed results and filters. Drafts belong to FilterContext.
     if (browser) {
         $effect.root(() => {
+            $effect(() => {
+                const source = sql;
+                const timer = window.setTimeout(() => {
+                    void analyzeSqlIdentity(source).catch(() => { /* shown beside the count */ });
+                }, 300);
+                return () => window.clearTimeout(timer);
+            });
             // Auto-cache: whenever the active dashboard's executed view changes
             // (run, filter re-exec, chart/panel override, delete), mirror it into
             // the results cache. Reads dashboardId + executedResults + layout +
@@ -1052,29 +1211,6 @@ function createDashboardStore() {
                 cacheCurrentView();
             });
 
-            $effect(() => {
-                const snapshot = { ...filterValues.current }; // tracked dependency
-                const keys = new Set([
-                    ...Object.keys(snapshot),
-                    ...Object.keys(prevFilterSnapshot),
-                ]);
-                for (const key of keys) {
-                    if (!sameFilterValue(snapshot[key], prevFilterSnapshot[key])) {
-                        pendingChangedVars.add(key);
-                    }
-                }
-                prevFilterSnapshot = snapshot;
-                if (pendingChangedVars.size === 0) return;
-
-                // Debounce: coalesce rapid changes (e.g. dragging a range slider),
-                // accumulating every changed variable until the timer fires.
-                clearTimeout(filterDebounceTimer);
-                filterDebounceTimer = window.setTimeout(() => {
-                    const changed = new Set(pendingChangedVars);
-                    pendingChangedVars.clear();
-                    void executeFilteredPanels(changed, snapshot);
-                }, 350);
-            });
         });
     }
 
@@ -1083,12 +1219,28 @@ function createDashboardStore() {
         get allDashboards() { return allDashboards; },
         get folders() { return folders; },
         get dashboardsLoading() { return dashboardsLoading; },
+        get viewLoading() { return viewLoading; },
         get panelIds() { return panelIds; },
         get panelSQLs() { return panelSQLs; },
         get executedResults() { return executedResults; },
         get layout() { return layout; },
         get sql() { return sql; },
-        set sql(v: string) { sql = v; onSqlChanged(v); },
+        set sql(v: string) {
+            if (v === sql) return;
+            sql = v;
+            cancelSqlRunResolution();
+            sqlIdentity = unboundSqlDraft(v, panelIds);
+            onSqlChanged(v);
+        },
+        get sqlIdentity() {
+            const statements = sqlAnalysis.get(sql);
+            return statements ? projectSqlIdentity(sqlIdentity, statements) : null;
+        },
+        get sqlRunResolution() { return sqlRunResolution; },
+        chooseSqlRunPanel,
+        chooseSqlRunRemoval,
+        confirmSqlRunResolution,
+        cancelSqlRunResolution,
 
         get hasLayout() { return hasLayout; },
         get lastRunAt() { return lastRunAt; },
@@ -1106,9 +1258,12 @@ function createDashboardStore() {
         get filterDomains() { return filterDomains; },
         get hasFilters() { return hasFilters; },
         get statementCount() { return statementCount; },
+        get sqlCheckError() { return sqlAnalysis.error(sql); },
+        get sqlCheckReady() { return sqlAnalysis.get(sql) !== null; },
 
         bootstrap,
         run,
+        applySqlEditorChange,
         saveDraft,
         restoreLastRun,
         handleDelete,
@@ -1128,7 +1283,10 @@ function createDashboardStore() {
         handleChartOverride,
         handleWidthOverride,
         handleHeightOverride,
-        handleFilterChange,
+        applyFilters: filterRuntime.apply,
+        resetFilterUpdates,
+        get filterBusy() { return filterRuntime.busy; },
+        get filterError() { return filterRuntime.error; },
         openPanelProperties,
         closePanelProperties,
         handleTitleOverride,

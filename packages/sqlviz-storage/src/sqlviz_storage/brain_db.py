@@ -165,15 +165,15 @@ def record_layout_override(
     col_span: int | None,
     height_px: int | None,
 ) -> None:
-    """Upsert a layout correction into layout_patterns."""
+    """Upsert specified dimensions, preserving the other learned dimension."""
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     conn.execute(
         """
         INSERT INTO layout_patterns (fingerprint, col_span, height_px, updated_at)
         VALUES (?, ?, ?, ?)
         ON CONFLICT (fingerprint) DO UPDATE SET
-            col_span   = excluded.col_span,
-            height_px  = excluded.height_px,
+            col_span   = COALESCE(excluded.col_span, layout_patterns.col_span),
+            height_px  = COALESCE(excluded.height_px, layout_patterns.height_px),
             updated_at = excluded.updated_at
         """,
         [fingerprint, col_span, height_px, now],

@@ -9,39 +9,51 @@ import { uiStore } from '$lib/stores/uiStore.svelte';
 afterEach(() => {
     cleanup();
     editMode.set(false);
-    // Reset to the rail-by-default state so tests stay isolated from the
-    // singleton uiStore that others toggle.
-    if (!uiStore.sidebarCollapsed) uiStore.toggleSidebar();
+    uiStore.setSidebarCollapsed(true);
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
 });
 
-// The sidebar is a rail by default (collapsed); the tree/toolbar only render
-// when expanded, so edit-flow tests expand it first.
-function expandSidebar() {
-    if (uiStore.sidebarCollapsed) uiStore.toggleSidebar();
-}
+describe('DashboardExplorer', () => {
+    it('shows its contents and asks the shell to close navigation', async () => {
+        const onClose = vi.fn();
+        const screen = render(DashboardExplorer, { onClose, showClose: true });
+        await fireEvent.click(screen.getByLabelText('Hide navigation'));
+        expect(onClose).toHaveBeenCalledOnce();
+        expect(screen.queryByLabelText('Expand sidebar')).toBeNull();
+    });
 
-describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
-    it('mounts as a rail by default and shows an expand toggle', () => {
+    it('keeps creation actions exclusive to Edit mode', () => {
         editMode.set(false);
-        const { getByLabelText } = render(DashboardExplorer);
-        expect(getByLabelText('Expand sidebar')).toBeTruthy();
+        const screen = render(DashboardExplorer);
+        expect(screen.queryByLabelText('New dashboard')).toBeNull();
+        expect(screen.queryByLabelText('Hide navigation')).toBeNull();
+        expect(screen.getByLabelText('Find a dashboard')).toBeTruthy();
     });
 
-    it('mounts in edit mode without throwing', () => {
-        editMode.set(true);
-        expect(() => render(DashboardExplorer)).not.toThrow();
-    });
-
-    it('exposes an expand toggle when the sidebar is collapsed', () => {
-        // uiStore is a singleton; collapse it for this render.
-        if (!uiStore.sidebarCollapsed) uiStore.toggleSidebar();
-        try {
-            const { getByLabelText } = render(DashboardExplorer);
-            expect(getByLabelText('Expand sidebar')).toBeTruthy();
-        } finally {
-            if (uiStore.sidebarCollapsed) uiStore.toggleSidebar();
-        }
+    it('finds dashboards by name or folder and announces an empty result', async () => {
+        const dashboards = [
+            { id: 'd1', name: 'Revenue', folder_id: 'f1', sort_order: 0 },
+            { id: 'd2', name: 'Operations', folder_id: null, sort_order: 1 },
+        ];
+        vi.stubGlobal('fetch', vi.fn((url: string) => Promise.resolve({
+            ok: true, status: 200,
+            json: () => Promise.resolve(String(url).includes('/folders')
+                ? [{ id: 'f1', name: 'Finance', sort_order: 0 }] : String(url).includes('/panels') ? [] : dashboards),
+        } as Response)));
+        await dashboardStore.bootstrap();
+        const load = vi.spyOn(dashboardStore, 'loadDashboard').mockResolvedValue(undefined);
+        const onNavigate = vi.fn();
+        const screen = render(DashboardExplorer, { onNavigate });
+        const search = screen.getByLabelText('Find a dashboard');
+        await fireEvent.input(search, { target: { value: 'FINANCE' } });
+        expect(screen.getByRole('button', { name: 'Revenue' })).toBeTruthy();
+        expect(screen.queryByRole('button', { name: 'Operations' })).toBeNull();
+        await fireEvent.click(screen.getByRole('button', { name: 'Revenue' }));
+        expect(load).toHaveBeenCalledWith('d1');
+        expect(onNavigate).toHaveBeenCalledOnce();
+        await fireEvent.input(search, { target: { value: 'unknown' } });
+        expect(screen.getByRole('status').textContent).toContain('No matching dashboards');
     });
 
     // Empty fetch → bootstrap resolves with no dashboards and, crucially, flips
@@ -58,7 +70,6 @@ describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
         await dashboardStore.bootstrap();
         const createFolder = vi.spyOn(dashboardStore, 'createFolder').mockResolvedValue(undefined);
         editMode.set(true);
-        expandSidebar();
         const screen = render(DashboardExplorer);
 
         // Clicking "New group" opens an inline input in the tree — never a modal.
@@ -88,7 +99,6 @@ describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
         await dashboardStore.bootstrap();
         const createDashboard = vi.spyOn(dashboardStore, 'createDashboard').mockResolvedValue(undefined);
         editMode.set(true);
-        expandSidebar();
         const screen = render(DashboardExplorer);
 
         // Select the folder, then create a dashboard — it must land inside it,
@@ -108,7 +118,6 @@ describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
         await dashboardStore.bootstrap();
         const createFolder = vi.spyOn(dashboardStore, 'createFolder').mockResolvedValue(undefined);
         editMode.set(true);
-        expandSidebar();
         const screen = render(DashboardExplorer);
 
         await fireEvent.click(screen.getByLabelText('New group'));
@@ -127,7 +136,6 @@ describe('DashboardExplorer — dual mode + collapsible sidebar', () => {
         await dashboardStore.bootstrap();
         const createDashboard = vi.spyOn(dashboardStore, 'createDashboard').mockResolvedValue(undefined);
         editMode.set(true);
-        expandSidebar();
         const screen = render(DashboardExplorer);
 
         await fireEvent.click(screen.getByLabelText('New dashboard'));

@@ -13,7 +13,6 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-import sqlviz_api.routers.auth as auth_module
 import sqlviz_inference
 from fastapi.testclient import TestClient
 from sqlviz_api.main import create_app
@@ -26,13 +25,6 @@ _PW = "qapassword1"
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
-
-@pytest.fixture(autouse=True)
-def _reset_sessions() -> Generator[None, None, None]:
-    auth_module._sessions.clear()
-    yield
-    auth_module._sessions.clear()
-
 
 @pytest.fixture
 def demo_client() -> Generator[TestClient, None, None]:

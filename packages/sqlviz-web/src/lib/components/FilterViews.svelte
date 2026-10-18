@@ -9,10 +9,11 @@
     // Prop-driven so it works for both the admin app and the anonymous viewer:
     // the caller supplies which dashboard id to key views by, the current filter
     // values to snapshot, and how to apply a view's values.
-    let { dashboardId, currentValues, onApply }: {
+    let { dashboardId, currentValues, onApply, label = 'Views' }: {
         dashboardId: string | null;
         currentValues: Record<string, unknown>;
         onApply: (values: Record<string, unknown>) => void;
+        label?: string;
     } = $props();
 
     let open = $state(false);
@@ -39,9 +40,9 @@
 </script>
 
 <Popover.Root bind:open>
-    <Popover.Trigger class="views-pill" aria-label="Saved views">
+    <Popover.Trigger class="views-pill" aria-label={label === 'Views' ? 'Saved views' : label}>
         <BookmarkIcon class="size-3" />
-        Views{#if views.length}<span class="views-count">{views.length}</span>{/if}
+        {label}{#if views.length}<span class="views-count">{views.length}</span>{/if}
     </Popover.Trigger>
     <Popover.Content class="w-64 p-2" align="end">
         {#if views.length}

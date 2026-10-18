@@ -39,6 +39,7 @@ def client(tmp_path: Path) -> Generator[TestClient, None, None]:
     conn = create_project(str(tmp_path / "test.sqlviz"))
     app = create_app(conn)
     with TestClient(app) as c:
+        c.cookies.set("sqlviz_session", app.state.authorization.admin_sessions.issue())
         yield c
     conn.close()
 

@@ -1,14 +1,16 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
     import DashboardGrid from '$lib/components/DashboardGrid.svelte';
-    import FilterControlComponent from '$lib/components/FilterControl.svelte';
-    import FilterViews from '$lib/components/FilterViews.svelte';
-    import PalettePicker from '$lib/components/PalettePicker.svelte';
-    import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+    import FilterContext from '$lib/components/FilterContext.svelte';
+    import ViewerOptions from '$lib/components/ViewerOptions.svelte';
+    import { fetchFilterDomains } from '$lib/filters/filterDomains';
+    import { createFilterRuntime, patchFilterResults } from '$lib/filters/filterRuntime.svelte';
     import sqlvizIcon from '$lib/assets/sqlviz-icon.svg';
     import { getPaletteById } from '$lib/charts/palettes';
     import { editMode } from '$lib/stores/editMode';
     import { uiStore } from '$lib/stores/uiStore.svelte';
+    import { createViewerClient, ViewerAccessError } from '$lib/viewerApi';
+    import type { ExecResult } from '$lib/api';
 
     // Viewer-local chart palette (per-visitor, persisted by dashboard id).
     let paletteId = $state('brand');
@@ -45,13 +47,7 @@
     let unlocking: boolean = $state(false);
 
     // Dashboard render state
-    type ExecResult = {
-        panel_id: string;
-        inference_result: InferenceResult;
-        data: Record<string, unknown>[];
-    };
     let layout: DashboardLayout | null = $state(null);
-    let panelIds: string[] = $state([]);
     let executedResults: ExecResult[] = $state([]);
 
     // Filter state — local to viewer, separate from admin page's store
@@ -59,7 +55,6 @@
     // Distinct values / numeric ranges per filter variable — without these,
     // dropdowns/multiselects fall back to a plain text input.
     let viewerDomains: Record<string, FilterDomain> = $state({});
-    let filterDebounceTimer = 0;
 
     const allFilterControls = $derived.by(() => {
         const seen = new Set<string>();
@@ -78,41 +73,41 @@
     const hasFilters = $derived(allFilterControls.length > 0);
 
     // ── API helpers ────────────────────────────────────────────────────────────
-    async function apiPost<T>(path: string, body?: unknown): Promise<T> {
-        const r = await fetch(path, {
-            method: 'POST',
-            headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
-            body: body !== undefined ? JSON.stringify(body) : undefined,
-        });
-        if (!r.ok) {
-            const err = await r.json().catch(() => null) as { detail?: string } | null;
-            throw new Error(err?.detail ?? `${r.status} ${r.statusText}`);
-        }
-        return r.json() as Promise<T>;
-    }
+    const viewer = createViewerClient(() => window.location.pathname.split('/').at(-1) ?? '');
+    const apiPost = viewer.post;
+    const recompose = viewer.recompose;
+    const filterRuntime = createFilterRuntime({
+        getScope: () => sharedDashboardId,
+        getResults: () => executedResults,
+        getValues: () => viewerFilterValues,
+        execute: (id, variables) => apiPost(`/api/v1/panels/${id}/execute`, { variables }),
+        commit: (results, values) => {
+            if (layout) layout = patchFilterResults(layout, results);
+            executedResults = results;
+            viewerFilterValues = values;
+        },
+        onAccessFailure: handleAccessFailure,
+    });
+    let domainGeneration = 0;
+    onDestroy(() => { domainGeneration++; filterRuntime.reset(); });
 
-    async function recompose(results: ExecResult[]): Promise<DashboardLayout> {
-        const body = results.map(r => ({
-            panel_id: r.panel_id,
-            inference_result: r.inference_result,
-        }));
-        const response = await apiPost<DashboardLayout>('/api/v1/compose', body);
-        const dataMap = new Map(results.map(r => [r.panel_id, r.data]));
-        return {
-            rows: response.rows.map(row => ({
-                panels: row.panels.map(p => ({
-                    ...p,
-                    data: dataMap.get(p.panel_id) ?? [],
-                })),
-            })),
-        };
+
+    function handleAccessFailure(error: unknown): boolean {
+        if (!(error instanceof ViewerAccessError)) return false;
+        filterRuntime.reset();
+        layout = null;
+        executedResults = [];
+        viewerFilterValues = {};
+        viewerDomains = {};
+        loadError = 'Dashboard access has expired or was revoked. Open the link again.';
+        viewerState = 'error';
+        return true;
     }
 
     // ── Execute helpers ────────────────────────────────────────────────────────
     async function executeAllPanels(
         panels: Array<{ id: string; sql_content: string }>
     ): Promise<void> {
-        panelIds = panels.map(p => p.id);
         const results: ExecResult[] = [];
         for (const panel of panels) {
             const exec = await apiPost<{
@@ -127,108 +122,22 @@
     }
 
     // Load distinct values / ranges so dropdowns render as real dropdowns
-    // (same source the admin app uses). Public per-panel endpoint.
+    // (same source the admin app uses), authorized for this share on every request.
     async function loadDomains(): Promise<void> {
-        const domains: Record<string, FilterDomain> = {};
-        await Promise.all(
-            executedResults.flatMap((r, i) =>
-                r.inference_result.filter_controls.map(async (fc) => {
-                    const kind =
-                        fc.control_type === 'dropdown' || fc.control_type === 'multiselect'
-                            ? 'distinct'
-                            : fc.control_type === 'range_slider'
-                                ? 'range'
-                                : null;
-                    if (kind === null || domains[fc.variable]) return;
-                    try {
-                        domains[fc.variable] = await apiPost<FilterDomain>(
-                            `/api/v1/panels/${panelIds[i]}/filter-domain`,
-                            { column: fc.column_name, kind },
-                        );
-                    } catch {
-                        // leave absent → control falls back to text/number input
-                    }
-                })
-            )
-        );
-        viewerDomains = domains;
+        const generation = ++domainGeneration;
+        const dashboard = sharedDashboardId;
+        // Initial execution loads domains before showing the unlocked view.
+        const isCurrent = () => generation === domainGeneration && dashboard === sharedDashboardId && viewerState !== 'error';
+        const domains = await fetchFilterDomains({
+            results: executedResults, isCurrent,
+            fetch: (id, column, kind) => apiPost(`/api/v1/panels/${id}/filter-domain`, { column, kind }),
+            onAccessFailure: handleAccessFailure,
+        });
+        if (isCurrent()) viewerDomains = domains;
     }
 
-    async function executeFilteredPanels(
-        changedVar: string,
-        currentFV: Record<string, unknown>,
-    ): Promise<void> {
-        const updatedResults = [...executedResults];
-        let anyChanged = false;
-
-        for (let i = 0; i < executedResults.length; i++) {
-            const controls = executedResults[i].inference_result.filter_controls;
-            const panelVars = controls.flatMap((fc: FilterControl) =>
-                fc.variable.split(',').map((v: string) => v.trim())
-            );
-            if (!panelVars.includes(changedVar)) continue;
-
-            // Send every variable, including empty ones ("All" → backend
-            // neutralizes the predicate), so clearing a filter re-runs too.
-            const variables = Object.fromEntries(
-                panelVars.map((v: string) => [v, currentFV[v] ?? ''])
-            );
-
-            try {
-                const exec = await apiPost<{
-                    inference_result: InferenceResult;
-                    data: Record<string, unknown>[];
-                }>(`/api/v1/panels/${panelIds[i]}/execute`, { variables });
-                updatedResults[i] = { panel_id: panelIds[i], ...exec };
-                anyChanged = true;
-            } catch {
-                // Keep existing result on error
-            }
-        }
-
-        if (!anyChanged) return;
-        executedResults = updatedResults;
-        // Patch the charts in place — never re-compose on a filter change or the
-        // panels reorder every time. Full compose only if there's no layout yet.
-        if (layout) {
-            layout = applyResultsToLayout(layout, updatedResults);
-        } else {
-            try {
-                layout = await recompose(updatedResults);
-            } catch {
-                // Layout stays as-is
-            }
-        }
-    }
-
-    function applyResultsToLayout(current: DashboardLayout, results: ExecResult[]): DashboardLayout {
-        const byId = new Map(results.map(r => [r.panel_id, r]));
-        return {
-            ...current,
-            rows: current.rows.map(row => ({
-                panels: row.panels.map(p => {
-                    const r = byId.get(p.panel_id);
-                    return r
-                        ? { ...p, inference_result: r.inference_result, data: r.data }
-                        : p;
-                }),
-            })),
-        };
-    }
-
-    function handleFilterChange(varName: string, value: unknown) {
-        viewerFilterValues = { ...viewerFilterValues, [varName]: value };
-        clearTimeout(filterDebounceTimer);
-        filterDebounceTimer = window.setTimeout(() => {
-            executeFilteredPanels(
-                varName,
-                { ...viewerFilterValues, [varName]: value }
-            );
-        }, 350);
-    }
-
-    // ── Unlock (password-protected share) ─────────────────────────────────────
     type ShareViewData = {
+        viewer_session?: string;
         dashboard: { id: string; name: string };
         panels: Array<{ id: string; sql_content: string }>;
     };
@@ -252,6 +161,8 @@
                 return;
             }
             const shareData = await resp.json() as ShareViewData;
+            viewer.setSession(shareData.viewer_session ?? '');
+            unlockPassword = '';
             dashboardName = shareData.dashboard.name;
             sharedDashboardId = shareData.dashboard.id;
             loadPalette(sharedDashboardId);
@@ -352,7 +263,6 @@
                     placeholder="Dashboard password"
                     autocomplete="current-password"
                     disabled={unlocking}
-                    autofocus
                 />
                 {#if lockError}
                     <div class="auth-error" role="alert">{lockError}</div>
@@ -371,39 +281,20 @@
 <!-- ── Unlocked (viewer) — single dashboard, no sidebar ──────── -->
 {:else if viewerState === 'unlocked'}
     <div class="viewer-shell">
-        <!-- Header: logo + name + inline filters + theme toggle -->
+        <!-- Reader context: dashboard, filters and secondary options. -->
         <header class="viewer-bar">
-            <div class="viewer-brand">
-                <img class="brand-icon" src={sqlvizIcon} alt="" width="24" height="24" />
-                <span class="brand-name"><span class="brand-sql">SQL</span><span class="brand-viz">viz</span></span>
-            </div>
-            <span class="viewer-sep" aria-hidden="true"></span>
             <span class="viewer-title">{dashboardName || 'Dashboard'}</span>
-            {#if hasFilters}
-                <span class="viewer-sep" aria-hidden="true"></span>
-                <div class="viewer-filters" role="group" aria-label="Dashboard filters">
-                    {#each allFilterControls as control (control.variable)}
-                        <FilterControlComponent
-                            {control}
-                            pill
-                            filterVals={viewerFilterValues}
-                            domain={viewerDomains[control.variable]}
-                            onChange={handleFilterChange}
-                        />
-                    {/each}
-                    <FilterViews
-                        dashboardId={sharedDashboardId}
-                        currentValues={viewerFilterValues}
-                        onApply={(vals) => {
-                            for (const [k, v] of Object.entries(vals)) handleFilterChange(k, v);
-                        }}
-                    />
-                </div>
-            {/if}
-            <div class="viewer-bar-right"><PalettePicker value={paletteId} onSelect={setPalette} /><ThemeToggle /></div>
+            <div class="viewer-context-actions">
+                {#if hasFilters}
+                    {#key sharedDashboardId}<FilterContext dashboardId={sharedDashboardId} controls={allFilterControls}
+                        values={viewerFilterValues} domains={viewerDomains} busy={filterRuntime.busy}
+                        error={filterRuntime.error} onApply={filterRuntime.apply} />{/key}
+                {/if}
+                <ViewerOptions {paletteId} onPalette={setPalette} />
+            </div>
         </header>
 
-        <div class="viewer-content">
+        <div class="viewer-content" aria-busy={filterRuntime.busy}>
             {#if layout}
                 <DashboardGrid {layout} palette={paletteColors} />
             {:else}
@@ -417,9 +308,11 @@
 {/if}
 
 <style>
+    .viewer-context-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
     /* ── Loading / error centering ────────────────────────────── */
     .viewer-center {
-        min-height: 100vh;
+        min-height: 100dvh;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -535,22 +428,19 @@
 
     /* ── Viewer shell (unlocked) — header + content, no sidebar ── */
     .viewer-shell {
-        height: 100vh;
+        height: 100dvh;
         display: flex;
         flex-direction: column;
         background: var(--sqlviz-bg);
         overflow: hidden;
     }
 
-    .viewer-brand { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
-    .viewer-brand .brand-icon { display: block; flex-shrink: 0; }
-    .viewer-brand .brand-name { font-family: 'Geist Sans', var(--sqlviz-font-sans); font-weight: 600; font-size: 0.9375rem; letter-spacing: -0.025em; white-space: nowrap; }
     .brand-sql { color: var(--sqlviz-text-primary); font-weight: 600; }
     .brand-viz { color: var(--sqlviz-primary); font-weight: 600; }
 
     /* Header: logo + name + inline filters + theme toggle */
     .viewer-bar {
-        height: 44px;
+        min-height: 52px;
         display: flex;
         align-items: center;
         gap: 0.625rem;
@@ -566,32 +456,10 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        flex-shrink: 0;
-    }
-    .viewer-sep {
-        width: 1px;
-        height: 20px;
-        background: var(--sqlviz-border);
-        flex-shrink: 0;
-    }
-    .viewer-filters {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
         min-width: 0;
         flex: 1;
-        overflow-x: auto;
-        overflow-y: hidden;
-        scrollbar-width: none;
     }
-    .viewer-filters::-webkit-scrollbar { display: none; }
 
-    .viewer-bar-right {
-        margin-left: auto;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-    }
 
     .viewer-content {
         flex: 1;

@@ -5,6 +5,430 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+## [v0.3.0] — 2026-10-17
+
+### Documentation
+
+- Dirección de proyecto por recursos aceptada: biblioteca/mapa sobre un catálogo,
+  datasets y medidas reutilizables, semántica común, definiciones exportables,
+  APIs y alertas. Partes R1–R7 integradas con Studio y extensiones posteriores,
+  con criterios de cierre; actualiza arquitectura/roadmap y distingue decisión
+  aceptada de capacidad implementada. Sin cambios de runtime ni de formato.
+
+- Evaluación del informe de arquitectura v2 sobre semántica, Rill, Polars y
+  materialización, contrastada con código y fuentes oficiales. Corrige supuestos
+  sobre `.sqlviz`/SQLite y Quack, distingue inferencia de medidas y recomienda
+  integración gradual sin sustituir el plan del Studio. Actualiza referencias
+  antiguas al próximo incremento en inferencia/matriz; sin cambios de runtime.
+
+### Breaking
+
+- La carga del workspace requiere `publication_status`, `last_run_at` y
+  `last_run_sql` en el snapshot de autor; frontend/backend deben actualizarse
+  juntos. No vuelve a lecturas separadas ni adopta respuestas incompatibles.
+
+- Última ejecución pasa a ser metadata del servidor: PATCH de dashboards rechaza
+  `last_run_at`/`last_run_sql`. Run requiere recibos firmados de ejecución/composición
+  y `/sql-script/complete`; frontend/backend deben actualizarse juntos.
+
+- Run requiere `definition_revision` en el snapshot/commit, ejecución con
+  referencia de definición y composición de autor `/sql-script/compose`.
+  Rechaza recibos incompatibles y no vuelve al contrato legacy ante fallos.
+  Desplegar frontend y backend compatibles; filtros/lectores mantienen su API.
+
+- Run del workspace requiere parsing/preflight y la API de snapshot/commit del
+  script por dashboard. Guarda las definiciones en una sola transacción antes de
+  ejecutar; eliminar SQL exige asignar o confirmar la eliminación de los paneles
+  afectados. No vuelve al guardado secuencial con un backend antiguo.
+
+- Run del workspace analiza todo el script antes de crear/editar paneles y ahora
+  rechaza sintaxis inválida sin escrituras de panel. Requiere el backend con
+  `POST /api/v1/sql/parse`; no vuelve al splitter por delimitadores si falla.
+
+- `PATCH /panels/{id}/override` para `chart_type` acepta únicamente los ocho
+  identificadores soportados actualmente. Tipos desconocidos o con espacios/casing
+  distinto ahora devuelven 422; `user_value: null` mantiene el retorno a automático.
+- `PATCH /panels/{id}/view-override` exige `value` explícito: solicitudes que
+  enviaban solo `field` ahora reciben 422. Para borrar, enviar `value: null` o
+  `value: ""`. Texto de más de 512 caracteres, solo espacios o campos extra
+  también se rechazan; los clientes deben corregir esas entradas.
+
+### Added
+
+- S1.1c.2c.3a: generación durable propia del borrador y escritor condicionado
+  interno; contador avanza junto a PATCH de SQL y commit de Run, incluso para
+  texto idéntico. Reutiliza el bloqueo transaccional del padre, rechaza revisiones
+  obsoletas y revierte fuente/contador/timestamp ante fallos o competencia.
+  Preserva definiciones, ajustes y última ejecución; permite borradores vacíos
+  e incompletos sin parsing. Migración aditiva 0023 probada en copia y errores
+  HTTP seguros ante metadata inválida/capacidad agotada. API del escritor y
+  autoguardado web con revisión siguen pendientes en 3b/3c; PATCH sigue sin CAS.
+
+- S1.1c.2c.2: snapshot coherente de borrador, paneles, publicación y última
+  ejecución; recarga verifica bindings persistidos con parsing nativo y conserva
+  IDs, incluso con consultas idénticas. Preserva borradores nuevos/vacíos/invalidos
+  y recupera identidad de última ejecución solo para su publicación exacta.
+  Navegación descarta respuestas tardías y bloquea Run mientras carga; caché
+  requiere revisión, fuente, IDs/SQL y cobertura compatibles. No autoejecuta,
+  no adopta estado desde caché ni incorpora recuperación idempotente/autosave
+  con revisión; esos límites permanecen en 2c.3.
+
+- S1.1c.2c.1c: recibos app-local con HMAC-SHA256, hash de inferencia, ID/definición
+  y expiración de 15 minutos. Solo consultas reales y composición completa producen
+  prueba de éxito; fallback o script vacío no lo registran. Cierre transaccional
+  verifica definición vigente, usa fuente exacta/reloj del servidor y preserva
+  borrador; rollback ante cambios concurrentes/COMMIT fallido. Reintentos válidos
+  conservan el timestamp y pruebas antiguas no reemplazan un cierre más reciente.
+  Reiniciar app invalida recibos pendientes; no hay snapshot común de datos,
+  ledger durable ni recuperación de commits con respuesta perdida.
+
+- S1.1c.2c.1b: referencia de definición independiente de borrador, inferencia y
+  presentación. Run la transmite y comprueba en consultas/fallbacks y composición
+  tipada de autor; cubre el script completo, IDs/orden y cambios concurrentes de
+  paneles vecinos con rollback. Recibos incompatibles no publican vista ni
+  registran éxito, conservando IDs guardados. Registro verificado del lado servidor
+  se completa en 1c; la referencia sola no es un snapshot común ni firma de resultados.
+
+- S1.1c.2c.1a: publicación de inferencia de consultas reales del autor condicionada
+  al SQL y elección manual de gráfico capturados; inferencia y clasificación en
+  una transacción breve, con conflictos 409 seguros y rollback completo. Conserva
+  tamaños/textos manuales compatibles y no mantiene transacción durante ejecución
+  analítica. Pruebas con cursores competidores, fallos y reapertura. Referencia
+  de definición de todo Run/composición y registro condicionado siguen en 1b/1c.
+
+- S1.1c.2b: Run usa un único commit de definiciones y valida su recibo antes de
+  adoptar IDs; ejecución y composición posteriores. Diálogo con eliminación
+  explícita y reversible de paneles sin consulta, incluso para script vacío.
+  Espera autoguardados en vuelo, suspende nuevos mientras guarda, conserva texto
+  editado durante Run y no lo reemplaza al registrar la última ejecución.
+  Fallos de consulta/layout conservan IDs guardados y no crean duplicados al
+  reintentar; caché distingue SQL mostrado del registro durable de ejecución.
+  Recarga, respuesta perdida y revisión ejecutada quedan en S1.1c.2c.
+
+- S1.1c.2a: GET de snapshot y POST de commit del script por dashboard, ambos de
+  autor; contratos estrictos y token esperado, análisis nativo completo y política
+  de consultas de lectura antes de escribir. Guarda fuente/paneles/asociaciones
+  juntos, devuelve IDs asignados y rechaza conflictos, decisiones inválidas y
+  metadata corrupta sin exponer SQL. Pruebas HTTP de permisos, rollback, límites
+  y reapertura. Run se integra después en S1.1c.2b.
+
+- S1.1c.1: repositorio interno de guardado atómico de fuente, paneles y bindings
+  UTF-16; token esperado del estado, conflictos con cambios/concurrencia, rollback
+  y UUID de nuevas creaciones. Conserva ajustes manuales y retira inferencias de
+  SQL cambiado. Tabla reservada y migración aditiva 0022 sin fabricar identidad
+  legacy; borrado de dashboard limpia también sus asociaciones. HTTP incorporado
+  en S1.1c.2a; las escrituras secuenciales del botón Run se reemplazan en S1.1c.2b.
+
+- S1.1b.3: diálogo bajo demanda para asociar consultas con paneles existentes o
+  nuevos, con comparación de SQL, teclado/foco y elecciones uno a uno. Preflight
+  estricto y autorizado de servidor, sin escrituras; Run y foco por ID, guardas
+  ante cambios del borrador y preservación de ajustes. El preflight no sustituye
+  una transacción; S1.1c.2b conecta el guardado atómico después de este preflight.
+
+- S1.1b.2: asociaciones del borrador por rangos UTF-16 y procedencia de ediciones
+  Monaco, comprobadas con el parser nativo. Inserciones desplazan bloques sin
+  transferir IDs; reemplazos, límites ambiguos y split/merge quedan pendientes.
+  Guardas de fuente/vista, 29 pruebas nuevas y comprobación con Monaco real.
+  Todavía no entrega resolución en UI, Run por ID ni persistencia de asociaciones.
+
+- S1.1b.1: núcleo interno de reconciliación SQL/panel con decisiones explícitas
+  para conservar, crear o eliminar. Propuestas inmutables, fuente/IDs validados
+  y ambigüedad pendiente, sin inferir identidad por índice o igualdad de SQL.
+  Cincuenta y tres casos nuevos de política y parser real; aún no conectado a
+  editor/Run ni a persistencia. El plan divide la integración en S1.1b.2/b.3.
+
+- Dependencias web fijadas: GridStack 14.0.0, Drawflow 0.0.60 y tipos Drawflow
+  0.0.12. Adaptadores internos con dieciséis pruebas sobre las bibliotecas reales:
+  geometría por IDs/píxeles, colisiones sin empuje y mapa de lectura con inputs
+  nombrados, etiquetas como texto y cancelación/desmontaje. Todavía no conecta
+  drag/resize ni mapa al Studio, ni modifica proyectos `.sqlviz`.
+
+- S1.1a: análisis nativo DuckDB de scripts, slices de fuente y offsets UTF-16;
+  contrato HTTP estricto solo para autores, sin ejecución ni conexión de proyecto.
+  Presupuestos de bytes/sentencias y admisión por aplicación.
+
+- Núcleo interno de geometría manual del dashboard: doce columnas, posiciones y
+  alturas exactas, operaciones inmutables, colisiones y evaluación de espacio
+  pantalla/scroll con mínimos suministrados por el renderer. Incluye 54 casos;
+  todavía no integra UI, persistencia ni endpoints del nuevo lienzo.
+
+- El logo de navegación muestra el icono de abrir/cerrar al pasar el mouse o
+  recibir foco de teclado; en táctil el icono permanece visible. Conserva un
+  único botón, su tamaño y la preferencia de movimiento reducido; ambos iconos
+  comparten el color índigo del logo.
+- Contrato HTTP tipado de composición, adaptación explícita a dataclasses y
+  esquema OpenAPI; conserva resultados originales y etiquetas de ejes.
+- Cabecera compacta de Preview y viewers: selector del título, filtros bajo
+  demanda y apariencia/acciones secundarias en opciones, sin búsqueda duplicada.
+- Control de marca/navegación directo en la esquina superior izquierda de editor,
+  Preview y workspace. El mismo botón abre/cierra sin moverse en escritorio;
+  la biblioteca móvil enfoca búsqueda y devuelve foco al cerrar. Se retira
+  navegación de opciones y la marca repetida del sidebar.
+- Navegación simplificada a un solo logo/control visual (36 px en escritorio,
+  44 px en móvil). El sidebar de escritorio ya no repite el botón de cierre;
+  el modal móvil conserva su cierre interior y recuperación de foco.
+- Panel de filtros con borrador, Aplicar/Cancelar, resumen confirmado y presets
+  locales; runtime compartido que confirma el conjunto de paneles afectados,
+  conserva datos ante fallos y descarta respuestas de una vista abandonada.
+- Selector compacto en cabecera del viewer de workspace: búsqueda por
+  dashboard/carpeta y Ctrl/Cmd+K sin abrir sidebar; la variante con flechas queda
+  disponible en el componente para recorridos explícitos futuros.
+- Contrato de dimensiones manuales en core (1–12 columnas y 120–900 px),
+  validación estricta de PATCH y 49 casos nuevos Python más 9 frontend.
+- Política de jerarquía en core, repositorio de carpetas y revisión interna
+  transaccional del árbol, compartida con la ubicación de dashboards; 93 casos
+  nuevos de política, repositorio, transacciones y API.
+- Repositorio transaccional para borrado de dashboards y servicio de limpieza
+  de sesiones después del commit; 25 casos nuevos de integridad y concurrencia.
+- Contrato de parámetros en core y servicio de preparación por aplicación:
+  valores simples/listas tipadas y acotadas, sin coerción del transporte.
+- Límites de cuerpos API antes de JSON, incluyendo solicitudes chunked.
+- QueryService por aplicación: catálogo analítico aislado, adaptación de tablas
+  locales y límites de tiempo, filas, bytes, memoria y concurrencia.
+- Servicio de autorización por aplicación, principal de autor/lector y sesiones
+  administrativas y de lector separadas, con expiración y revocación.
+- Credenciales con alcance en cada solicitud de ambos viewers; los enlaces con
+  contraseña emiten una sesión temporal ligada a ese enlace y aplicación.
+- Arranque Quack opcional mediante `--quack`, con credencial propia en
+  `SQLVIZ_QUACK_TOKEN`, parámetros enlazados y extensión previamente instalada.
+- Navegación de workspace totalmente ocultable: recupera los 260 px del
+  explorador; acceso directo en la cabecera de editor, Preview y viewer.
+- Panel modal de navegación hasta 900 px, con cierre por Escape/clic exterior,
+  foco contenido y cierre al seleccionar un dashboard.
+- Búsqueda local por dashboard/carpeta y acceso visible a búsqueda/comandos en
+  la cabecera; preferencias privadas de visibilidad para editor y viewer.
+- Acceso visible al modo de concentración: oculta también editor e inspectores,
+  conserva sus estados y restaura el foco al salir.
+
+### Changed
+
+- Mínimos y bloques de texto especificados: 2 px se rechaza actualmente en
+  gráficos, y títulos/subtítulos/encabezados/párrafos tendrán tipo, mínimo y
+  persistencia propios, sin SQL. S1.3a–c añade su recorrido al plan; todavía sin UI.
+  Se concreta la recomendación de columnas horizontales y píxeles verticales para
+  el primer Studio; precisión horizontal libre deja de ser requisito S1.2a.
+
+- Guías y precisión del lienzo especificadas: alineación, tamaños/separaciones,
+  cotas durante el gesto, inspector exacto y magnetismo controlable. S1.2a debe
+  concretar precisión horizontal compatible con doce columnas; S0 solo ofrece
+  píxeles exactos en alto/Y. Desglose de guías/resize en S2, todavía sin UI entregada.
+
+- Composición asimétrica aclarada como requisito S1/S2: un panel de seis columnas
+  puede abarcar la altura de dos gráficos apilados en las otras seis. Cuatro casos
+  core cubren ambas orientaciones y modos pantalla/scroll; la UI/persistencia siguen
+  pendientes. No se confunde este caso con secciones/áreas semánticas de S6.
+
+- Experiencia de paneles y áreas documentada: acabado de estructura/acciones/estados
+  desde S1/S2, gestos del gráfico preservados y revisión visual obligatoria para
+  cerrar ese flujo. CSS Grid se separa de áreas del producto; S6 se desglosa en
+  medición, modos pantalla/scroll, grupos, plantillas y responsive. Diseño pendiente,
+  sin cambios de UI ni formato `.sqlviz` en este incremento.
+
+- Política de actualización de consultas compartidas documentada: conservar
+  paneles y ajustes, diagnosticar impacto por consumidor, reparar y adoptar
+  revisiones explícitamente; incluye variante de un panel, conflictos y resultados
+  previos identificados. S3.4 se divide en persistencia, impacto y adopción atómica;
+  todavía no implementa datasets compartidos ni estos controles.
+
+- Mapa vivo del dashboard definido como vista bajo demanda de referencias reales,
+  con contexto/edición mediante Studio, regreso al mapa y estados draft/confirmado.
+  Distingue ajustes de instancia, visual compartida y dataset. F1–F3 entran en S3/S4;
+  linaje detallado y publicación en S5/S8. Es diseño pendiente, no nueva UI.
+
+- Autoría multiconsulta precisada: bloques SQL con identidad → datasets y esquema
+  → preview/campos → varios visuales. S3.5 añade selector de consulta/dataset y
+  promoción/reutilización; S4.2 explicita el builder contextual. Guardar definición
+  no importa filas ni crea vistas físicas. Flujo documentado pendiente de entrega.
+
+- Matriz analítica BI incorporada al alcance central, con módulo M1–M9:
+  jerarquías, medidas/totales por contexto, renderer de grilla y drag de campos.
+  Primer flujo en S3/S4, ampliación de formato/escala en S5 y lectura/publicación
+  en S7/S8. S2 se divide en seis partes para drag/resize de paneles. Es diseño
+  documentado pendiente; la tabla plana y los contratos legacy no cambian.
+
+- Diseño de inferencia y cobertura visual ampliado: AST por ámbitos, linaje,
+  evidencias/abstención, inputs SQL nombrados y adaptadores de forma; matriz de
+  23 familias ECharts core y dependencias GL/custom. S3–S5 ahora tiene partes
+  pequeñas con criterios de cierre. Es documentación de arquitectura pendiente,
+  no nuevas familias soportadas; S1.1b sigue siendo el próximo incremento.
+
+- Prioridad del Studio: geometría y lienzo persistido → drag/resize → dataset y
+  visual → primer recorrido Automático/Visual Builder/ECharts nativo. Los tres
+  niveles son parte del núcleo; el editor experto no se pospone al acabado.
+
+- Documentación de la decisión aceptada para el Studio: inferencia automática,
+  Visual Builder y ECharts native options; separación dataset/visual/panel y
+  dataset mínimo antes de la autoría completa en los tres niveles. Define precedencia, persistencia y reset de
+  ajustes expertos. Es diseño pendiente de implementación, no una función nueva.
+
+### Fixed
+
+- Run, contador y foco respetan `;` dentro de strings, identificadores, dollar
+  quotes y comentarios. Comentarios/separadores vacíos no crean paneles;
+  sintaxis inválida y NUL se rechazan antes de mutar paneles. El contador no
+  publica resultados de otro draft y el foco usa posiciones confirmadas.
+- Reconstrucción de SQL desde paneles separa consultas en líneas independientes
+  para preservar comentarios `--` finales. `last_run_sql` conserva el snapshot
+  ejecutado y respuestas tardías del preflight no cambian otro dashboard.
+
+- Cambio manual de gráfico se guarda transaccionalmente antes del aprendizaje,
+  con respuesta confirmada y conflictos de borrado/edición predecibles. La UI
+  conserva el gráfico ante rechazo o fallo de refresh y ofrece reintento específico
+  sin repetir aprendizaje. Reset borra el ajuste; reejecutar conserva el ganador
+  automático separado del manual, incluso si ambos coinciden.
+- El panel SQL respeta el alto disponible del workspace y mantiene visible su
+  separador, incluso al restaurar una altura mayor o reducir la ventana.
+  Arrastrar hacia abajo o usar el teclado reduce desde el tamaño visible,
+  sin un recorrido muerto después de llegar al límite superior.
+- El área de escritura SQL se ajusta al ampliar/reducir el panel y al cambiar
+  el ancho disponible; Monaco observa su contenedor sin recrear el editor.
+- Presentación de paneles valida título/etiquetas con valor obligatorio, hasta
+  512 caracteres y sin coerción; null/vacío restaura automático. Guarda ajuste
+  y fecha en una transacción, con rollback y coordinación frente a borrado.
+- Inspector y etiquetas sobre el gráfico comparten guardado confirmado:
+  conservan el texto al fallar y ofrecen reintento con errores legibles.
+  Restablecer el título consulta la inferencia real con los filtros actuales;
+  distingue guardado exitoso de un fallo posterior al actualizar el gráfico.
+- La confirmación de una etiqueta conserva el editor que inició la solicitud;
+  no cierra ni roba el foco de una edición posterior al cambiar rápidamente de eje.
+- PATCH básico de paneles valida nombre, SQL y orden sin coerción; rechaza null
+  y campos desconocidos antes de escribir, conserva ajustes visuales y SQL exacto,
+  y guarda en una transacción. PATCH vacío no cambia fechas. Borrados de panel y
+  dashboard protegen las filas frente a edición concurrente y revierten con 409.
+- PATCH de dashboards rechaza tipos, campos y límites inválidos antes de guardar;
+  distingue omisión/null y conserva SQL exacto. Actualización de campos, ubicación
+  y timestamp es atómica, con rollback y conflictos 409; PATCH vacío no escribe.
+- Foco del buscador de dashboards/comandos rodea el campo completo con la lupa,
+  evitando el marco rectangular interior; conserva el espacio exterior.
+- Items de búsqueda de dashboards y comandos resaltan en índigo suave al pasar
+  el mouse o navegar con teclado; el fondo anterior coincidía con el diálogo.
+- CI entrega el build verificado del frontend a los jobs Python antes de probar
+  login y archivos estáticos, evitando depender de artefactos locales previos.
+- `/compose` rechaza con 422 resultados incompletos, tipos/rangos incorrectos,
+  números no finitos, versiones incompatibles, IDs repetidos y más de 256 paneles,
+  antes de ejecutar el motor; conserva autorización y dimensiones manuales.
+- Opciones de filtros conservan tipos simples, incluidos cero y falso; búsquedas
+  Command tienen nombre accesible de raíz y la biblioteca recupera foco al control de cabecera.
+- Filtros booleanos distinguen sin restricción, verdadero y falso mediante
+  Any/Yes/No, evitando confundir falso con la ausencia de filtro.
+- Dominios de filtros se solicitan secuencialmente y sin duplicar variables;
+  abandonar la vista detiene la carga y descarta dominios tardíos, evitando
+  ráfagas de consultas que agotaban los slots analíticos.
+- Navegación del viewer descarta respuestas de dashboards abandonados y
+  filtros pendientes; acceso revocado retira también el selector.
+- Workspace compartido vacío muestra estado explícito; un solo dashboard
+  conserva su título sin controles de cambio innecesarios.
+- Overrides de tamaño rechazan rangos/tipos inválidos antes de escribir; null
+  explícito restablece automático y conflictos de escritura devuelven 409.
+- El editor conserva gráfico y dimensiones si falla el guardado; serializa
+  cambios, usa valores confirmados y recompone sin ejecutar SQL para reset.
+- Guardar dimensiones no depende del aprendizaje: patrón/evento se intentan
+  después, en otra transacción. Ajustar alto conserva ancho aprendido y viceversa.
+- Overrides históricos inválidos no se propagan al renderer ni al ancho KPI;
+  sus valores no se reparan automáticamente en el archivo.
+- La caché de resultados evita suscribirse a sus propias escrituras reactivas.
+- Carpetas rechazan padres inexistentes y movimientos bajo sí mismas o sus
+  descendientes. Cambios simultáneos del árbol/ubicación devuelven 409 sin ciclos
+  ni referencias nuevas a carpetas eliminadas.
+- PATCH distingue omisión de null para parent_id/folder_id; null mueve a raíz,
+  compatible con el alias anterior "". El frontend envía null al desagrupar.
+- Borrar una carpeta promueve sus contenidos directos en la misma transacción,
+  preservando subárboles, dashboards, paneles y accesos compartidos.
+- El contexto de transacciones conserva el conflicto de COMMIT cuando DuckDB
+  ya abortó la transacción; otros fallos de rollback no se ocultan.
+- Borrar un dashboard elimina también paneles, enlaces y memoria de filtros
+  de forma atómica. Un fallo revierte el conjunto y conserva sesiones; otros
+  dashboards y enlaces de workspace se mantienen.
+- Crear paneles/enlaces de dashboard verifica y modifica el padre en la misma
+  transacción; colisiones con borrado devuelven 409 sin crear huérfanos.
+- El diálogo de borrado informa también de filtros guardados y enlaces afectados.
+- Placeholders detectados desde SQL parseado: strings/comentarios no generan
+  filtros. Multiselección adapta nodos IN sin modificar literales mediante regex.
+- Valores inválidos/excesivos fallan explícitamente y errores de filtros no
+  repiten valores enviados. El cuerpo de ejecución rechaza SQL/campos desconocidos.
+- Selector de gráficos actualiza selección y scores al cambiar panel/resultado.
+- Error de mypy de neutralización corregido; retiradas las seis advertencias
+  Svelte previas, incluyendo autofocus en dos formularios.
+- API/meta y metadata de creación usan la versión instalada común; CI usa
+  Node 24.21.0, Python 3.12/3.13 e instalación con lockfile requerido.
+- SQL de gráficos, dominios y sondeos ya no se ejecuta contra metadatos. Autor y
+  lector solo ejecutan consultas de lectura; archivos/red, secretos, vistas y
+  catálogos adjuntos no se exponen. No se migra el archivo del proyecto.
+- Consultas que exceden presupuestos fallan explícitamente sin resultados
+  parciales; timeout interrumpe DuckDB y libera recursos de la operación.
+- CRUD y listados de autor requieren sesión; lectura, ejecución, dominios y
+  composición verifican el alcance del enlace. Revocar o rotar el secreto impide
+  nuevas solicitudes, también tras desbloquear un enlace protegido.
+- Ejecutar como lector no persiste inferencias, clasificación ni aprendizaje;
+  se rechazan sentencias de modificación y múltiples queries guardados.
+- Los viewers retiran los resultados al recibir un rechazo de acceso; las
+  respuestas de datos usan `no-store` y los cursores se cierran por solicitud.
+- El CLI escucha por defecto en `127.0.0.1` en demo y proyectos persistentes;
+  escuchar en LAN requiere `--host` explícito.
+- Se elimina la instalación automática de Quack desde nightly y el token fijo.
+  Si Quack se solicita y no puede arrancar, el CLI falla con un mensaje sin
+  credenciales; los recursos se cierran también durante fallos de arranque.
+- Los atajos globales respetan campos de texto y las combinaciones de Monaco.
+- El cierre del explorador devuelve el foco al control de navegación; una
+  restricción de localStorage no interrumpe la interfaz.
+- Los dashboards con igual nombre conservan IDs distintos en la búsqueda de
+  comandos. El título accesible del diálogo se ubica dentro de su contenido.
+- El editor no crea una instancia huérfana si se cierra durante la carga de
+  Monaco. Se desactiva el resaltado de coincidencias de palabras que dependía
+  del worker provisional, evitando su rechazo `Canceled` al cerrar el editor.
+
+### Documentation
+
+- S1 dividido en S1.1a–c y S1.2a–e; contratos y límites del parsing documentados.
+  Identidad/reconciliación es el siguiente incremento, antes del layout persistido.
+
+- Plan operativo único del Studio con entregas S0–S8, criterios de cierre,
+  reglas de libertad/legibilidad y análisis del informe de producto. Contrato
+  del núcleo geométrico documentado; alineados README, índice, roadmap,
+  especificación del Studio y decisión de autoría.
+
+- Plan inmediato después de navegación: composición/PATCH, migraciones,
+  identidad/configuración persistida, semántica y contexto de filtros,
+  Studio pantalla/scroll, inferencia y publicación, con criterios de cierre.
+- Especificación conjunta de navegación y filtros y primer incremento de lectura:
+  cabecera compacta, edición bajo demanda y runtime confirmado. Prioridades,
+  defaults publicados y semántica persistida completa siguen pendientes.
+- Contratos de dimensiones, reset, aprendizaje opcional y límites de
+  concurrencia documentados; BP-03 corregido y composición tipada como siguiente unidad.
+- Política de jerarquía, PATCH y creación concurrente en proyectos anteriores;
+  BP-02 y BP-05 de ubicación corregidos. Explorador anidado y otros PATCH pendientes.
+- Política de integridad del dashboard, ownership de dependencias, protección
+  concurrente y conservación del historial de aprendizaje; BP-01 corregido.
+- Política de ejecución analítica, compatibilidad y límites reales de aislamiento
+  y presupuestos. Pendientes: datasets externos, cuotas de SO y declaraciones
+  persistidas de tipos de parámetros. Contrato de transporte implementado.
+- Política de autorización, transporte de credenciales y límites del incremento.
+- Política de arranque local, ownership de conexiones y pruebas del primer
+  incremento de E0, complementada por autorización y ejecución analítica.
+- Documento de navegación con decisiones, responsabilidades, pruebas y límites.
+- Especificación del Dashboard Studio: libertad visual equilibrada, pantalla sin
+  scroll/scroll, sidebar totalmente ocultable y criterios de calidad de inferencia.
+  Ensayos adicionales detectan asignación de ejes por posición y omisión de
+  métricas; se registra el límite del benchmark actual de 52 casos. Navegación
+  implementada; contratos visuales, modos de página e inferencia pendientes.
+- Evaluación adicional de buenas prácticas de arquitectura, con cinco problemas
+  reproducidos de integridad/contratos, dirección de dependencias y criterios de
+  refactorización incorporados a E1. BP-01/02 y BP-05 de ubicación corregidos;
+  BP-03/04 y PATCH de otros campos pendientes.
+- Auditoría técnica y de producto del 2026-10-05 con evidencia de autorización
+  incompleta, baseline de pruebas y prioridades de corrección. Los hallazgos de
+  seguridad originales tienen seguimiento en la auditoría; el aislamiento
+  analítico HTTP se implementa en la tercera unidad; E0 permanece abierto.
+- Nueva dirección de autoría SQL y visual, arquitectura objetivo y plan de
+  entregas con criterios de aceptación; documentos anteriores señalados como
+  históricos cuando su alcance o prioridad cambió.
+- README corregido: Python 3.12+, fábrica de aplicación, CLI en puerto 4000,
+  instalación del workspace y limitaciones de seguridad actuales.
+
+---
+
 ## [v0.2.11] — 2026-07-25
 
 Objetivo: compartir dashboards en la red local de forma confiable, motor de

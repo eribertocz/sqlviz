@@ -10,131 +10,79 @@ the dashboard is a resource that must exist before panels can belong to it.
 from __future__ import annotations
 
 import dataclasses
-import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 import duckdb
 import sqlviz_inference
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 from sqlviz_core.models import ColumnSchema
+from sqlviz_core.models.panels import Panel
 from sqlviz_inference.dashboard.dashboard_classifier import classify_dashboard
 from sqlviz_inference.filters.domain import build_domain_query
-from sqlviz_inference.filters.neutralize import neutralize_filters
+from sqlviz_inference.filters.parameters import filter_parameter_names
 from sqlviz_storage.brain_db import get_brain_connection
+from sqlviz_storage.dashboard_repository import dashboard_write
+from sqlviz_storage.inference_publication import inference_publication
 from sqlviz_storage.override_system import (
     apply_layout_overrides,
     apply_override,
     clear_override,
     store_inference,
 )
+from sqlviz_storage.panel_repository import PanelRepository
 from sqlviz_storage.panel_view_overrides import (
     apply_view_overrides,
     get_view_overrides,
-    set_view_override,
 )
+from sqlviz_storage.sql_script_repository import SqlDefinitionConflict, SqlScriptRepository
+from sqlviz_storage.transactions import project_transaction
 
-from sqlviz_api.dependencies import DbDep
+from sqlviz_api.dependencies import DbDep, ParametersDep, QueriesDep, SqlRunReceiptsDep
 from sqlviz_api.models import (
+    ExecuteBody,
+    FilterDomainBody,
     PanelCreate,
     PanelOverrideRequest,
     PanelResponse,
     PanelUpdate,
     PanelViewOverrideRequest,
+    PanelViewOverrideResponse,
+)
+from sqlviz_api.security import (
+    AdminDep,
+    ReaderDep,
+    require_dashboard_access,
+    require_panel_access,
+    require_reader,
 )
 from sqlviz_api.serialization import json_safe
+from sqlviz_api.services.access import AccessDenied
+from sqlviz_api.services.parameters import FilterPlan
+from sqlviz_api.services.query_policy import validate_viewer_query
+from sqlviz_api.sql_execution_contract import DefinitionReferenceInput, ExecutionReferenceInput
 
-_VARIABLE_RE = re.compile(r"\$(\w+)")
-
-
-def _is_empty_filter_value(value: Any) -> bool:
-    """True when a filter value means "All" (no filtering on this dimension).
-
-    "All" is represented by an empty value: None, the empty string (what the
-    dropdown/date/search controls emit for their "All" option), or an empty
-    list (a multiselect with nothing picked). Note that ``0`` and ``False`` are
-    NOT empty — they are legitimate numeric/toggle selections that must filter.
-    """
-    if value is None:
-        return True
-    if isinstance(value, str):
-        return value == ""
-    if isinstance(value, (list, tuple)):
-        return len(value) == 0
-    return False
-
-
-def _rewrite_in_clauses_for_lists(sql: str, variables: dict[str, Any]) -> str:
-    """Rewrite `col IN ($var)` to `col IN $var` for every list-valued variable.
-
-    DuckDB binds a list parameter as a single array value, so `IN ($var)`
-    (parens around the placeholder) raises a Conversion Error trying to cast
-    the array to the column's scalar type — the parens make DuckDB treat it
-    as a one-element scalar list rather than an array to test membership
-    against. `IN $var` (no parens) is the form DuckDB accepts for array
-    parameters, so multiselect filters (list-valued $var) need the rewrite;
-    scalar variables are left untouched since `IN ($var)` never appears for
-    them from the FilterEngine-generated controls.
-    """
-    for name, value in variables.items():
-        if isinstance(value, list):
-            sql = re.sub(
-                r"\bIN\s*\(\s*\$" + re.escape(name) + r"\s*\)",
-                f"IN ${name}",
-                sql,
-                flags=re.IGNORECASE,
-            )
-    return sql
-
-
-class ExecuteBody(BaseModel):
-    variables: dict[str, Any] = Field(default_factory=dict)
-
-
-class FilterDomainBody(BaseModel):
-    column: str
-    kind: str  # "distinct" | "range"
-
-router = APIRouter(prefix="/api/v1/panels", tags=["panels"])
-
-_SELECT = (
-    "SELECT id, dashboard_id, name, sql_content, sort_order, created_at, updated_at,"
-    " fingerprint,"
-    " inferred_chart_type, selected_chart_type, chart_user_override,"
-    " inferred_col_span,   selected_col_span,   col_span_user_override,"
-    " inferred_height_px,  selected_height_px,  height_user_override "
-    "FROM panels"
+router = APIRouter(
+    prefix="/api/v1/panels", tags=["panels"], dependencies=[Depends(require_reader)],
 )
+
+
+def _require_viewer_query(sql: str) -> None:
+    """Statement policy only; analytical engine isolation is separate work."""
+    try:
+        validate_viewer_query(sql)
+    except AccessDenied as exc:
+        raise HTTPException(exc.status_code, exc.detail) from None
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-
-def _row_to_response(row: tuple[Any, ...]) -> PanelResponse:
-    return PanelResponse(
-        id=row[0],
-        dashboard_id=row[1],
-        name=row[2],
-        sql_content=row[3],
-        sort_order=row[4],
-        created_at=row[5],
-        updated_at=row[6],
-        fingerprint=row[7],
-        inferred_chart_type=row[8],
-        selected_chart_type=row[9],
-        chart_user_override=row[10],
-        inferred_col_span=row[11],
-        selected_col_span=row[12],
-        col_span_user_override=row[13],
-        inferred_height_px=row[14],
-        selected_height_px=row[15],
-        height_user_override=row[16],
-    )
+def _to_response(panel: Panel) -> PanelResponse:
+    return PanelResponse(**dataclasses.asdict(panel))
 
 
 def _require_dashboard(db: DbDep, dashboard_id: str) -> None:
@@ -149,44 +97,35 @@ def _require_dashboard(db: DbDep, dashboard_id: str) -> None:
 
 
 def _fetch_one(db: DbDep, panel_id: str) -> PanelResponse:
-    row = db.execute(
-        f"{_SELECT} WHERE id = ?", [panel_id]
-    ).fetchone()
-    if row is None:
-        raise HTTPException(status_code=404, detail=f"Panel '{panel_id}' not found")
-    return _row_to_response(row)
+    return _to_response(PanelRepository(db).get(panel_id))
 
 
 @router.get("", response_model=list[PanelResponse])
 def list_panels(
     db: DbDep,
+    principal: ReaderDep,
     dashboard_id: str | None = Query(default=None),
 ) -> list[PanelResponse]:
     """List panels, optionally filtered by dashboard_id."""
-    if dashboard_id is not None:
-        rows = db.execute(
-            f"{_SELECT} WHERE dashboard_id = ? ORDER BY sort_order, created_at",
-            [dashboard_id],
-        ).fetchall()
-    else:
-        rows = db.execute(
-            f"{_SELECT} ORDER BY sort_order, created_at"
-        ).fetchall()
-    return [_row_to_response(r) for r in rows]
+    if not principal.is_admin:
+        if dashboard_id is None:
+            raise HTTPException(403, "Viewer requests require a dashboard_id")
+        require_dashboard_access(principal, dashboard_id)
+        _require_dashboard(db, dashboard_id)
+    return [_to_response(panel) for panel in PanelRepository(db).list(dashboard_id)]
 
 
 @router.post("", response_model=PanelResponse, status_code=201)
-def create_panel(body: PanelCreate, db: DbDep) -> PanelResponse:
-    _require_dashboard(db, body.dashboard_id)
-
+def create_panel(body: PanelCreate, db: DbDep, _admin: AdminDep) -> PanelResponse:
     panel_id = str(uuid.uuid4())
     now = _now()
-    db.execute(
-        "INSERT INTO panels "
-        "(id, dashboard_id, name, sql_content, sort_order, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [panel_id, body.dashboard_id, body.name, body.sql_content, body.sort_order, now, now],
-    )
+    with dashboard_write(db, body.dashboard_id):
+        db.execute(
+            "INSERT INTO panels "
+            "(id, dashboard_id, name, sql_content, sort_order, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [panel_id, body.dashboard_id, body.name, body.sql_content, body.sort_order, now, now],
+        )
     return PanelResponse(
         id=panel_id,
         dashboard_id=body.dashboard_id,
@@ -199,35 +138,19 @@ def create_panel(body: PanelCreate, db: DbDep) -> PanelResponse:
 
 
 @router.get("/{panel_id}", response_model=PanelResponse)
-def get_panel(panel_id: str, db: DbDep) -> PanelResponse:
+def get_panel(panel_id: str, db: DbDep, principal: ReaderDep) -> PanelResponse:
+    require_panel_access(db, principal, panel_id)
     return _fetch_one(db, panel_id)
 
 
 @router.patch("/{panel_id}", response_model=PanelResponse)
-def update_panel(panel_id: str, body: PanelUpdate, db: DbDep) -> PanelResponse:
-    _fetch_one(db, panel_id)  # raises 404 if missing
-
-    updates: dict[str, str | int] = {}
-    if body.name is not None:
-        updates["name"] = body.name
-    if body.sql_content is not None:
-        updates["sql_content"] = body.sql_content
-    if body.sort_order is not None:
-        updates["sort_order"] = body.sort_order
-    updates["updated_at"] = _now()
-
-    set_clause = ", ".join(f"{col} = ?" for col in updates)
-    db.execute(
-        f"UPDATE panels SET {set_clause} WHERE id = ?",
-        [*updates.values(), panel_id],
-    )
-    return _fetch_one(db, panel_id)
+def update_panel(panel_id: str, body: PanelUpdate, db: DbDep, _admin: AdminDep) -> PanelResponse:
+    return _to_response(PanelRepository(db).update(panel_id, body.changes()))
 
 
 @router.delete("/{panel_id}", status_code=204)
-def delete_panel(panel_id: str, db: DbDep) -> None:
-    _fetch_one(db, panel_id)  # raises 404 if missing
-    db.execute("DELETE FROM panels WHERE id = ?", [panel_id])
+def delete_panel(panel_id: str, db: DbDep, _admin: AdminDep) -> None:
+    PanelRepository(db).delete(panel_id)
 
 
 def _update_dashboard_classification(
@@ -238,38 +161,37 @@ def _update_dashboard_classification(
     """Classify the parent dashboard from all its executed panels.
 
     Runs after every successful panel execution so the sidebar icon stays
-    current.  Errors are swallowed — classification is best-effort.
+    current. Classifier failures are best-effort; storage failures must abort
+    the surrounding inference publication instead of hiding a conflict.
     """
+    row = db.execute(
+        "SELECT dashboard_id FROM panels WHERE id = ?", [panel_id]
+    ).fetchone()
+    if not row:
+        return
+    dashboard_id: str = row[0]
+
+    # Collect intent_winner for all panels that have been executed.
+    panel_rows = db.execute(
+        "SELECT inferred_intent_type, sql_content "
+        "FROM panels WHERE dashboard_id = ? AND inferred_intent_type IS NOT NULL",
+        [dashboard_id],
+    ).fetchall()
+
+    panel_intents = [r[0] for r in panel_rows]
+    all_sql = " ".join(r[1] or "" for r in panel_rows)
+
+    if not panel_intents:
+        return
+
     try:
-        row = db.execute(
-            "SELECT dashboard_id FROM panels WHERE id = ?", [panel_id]
-        ).fetchone()
-        if not row:
-            return
-        dashboard_id: str = row[0]
-
-        # Collect intent_winner for all panels that have been executed.
-        panel_rows = db.execute(
-            "SELECT inferred_intent_type, sql_content "
-            "FROM panels WHERE dashboard_id = ? AND inferred_intent_type IS NOT NULL",
-            [dashboard_id],
-        ).fetchall()
-
-        panel_intents = [r[0] for r in panel_rows]
-        all_sql = " ".join(r[1] or "" for r in panel_rows)
-
-        if not panel_intents:
-            return
-
         classification = classify_dashboard(panel_intents, col_names, all_sql)
-        db.execute(
-            "UPDATE dashboards "
-            "SET dashboard_hint = ?, dashboard_domain = ?, updated_at = ? "
-            "WHERE id = ?",
-            [classification.hint, classification.domain, _now(), dashboard_id],
-        )
     except Exception:
-        pass  # classification is non-critical; never block the execute response
+        return  # A classifier failure does not invalidate the panel's inference.
+    db.execute(
+        "UPDATE dashboards SET dashboard_hint = ?, dashboard_domain = ? WHERE id = ?",
+        [classification.hint, classification.domain, dashboard_id],
+    )
 
 
 def _render_contract(
@@ -290,12 +212,31 @@ def _render_contract(
     )
 
 
+def _execution_response(
+    content: dict[str, Any], db: DbDep, panel: PanelResponse,
+    definition: DefinitionReferenceInput | None, receipts: SqlRunReceiptsDep,
+) -> JSONResponse:
+    """Verify fallback provenance after calculation; no metadata writes."""
+    if definition is None:
+        return JSONResponse(content=content)
+    with project_transaction(db):
+        SqlScriptRepository(db).require_definition(definition.to_domain())
+        return JSONResponse(content={**content, "execution_reference": ExecutionReferenceInput(
+            panel_id=panel.id, definition=definition,
+        ).model_dump(), "execution_receipt": receipts.execution(
+            definition.to_domain(), panel.id, content["inference_result"], executed=False,
+        ), "query_executed": False})
+
+
 def _inference_only_response(
     sql: str,
     db: DbDep,
     brain: Any,
     debug: bool,
     panel: PanelResponse,
+    queries: QueriesDep,
+    receipts: SqlRunReceiptsDep,
+    definition: DefinitionReferenceInput | None = None,
 ) -> JSONResponse:
     """Render the filter bar without data when the query can't be executed.
 
@@ -304,33 +245,43 @@ def _inference_only_response(
     every $variable bound to NULL to recover real column types — without this,
     FilterEngine sees no schema, so every $variable defaults to VARCHAR and
     numeric/date columns render as plain text controls (and range pairs never
-    merge). NULL-bound execution is safe: comparisons short-circuit to NULL, so
-    it returns 0 rows and leaks nothing.
+    merge). The probe binds NULL in the isolated analytical catalog and uses
+    LIMIT 0: a NULL predicate alone would not guarantee an empty result.
     """
     schema: list[ColumnSchema] = []
     try:
-        probe_vars = dict.fromkeys(_VARIABLE_RE.findall(sql))
-        db.execute(sql, probe_vars)
-        schema = [ColumnSchema(name=str(d[0]), type=str(d[1])) for d in db.description or []]
+        probe_vars = dict.fromkeys(filter_parameter_names(sql))
+        probe = queries.execute(db, sql, probe_vars, schema_only=True)
+        schema = [ColumnSchema(name=name, type=kind) for name, kind in probe.columns]
     except duckdb.Error:
         pass  # fall back to schema-less inference — no worse than before
 
-    result = sqlviz_inference.infer(sql, schema=schema, brain_conn=brain, debug=debug)
+    result = sqlviz_inference.infer(
+        sql, schema=schema, brain_conn=brain, debug=debug,
+        chart_override=panel.chart_user_override,
+    )
     result = dataclasses.replace(
         result,
         fallback_applied=True,
         fallback_reason="Set filter values to see data",
     )
-    return JSONResponse(content={
+    return _execution_response({
         "inference_result": _render_contract(db, panel, result),
         "data": [],
-    })
+    }, db, panel, definition, receipts)
 
 
-@router.post("/{panel_id}/execute")
+@router.post(
+    "/{panel_id}/execute",
+    responses={409: {"description": "Execution inputs changed or publication conflicted"}},
+)
 def execute_panel(
     panel_id: str,
     db: DbDep,
+    principal: ReaderDep,
+    queries: QueriesDep,
+    parameters: ParametersDep,
+    receipts: SqlRunReceiptsDep,
     body: ExecuteBody | None = Body(default=None),
     debug: bool = Query(default=False),
 ) -> JSONResponse:
@@ -350,73 +301,81 @@ def execute_panel(
     SQL syntax error → 200 with fallback_applied=True + empty data.
     Missing table (CatalogException) → 422. Panel not found → 404.
     """
+    require_panel_access(db, principal, panel_id)
     panel = _fetch_one(db, panel_id)
+    definition = body.definition if body else None
+    if definition is not None:
+        if not principal.is_admin:
+            raise HTTPException(403, "Definition-bound execution requires author access")
+        if panel.dashboard_id != definition.dashboard_id:
+            raise SqlDefinitionConflict("Panel does not belong to the requested definition")
+        with project_transaction(db):
+            snapshot = SqlScriptRepository(db).require_definition(definition.to_domain())
+            current = next((item for item in snapshot.panels if item.id == panel_id), None)
+            if current is None:
+                raise SqlDefinitionConflict("Panel is absent from the requested definition")
+            panel = _to_response(current)
     sql = panel.sql_content
     raw_vars: dict[str, Any] = body.variables if body else {}
 
-    brain = get_brain_connection()
+    # Validate the saved SQL before filter rewriting can discard a statement.
+    # Invalid author syntax keeps the existing inference fallback downstream.
+    try:
+        plan = parameters.prepare(sql, raw_vars, queries)
+    except duckdb.ParserException:
+        plan = FilterPlan(sql, {}, (), False)
+    if not principal.is_admin:
+        _require_viewer_query(sql)
+        debug = False
+    brain = get_brain_connection() if principal.is_admin else None
 
     # "All" semantics: a filter whose value is empty (None / "" / []) — or one
     # the client never sent — must not filter. We neutralize its predicate so
     # the panel returns every row for that dimension. This is what lets both the
     # dropdown "All" option and the very first Run (no values chosen yet) render
     # real data instead of an empty chart.
-    sql_var_names = list(dict.fromkeys(_VARIABLE_RE.findall(sql)))
-    active_vars = {
-        name: raw_vars[name]
-        for name in sql_var_names
-        if name in raw_vars and not _is_empty_filter_value(raw_vars[name])
-    }
-    all_vars = [name for name in sql_var_names if name not in active_vars]
-
     # "Reveal" case: the panel has $variables but the user has chosen no value
     # for any of them (first Run, or every filter on "All"). Here the query is
     # a means to reveal the filter bar, so a query that cannot execute (missing
     # table, etc.) must still return the controls — never a hard 422.
-    is_reveal = bool(sql_var_names) and not active_vars
-
-    run_sql = sql
-    if all_vars:
-        neutralized = neutralize_filters(sql, all_vars)
-        if neutralized is None:
-            # Cannot safely strip the $placeholders (unparseable SQL, or a
-            # variable used outside a boolean predicate). Fall back to
-            # inference-only so the filter bar still renders; data stays empty
-            # until every variable is given a concrete value.
-            return _inference_only_response(sql, db, brain, debug, panel)
-        run_sql = neutralized
-
-    # Bind only variables that survive neutralization: a range like
-    # `col BETWEEN $a AND $b` collapses to TRUE when either bound is "All", so
-    # its other bound is gone from run_sql and must not be bound.
-    remaining = set(_VARIABLE_RE.findall(run_sql))
-    bind_vars = {k: v for k, v in active_vars.items() if k in remaining}
+    is_reveal = plan.reveal
+    if plan.sql is None:
+        # A variable outside a predicate cannot safely mean All. Render its
+        # controls without data until a concrete value is supplied.
+        return _inference_only_response(sql, db, brain, debug, panel, queries, receipts, definition)
 
     try:
-        if bind_vars:
-            db.execute(_rewrite_in_clauses_for_lists(run_sql, bind_vars), bind_vars)
-        else:
-            db.execute(run_sql)
+        execution = queries.execute(
+            db, plan.sql, plan.bindings,
+        )
     except duckdb.ParserException:
-        result = sqlviz_inference.infer(sql, brain_conn=brain, debug=debug)
+        result = sqlviz_inference.infer(
+            sql, brain_conn=brain, debug=debug, chart_override=panel.chart_user_override,
+        )
         result = dataclasses.replace(
             result,
             fallback_applied=True,
             fallback_reason="SQL syntax error — query could not be parsed",
         )
-        return JSONResponse(content={
+        return _execution_response({
             "inference_result": _render_contract(db, panel, result),
             "data": [],
-        })
+        }, db, panel, definition, receipts)
     except duckdb.Error as exc:
         # First Run / all-"All": reveal the filter bar instead of failing hard.
         if is_reveal:
-            return _inference_only_response(sql, db, brain, debug, panel)
+            return _inference_only_response(
+                sql, db, brain, debug, panel, queries, receipts, definition,
+            )
+        if plan.bindings:
+            raise HTTPException(
+                status_code=422, detail="SQL could not execute with these filter values"
+            ) from None
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    desc = db.description or []
-    col_names = [str(d[0]) for d in desc]
-    rows_raw = db.fetchall()
+    desc = execution.columns
+    col_names = [d[0] for d in desc]
+    rows_raw = execution.rows
 
     data: list[dict[str, object]] = [
         {k: json_safe(v) for k, v in zip(col_names, row)}
@@ -430,19 +389,35 @@ def execute_panel(
         debug=debug,
     )
 
-    # Persist inferred values to panels table (never overwrites existing overrides)
-    store_inference(
-        db,
-        panel_id=panel_id,
-        fingerprint=result.fingerprint,
-        chart_type=result.chart_winner,
-        col_span=result.col_span,
-        height_px=result.panel_height_px,
-        intent_type=result.intent_winner,
-    )
-
-    # Re-classify the parent dashboard from all its executed panels.
-    _update_dashboard_classification(db, panel_id, col_names)
+    # Analytical execution/inference hold no metadata transaction. Publish only
+    # while their captured inputs remain compatible; classify in that same tx.
+    if principal.is_admin:
+        with inference_publication(
+            db, panel_id, expected_sql=sql,
+            expected_chart_override=panel.chart_user_override,
+            definition=definition.to_domain() if definition else None,
+        ) as current:
+            store_inference(
+                db,
+                panel_id=panel_id,
+                fingerprint=result.fingerprint,
+                chart_type=result.chart_engine_winner or result.chart_winner,
+                col_span=result.col_span,
+                height_px=result.panel_height_px,
+                intent_type=result.intent_winner,
+            )
+            _update_dashboard_classification(db, panel_id, col_names)
+            rendered = _render_contract(db, _to_response(current), result)
+        content: dict[str, Any] = {"inference_result": rendered, "data": data}
+        if definition is not None:
+            content["execution_reference"] = ExecutionReferenceInput(
+                panel_id=panel_id, definition=definition,
+            ).model_dump()
+            content["execution_receipt"] = receipts.execution(
+                definition.to_domain(), panel_id, rendered, executed=True,
+            )
+            content["query_executed"] = True
+        return JSONResponse(content=content)
 
     return JSONResponse(content={
         "inference_result": _render_contract(db, panel, result),
@@ -455,6 +430,8 @@ def filter_domain(
     panel_id: str,
     body: FilterDomainBody,
     db: DbDep,
+    principal: ReaderDep,
+    queries: QueriesDep,
 ) -> JSONResponse:
     """Return the domain of a filter column so the UI can render a rich control.
 
@@ -465,7 +442,10 @@ def filter_domain(
     frontend falls back to a plain text/number input. Never raises 5xx for a
     query it simply cannot introspect.
     """
+    require_panel_access(db, principal, panel_id)
     panel = _fetch_one(db, panel_id)
+    if not principal.is_admin:
+        _require_viewer_query(panel.sql_content)
     empty: dict[str, Any] = (
         {"values": []} if body.kind == "distinct" else {"min": None, "max": None}
     )
@@ -475,7 +455,7 @@ def filter_domain(
         return JSONResponse(content=empty)
 
     try:
-        rows = db.execute(query).fetchall()
+        rows = queries.execute(db, query).rows
     except duckdb.Error:
         return JSONResponse(content=empty)
 
@@ -495,12 +475,12 @@ def override_panel(
     panel_id: str,
     body: PanelOverrideRequest,
     db: DbDep,
+    _admin: AdminDep,
 ) -> PanelResponse:
     """Apply a user correction to a panel's inferred field.
 
     Writes selected_* and *_user_override in the .sqlviz file.
-    Persists the pattern to brain.duckdb so future executions of the
-    same SQL fingerprint return the user-preferred value.
+    Commits the project choice before attempting optional learning.
 
     field_name: "chart_type" | "col_span" | "height_px"
     user_value: the corrected value (always a string; cast in OverrideSystem),
@@ -508,35 +488,41 @@ def override_panel(
 
     Returns the updated PanelResponse.
     """
-    _fetch_one(db, panel_id)  # raises 404 if missing
-    brain = get_brain_connection()
     try:
         if body.user_value is None:
-            clear_override(db, panel_id, body.field_name)
+            saved = clear_override(db, panel_id, body.field_name)
         else:
-            apply_override(db, brain, panel_id, body.field_name, body.user_value)
+            saved = apply_override(
+                db, get_brain_connection, panel_id, body.field_name, body.user_value,
+            )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return _fetch_one(db, panel_id)
+    except (duckdb.TransactionException, duckdb.ConstraintException):
+        raise HTTPException(
+            status_code=409, detail="Panel changed concurrently; reload and try again",
+        ) from None
+    return _to_response(saved)
 
 
-@router.patch("/{panel_id}/view-override", status_code=200)
+@router.patch("/{panel_id}/view-override", response_model=PanelViewOverrideResponse)
 def set_panel_view_override(
     panel_id: str,
     body: PanelViewOverrideRequest,
     db: DbDep,
-) -> dict[str, str]:
+    _admin: AdminDep,
+) -> PanelViewOverrideResponse:
     """Set a presentation override (panel title / axis label) on a panel.
 
     Persisted on the panel and overlaid onto the render contract by execute,
     so it shows in the admin app AND in shared viewers. field:
     "title" | "x_label" | "y_label"; value "" clears it.
     """
-    _fetch_one(db, panel_id)  # raises 404 if missing
-    try:
-        set_view_override(db, panel_id, body.field, body.value)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return {"status": "ok"}
+    saved = PanelRepository(db).set_presentation(panel_id, body.field, body.value)
+    values = {
+        "title": saved.view_title, "x_label": saved.view_x_label, "y_label": saved.view_y_label,
+    }
+    return PanelViewOverrideResponse(
+        field=body.field, value=values[body.field], updated_at=saved.updated_at,
+    )

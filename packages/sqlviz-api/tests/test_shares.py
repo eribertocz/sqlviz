@@ -13,7 +13,6 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-import sqlviz_api.routers.auth as auth_module
 from fastapi.testclient import TestClient
 from sqlviz_api.main import create_app
 from sqlviz_storage.auth import set_admin_password
@@ -23,13 +22,6 @@ _PASSWORD = "adminpass"
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
-
-@pytest.fixture(autouse=True)
-def _reset_sessions() -> Generator[None, None, None]:
-    auth_module._sessions.clear()
-    yield
-    auth_module._sessions.clear()
-
 
 @pytest.fixture
 def admin_client(tmp_path: Path) -> Generator[TestClient, None, None]:

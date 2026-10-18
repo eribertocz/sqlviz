@@ -1,4 +1,10 @@
 # SQLviz — Cognitive BI Operating System (CBIOS)
+
+> **Reclasificado — 2026-10-05:** material de investigación opcional, fuera del
+> camino crítico de entrega. Las afirmaciones de originalidad/exclusividad
+> comercial de este texto no fueron verificadas. Prioridades y criterios de
+> aceptación vigentes: [plan de entregas](sqlviz-product-roadmap.md).
+
 # Long-Term Vision: V0.3 / V1.0
 **Version:** v0.1.0 (Draft)
 **Status:** VISION DOCUMENT — Long-Term Direction

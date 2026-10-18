@@ -1,15 +1,19 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import { editorRef } from '$lib/stores/editorRef';
+    import type * as Monaco from 'monaco-editor';
+    import type { SqlEditorChange } from '$lib/sql/sqlIdentityDraft';
 
     let {
         value = $bindable(''),
         onRun,
+        onEdit,
         disabled = false,
         theme = 'dark',
     }: {
         value?: string;
         onRun?: () => void;
+        onEdit?: (event: SqlEditorChange) => boolean | void;
         disabled?: boolean;
         theme?: 'dark' | 'light';
     } = $props();
@@ -18,8 +22,19 @@
     let editor: any = null;
     let monacoInstance: any = null;
     let monacoReady = $state(false);
+    let destroyed = false;
+    let focusFrame = 0;
     // Guard against setValue triggering onDidChangeModelContent
     let syncing = false;
+    let modelSource = '';
+
+    function setEditorContent(text: string) {
+        syncing = true;
+        try {
+            editor.setValue(text);
+            modelSource = editor.getValue();
+        } finally { syncing = false; }
+    }
 
     onMount(async () => {
         // Set MonacoEnvironment before importing monaco-editor.
@@ -39,6 +54,9 @@
 
         try {
             const monaco = await import('monaco-editor');
+            // Navigation or focus changes may remove this editor while its
+            // lazy import is still pending. Never create an orphan instance.
+            if (destroyed) return;
 
             monaco.editor.defineTheme('sqlviz-dark', {
                 base: 'vs-dark',
@@ -92,6 +110,9 @@
                 value,
                 language: 'sql',
                 theme: theme === 'light' ? 'sqlviz-light' : 'sqlviz-dark',
+                // Monaco observes its own container, including drawer height
+                // and sidebar/inspector width changes, without recreating it.
+                automaticLayout: true,
                 minimap: { enabled: false },
                 fontSize: 13,
                 fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace",
@@ -102,6 +123,10 @@
                 renderLineHighlight: 'line',
                 padding: { top: 12, bottom: 12 },
                 folding: false,
+                // Disable worker-backed word occurrences until the SQL worker
+                // is implemented. Pending highlighter tasks can reject with
+                // "Canceled" when this editor is disposed.
+                occurrencesHighlight: 'off',
                 lineNumbersMinChars: 3,
                 glyphMargin: false,
                 overviewRulerLanes: 0,
@@ -111,55 +136,35 @@
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onRun?.());
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,  () => onRun?.());
 
-            editor.onDidChangeModelContent(() => {
-                syncing = true;
-                value = editor.getValue();
-                syncing = false;
+            modelSource = editor.getValue();
+            editor.onDidChangeModelContent((event: Monaco.editor.IModelContentChangedEvent) => {
+                if (syncing) return;
+                const after = editor.getValue();
+                const accepted = onEdit?.({ before: modelSource, after, isFlush: event.isFlush,
+                    changes: event.changes.map(change => ({ rangeOffset: change.rangeOffset,
+                        rangeLength: change.rangeLength, text: change.text })) });
+                if (accepted === false) { setEditorContent(value); return; }
+                modelSource = after;
+                value = after;
             });
 
-            // Register focusStatement so +page.svelte can focus a specific SQL statement
+            // The backend supplies statement positions; Monaco does not parse SQL.
             editorRef.set({
-                focusStatement(idx: number) {
+                focusOffset(offset: number) {
                     if (!editor) return;
                     const model = editor.getModel();
                     if (!model) return;
 
-                    const content = editor.getValue();
-                    let charIdx = 0;
-
-                    if (idx > 0) {
-                        let count = 0;
-                        for (let c = 0; c < content.length; c++) {
-                            if (content[c] === ';') {
-                                count++;
-                                if (count === idx) {
-                                    charIdx = c + 1;
-                                    break;
-                                }
-                            }
-                        }
-                        // Skip leading whitespace/newlines after the semicolon
-                        while (
-                            charIdx < content.length &&
-                            (content[charIdx] === '\n' ||
-                             content[charIdx] === '\r' ||
-                             content[charIdx] === ' ')
-                        ) {
-                            charIdx++;
-                        }
-                    }
-
-                    const pos = model.getPositionAt(charIdx);
+                    if (!Number.isInteger(offset) || offset < 0 || offset > editor.getValue().length) return;
+                    const pos = model.getPositionAt(offset);
                     editor.revealLineInCenter(pos.lineNumber);
                     editor.setPosition(pos);
                     editor.focus();
                 },
                 setContent(text: string) {
                     if (!editor || editor.getValue() === text) return;
-                    syncing = true;
-                    editor.setValue(text);
+                    setEditorContent(text);
                     value = text;
-                    syncing = false;
                 },
             });
 
@@ -167,11 +172,12 @@
             monacoReady = true;
             // Force Monaco to measure its container after it becomes visible,
             // then hand focus so the user can type immediately.
-            requestAnimationFrame(() => {
+            focusFrame = requestAnimationFrame(() => {
                 editor?.layout();
                 editor?.focus();
             });
         } catch (err) {
+            if (destroyed) return;
             console.error('[SQLEditor] Monaco init failed:', err);
             // Make container visible even if Monaco failed — shows empty dark area
             // rather than an infinite "Loading editor…" spinner.
@@ -181,6 +187,8 @@
 
     // Async onMount cannot return a cleanup fn — use onDestroy instead
     onDestroy(() => {
+        destroyed = true;
+        if (focusFrame) cancelAnimationFrame(focusFrame);
         editorRef.set({});
         editor?.dispose();
         editor = null;
@@ -188,15 +196,16 @@
 
     // Sync external value changes into the editor (e.g. loading saved SQL on mount)
     $effect(() => {
-        if (editor && !syncing && editor.getValue() !== value) {
+        const text = value;
+        if (monacoReady && editor && !syncing && editor.getValue() !== text) {
             const pos = editor.getPosition();
-            editor.setValue(value);
+            setEditorContent(text);
             if (pos) editor.setPosition(pos);
         }
     });
 
     $effect(() => {
-        if (editor) editor.updateOptions({ readOnly: disabled });
+        if (monacoReady && editor) editor.updateOptions({ readOnly: disabled });
     });
 
     $effect(() => {

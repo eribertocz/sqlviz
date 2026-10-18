@@ -8,22 +8,18 @@ execute endpoint responses.
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Sequence
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from sqlviz_core.models.panel_overrides import valid_dimension
 from sqlviz_inference.dashboard import DashboardEngine
-from sqlviz_inference.result import InferenceResult
 
+from sqlviz_api.compose_contract import ComposeItem, ComposeRequest
 from sqlviz_api.dependencies import DbDep
+from sqlviz_api.security import ReaderDep, require_panel_access
 
 router = APIRouter(tags=["compose"])
-
-
-class ComposeItem(BaseModel):
-    panel_id: str
-    inference_result: dict[str, Any]
 
 
 def _pinned_spans(db: DbDep, panel_ids: list[str]) -> dict[str, int]:
@@ -41,31 +37,41 @@ def _pinned_spans(db: DbDep, panel_ids: list[str]) -> dict[str, int]:
         f"SELECT id, col_span_user_override FROM panels WHERE id IN ({placeholders})",
         panel_ids,
     ).fetchall()
-    return {r[0]: r[1] for r in rows if r[1] is not None}
+    return {r[0]: r[1] for r in rows if valid_dimension("col_span", r[1])}
 
 
 @router.post("/api/v1/compose")
-def compose_layout(body: list[ComposeItem], db: DbDep) -> JSONResponse:
+def compose_layout(body: ComposeRequest, db: DbDep, principal: ReaderDep) -> JSONResponse:
     """Compose a DashboardLayout from provided InferenceResults.
 
     KPI Shelf centering (DOC5 §16.34) and narrative ordering (DOC5 §15)
     are applied by DashboardEngine. The caller enriches each panel with
     data from the execute response before rendering.
     """
-    panels: list[tuple[str, InferenceResult]] = []
-    for item in body:
-        ir = InferenceResult(**item.inference_result)
-        panels.append((item.panel_id, ir))
+    items = body.root
+    if not items:
+        return JSONResponse(content={"rows": []})
+    if not principal.is_admin:
+        for item in items:
+            require_panel_access(db, principal, item.panel_id)
+    return JSONResponse(content=compose_items(items, db))
+
+
+def compose_items(items: Sequence[ComposeItem], db: DbDep) -> dict[str, object]:
+    """Compose validated inputs; authorization and transaction belong to callers."""
+    if not items:
+        return {"rows": []}
+    panels = [(item.panel_id, item.inference_result.to_domain()) for item in items]
 
     layout = DashboardEngine().compose(
         panels,
-        pinned_spans=_pinned_spans(db, [item.panel_id for item in body]),
+        pinned_spans=_pinned_spans(db, [item.panel_id for item in items]),
     )
 
     # Return original ir dicts unchanged (no re-serialization drift)
-    ir_by_id = {item.panel_id: item.inference_result for item in body}
+    ir_by_id = {item.panel_id: item.inference_result.wire_result() for item in items}
 
-    return JSONResponse(content={
+    return {
         "rows": [
             {
                 "panels": [
@@ -82,4 +88,4 @@ def compose_layout(body: list[ComposeItem], db: DbDep) -> JSONResponse:
             }
             for row in layout.rows
         ]
-    })
+    }

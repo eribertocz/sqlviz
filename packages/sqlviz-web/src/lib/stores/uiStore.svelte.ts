@@ -5,6 +5,16 @@ const DEFAULT_EDITOR_HEIGHT_PX = 300;
 const MIN_EDITOR_HEIGHT_PX = 120;
 const MAX_EDITOR_HEIGHT_PX = 700;
 
+function readPreference(key: string): string | null {
+    try { return localStorage.getItem(key); }
+    catch { return null; }
+}
+
+function writePreference(key: string, value: string) {
+    try { localStorage.setItem(key, value); }
+    catch { /* Preferences must not block navigation when storage is unavailable. */ }
+}
+
 function createUiStore() {
     let theme             = $state<'dark' | 'light'>('dark');
     let showScorePanel    = $state(false);
@@ -12,8 +22,8 @@ function createUiStore() {
     let newDashboardName  = $state('');
     let toast             = $state<string | null>(null);
     let editorHeightPx    = $state(DEFAULT_EDITOR_HEIGHT_PX);
-    // Rail-by-default (Notion/VS Code): the sidebar starts collapsed so the
-    // dashboard owns the canvas; a hover-peek restores the full tree on demand.
+    // Hidden by default: the dashboard uses the entire width. The header
+    // always exposes navigation; opening it never depends on hover.
     let sidebarCollapsed  = $state(true);
     // Focus / Zen mode — hides all chrome for a full-bleed dashboard.
     let focusMode         = $state(false);
@@ -24,24 +34,26 @@ function createUiStore() {
 
     /** Reads the persisted theme preference; call once on app mount. */
     function initTheme() {
-        const saved = localStorage.getItem(THEME_KEY);
+        const saved = readPreference(THEME_KEY);
         if (saved === 'light') {
             theme = 'light';
             document.documentElement.dataset.theme = 'light';
         }
-        const savedHeight = Number(localStorage.getItem(HEIGHT_KEY));
+        const savedHeight = Number(readPreference(HEIGHT_KEY));
         if (Number.isFinite(savedHeight) && savedHeight > 0) {
             editorHeightPx = clampHeight(savedHeight);
         }
-        const savedSidebar = localStorage.getItem(SIDEBAR_KEY);
+        const savedSidebar = readPreference(SIDEBAR_KEY);
         if (savedSidebar === '0') sidebarCollapsed = false;
         else if (savedSidebar === '1') sidebarCollapsed = true;
     }
 
-    function toggleSidebar() {
-        sidebarCollapsed = !sidebarCollapsed;
-        localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? '1' : '0');
+    function setSidebarCollapsed(value: boolean) {
+        sidebarCollapsed = value;
+        writePreference(SIDEBAR_KEY, sidebarCollapsed ? '1' : '0');
     }
+
+    function toggleSidebar() { setSidebarCollapsed(!sidebarCollapsed); }
 
     function toggleTheme() {
         theme = theme === 'dark' ? 'light' : 'dark';
@@ -50,7 +62,7 @@ function createUiStore() {
         } else {
             delete document.documentElement.dataset.theme;
         }
-        localStorage.setItem(THEME_KEY, theme);
+        writePreference(THEME_KEY, theme);
     }
 
     function toggleFocusMode() { focusMode = !focusMode; }
@@ -62,7 +74,7 @@ function createUiStore() {
 
     function setEditorHeight(px: number) {
         editorHeightPx = clampHeight(px);
-        localStorage.setItem(HEIGHT_KEY, String(editorHeightPx));
+        writePreference(HEIGHT_KEY, String(editorHeightPx));
     }
 
     function showToast(msg: string, durationMs = 3500) {
@@ -90,6 +102,7 @@ function createUiStore() {
         initTheme,
         toggleTheme,
         toggleSidebar,
+        setSidebarCollapsed,
         toggleFocusMode,
         toggleEditor,
         setEditorHeight,

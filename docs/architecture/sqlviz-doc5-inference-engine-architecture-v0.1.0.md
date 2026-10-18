@@ -4,6 +4,14 @@
 **Last Updated:** 2026-06-08
 **Prerequisite:** DOC 4 — Mathematical & Statistical Foundations v0.1.3
 
+> **Historical draft; authority updated 2026-10-08.** The assumption that users
+> never configure visuals is superseded by automatic inference → Visual Builder
+> → expert native ECharts options. Use the [semantic inference architecture](sqlviz-semantic-inference-architecture.md),
+> [capability matrix](sqlviz-visual-capability-matrix.md) and
+> [Studio delivery plan](sqlviz-studio-delivery-plan.md) for the current target,
+> ambiguity policy and delivery order. This draft does not describe capabilities
+> already shipped or promise complete understanding of arbitrary SQL.
+
 ---
 
 ## 1. Overview

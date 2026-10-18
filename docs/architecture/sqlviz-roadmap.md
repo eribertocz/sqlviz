@@ -1,5 +1,12 @@
 # SQLviz Roadmap — V0.2.x → V1.0
 
+> **Roadmap histórico — reemplazado el 2026-10-05.** El orden vigente está en
+> [Plan de entregas](sqlviz-product-roadmap.md). Algunas versiones descritas aquí
+> difieren del contenido finalmente entregado: consultar el
+> [changelog](../../CHANGELOG.md) para releases y la
+> [auditoría](sqlviz-audit-2026-10-05.md) para el estado observado. Se preserva el
+> texto anterior como contexto, no como lista de trabajo activa.
+
 Roadmap completo de SQLviz usando **semver**. Cada versión es independiente y
 shippeable.
 

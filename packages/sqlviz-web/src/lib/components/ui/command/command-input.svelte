@@ -12,13 +12,13 @@
 	}: CommandPrimitive.InputProps = $props();
 </script>
 
-<div data-slot="command-input-wrapper" class="p-1 pb-0">
-	<InputGroup.Root class="bg-input/30 border-input/30 h-8! rounded-lg! shadow-none! *:data-[slot=input-group-addon]:pl-2!">
+<div data-slot="command-input-wrapper" class="command-search p-1 pb-0">
+	<InputGroup.Root class="bg-input/30 border-input/30 h-8! rounded-lg! shadow-none *:data-[slot=input-group-addon]:pl-2!">
 		<CommandPrimitive.Input
 			{value}
 			data-slot="command-input"
 			class={cn(
-				"w-full text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
+				"h-full w-full min-w-0 text-sm outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
 				className
 			)}
 			{...restProps}
@@ -32,3 +32,14 @@
 		</InputGroup.Addon>
 	</InputGroup.Root>
 </div>
+
+<style>
+	/* The icon and input form one field; draw its focus on the rounded group. */
+	.command-search :global([data-slot="command-input"]:focus-visible) {
+		box-shadow: none;
+	}
+	.command-search :global([data-slot="input-group"]:focus-within) {
+		border-color: var(--sqlviz-primary);
+		box-shadow: var(--sqlviz-focus-ring);
+	}
+</style>

@@ -6,7 +6,25 @@ sqlviz-storage and sqlviz-inference use plain dataclasses — DOC3 Section 8.
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from typing import Literal, Self, cast
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlviz_core.models.dashboards import (
+    MAX_DASHBOARD_DESCRIPTION_LENGTH,
+    MAX_DASHBOARD_ID_LENGTH,
+    MAX_DASHBOARD_NAME_LENGTH,
+    DashboardChanges,
+    normalize_dashboard_changes,
+)
+from sqlviz_core.models.panel_overrides import validate_override
+from sqlviz_core.models.panel_presentation import (
+    MAX_PRESENTATION_TEXT_LENGTH,
+    PresentationField,
+    normalize_presentation_value,
+)
+from sqlviz_core.models.panels import MAX_PANEL_NAME_LENGTH, PanelChanges, validate_panel_changes
+
+from sqlviz_api.sql_execution_contract import DefinitionReferenceInput
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -46,22 +64,31 @@ class UnlockRequest(BaseModel):
 
 class DashboardCreate(BaseModel):
     name: str
-    folder_id: str | None = None
+    folder_id: str | None = Field(default=None, strict=True)
     connection_id: str | None = None
     sort_order: int = 0
     description: str | None = None
 
 
 class DashboardUpdate(BaseModel):
-    name: str | None = None
-    folder_id: str | None = None
-    connection_id: str | None = None
-    sort_order: int | None = None
-    description: str | None = None
+    model_config = ConfigDict(extra="forbid", strict=True)
+    name: str | None = Field(default=None, min_length=1, max_length=MAX_DASHBOARD_NAME_LENGTH)
+    folder_id: str | None = Field(default=None, max_length=MAX_DASHBOARD_ID_LENGTH)
+    connection_id: str | None = Field(default=None, max_length=MAX_DASHBOARD_ID_LENGTH)
+    sort_order: int | None = Field(default=None, ge=-(2**31), le=2**31 - 1)
+    description: str | None = Field(default=None, max_length=MAX_DASHBOARD_DESCRIPTION_LENGTH)
     sql_content: str | None = None   # Draft editor text (auto-saved).
-    last_run_at: str | None = None   # ISO timestamp of the last successful run.
-    last_run_sql: str | None = None  # Exact SQL of the last successful run.
-    # Sentinel-free "move to root": clients send folder_id="" to clear the folder.
+    # Omission preserves placement; null (or legacy "") moves to root.
+
+    def changes(self) -> DashboardChanges:
+        return normalize_dashboard_changes(
+            cast(DashboardChanges, self.model_dump(exclude_unset=True)),
+        )
+
+    @model_validator(mode="after")
+    def validate_changes(self) -> Self:
+        self.changes()
+        return self
 
 
 class DashboardResponse(BaseModel):
@@ -83,15 +110,24 @@ class DashboardResponse(BaseModel):
 # ── Folder ───────────────────────────────────────────────────────────────────
 
 class FolderCreate(BaseModel):
-    name: str
+    model_config = ConfigDict(extra="forbid", strict=True)
+    name: str = Field(min_length=1)
     parent_id: str | None = None
-    sort_order: int = 0
+    sort_order: int = Field(default=0, ge=-(2**31), le=2**31 - 1)
 
 
 class FolderUpdate(BaseModel):
-    name: str | None = None
+    model_config = ConfigDict(extra="forbid", strict=True)
+    name: str | None = Field(default=None, min_length=1)
     parent_id: str | None = None
-    sort_order: int | None = None
+    sort_order: int | None = Field(default=None, ge=-(2**31), le=2**31 - 1)
+
+    @model_validator(mode="after")
+    def reject_null_required_fields(self) -> Self:
+        for field in ("name", "sort_order"):
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"{field} must not be null")
+        return self
 
 
 class FolderResponse(BaseModel):
@@ -112,9 +148,20 @@ class PanelCreate(BaseModel):
 
 
 class PanelUpdate(BaseModel):
-    name: str | None = None
+    model_config = ConfigDict(extra="forbid", strict=True)
+    name: str | None = Field(default=None, min_length=1, max_length=MAX_PANEL_NAME_LENGTH)
     sql_content: str | None = None
-    sort_order: int | None = None
+    sort_order: int | None = Field(default=None, ge=-(2**31), le=2**31 - 1)
+
+    def changes(self) -> PanelChanges:
+        changes = cast(PanelChanges, self.model_dump(exclude_unset=True))
+        validate_panel_changes(changes)
+        return changes
+
+    @model_validator(mode="after")
+    def validate_changes(self) -> Self:
+        self.changes()
+        return self
 
 
 class PanelResponse(BaseModel):
@@ -136,16 +183,52 @@ class PanelResponse(BaseModel):
     inferred_height_px: int | None = None
     selected_height_px: int | None = None
     height_user_override: int | None = None
+    view_title: str | None = None
+    view_x_label: str | None = None
+    view_y_label: str | None = None
 
 
 class PanelOverrideRequest(BaseModel):
-    field_name: str   # "chart_type" | "col_span" | "height_px"
+    model_config = ConfigDict(extra="forbid", strict=True)
+    field_name: Literal["chart_type", "col_span", "height_px"]
     # Always passed as a string; OverrideSystem casts as needed.
     # None clears the override ("reset to auto") — the field goes back to
     # following inference instead of being frozen at today's inferred value.
-    user_value: str | None = None
+    user_value: str | None
+
+    @model_validator(mode="after")
+    def validate_value(self) -> Self:
+        validate_override(self.field_name, self.user_value)
+        return self
 
 
 class PanelViewOverrideRequest(BaseModel):
-    field: str            # "title" | "x_label" | "y_label"
-    value: str | None = None   # "" / None clears the override
+    model_config = ConfigDict(extra="forbid", strict=True)
+    field: PresentationField
+    value: str | None = Field(max_length=MAX_PRESENTATION_TEXT_LENGTH)
+
+    @model_validator(mode="after")
+    def validate_value(self) -> Self:
+        normalize_presentation_value(self.field, self.value)
+        return self
+
+
+class PanelViewOverrideResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+    field: PresentationField
+    value: str | None
+    updated_at: str
+
+
+class ExecuteBody(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    # Keep raw JSON primitives intact; ParameterService enforces the shared
+    # typed contract without Pydantic coercion or renderer-specific heuristics.
+    variables: dict[str, object] = Field(default_factory=dict)
+    definition: DefinitionReferenceInput | None = None
+
+
+class FilterDomainBody(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    column: str = Field(min_length=1, max_length=128)
+    kind: Literal["distinct", "range"]

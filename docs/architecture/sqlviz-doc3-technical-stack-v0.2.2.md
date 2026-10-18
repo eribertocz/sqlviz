@@ -1,4 +1,10 @@
 # SQLviz — Technical Stack
+
+> **Estado documental — 2026-10-05:** diseño histórico. Contrastar afirmaciones
+> de implementación con la [auditoría](sqlviz-audit-2026-10-05.md) y la
+> [arquitectura objetivo](sqlviz-product-architecture.md), especialmente Quack,
+> aislamiento de conexiones y versiones. Arranque vigente: [README](../../README.md).
+
 **Version:** v0.2.3 (Draft)
 **Status:** Work in Progress
 **Last Updated:** 2026-07-03
@@ -166,16 +172,11 @@ With Quack:
 
 ### Quack startup
 
-```python
-import duckdb
-
-conn = duckdb.connect("my_project.sqlviz")
-
-# Three SQL calls — full concurrency via DuckDB core extension
-conn.execute("INSTALL quack FROM core_nightly")
-conn.execute("LOAD quack")
-conn.execute("CALL quack_serve('quack:localhost', token = 'token')")
-```
+**Actualización — 2026-10-06:** SQLviz no instala ni inicia Quack por defecto.
+El uso opcional requiere `--quack`, una extensión previamente instalada y una
+credencial propia en `SQLVIZ_QUACK_TOKEN`. Ver
+[arranque implementado y pruebas](sqlviz-local-startup.md). Las afirmaciones de
+aislamiento/concurrencia de esta sección son históricas, no garantías entregadas.
 
 ### Quack + secret security
 

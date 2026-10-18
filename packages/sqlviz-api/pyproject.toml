@@ -7,6 +7,7 @@ dependencies = [
     "sqlviz-core",
     "sqlviz-inference",
     "sqlviz-storage",
+    "duckdb>=1.0",
     "fastapi>=0.139",
     "uvicorn>=0.30",
     "pydantic>=2.7",

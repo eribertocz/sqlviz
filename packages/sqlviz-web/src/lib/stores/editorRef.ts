@@ -2,8 +2,8 @@ import { writable } from 'svelte/store';
 
 /** Imperative handle to the mounted Monaco editor instance. */
 export interface EditorRef {
-    /** Move cursor to the start of SQL statement at 0-based index. */
-    focusStatement?: (idx: number) => void;
+    /** Move cursor to an offset supplied by source analysis, in UTF-16 units. */
+    focusOffset?: (offset: number) => void;
     /** Imperatively replace the editor content (used to clear on new dashboard). */
     setContent?: (text: string) => void;
 }

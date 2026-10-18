@@ -23,8 +23,9 @@ from sqlviz_core.models import ColumnSchema
 from sqlviz_inference.dashboard import DashboardEngine, DashboardLayout
 from sqlviz_inference.result import InferenceResult
 
-from sqlviz_api.dependencies import DbDep
+from sqlviz_api.dependencies import DbDep, QueriesDep
 from sqlviz_api.serialization import json_safe
+from sqlviz_api.services.queries import QueryService
 
 router = APIRouter(tags=["demo"])
 
@@ -97,15 +98,16 @@ def _run_queries(
     db: Any,
     queries: list[str],
     id_prefix: str,
+    service: QueryService,
 ) -> tuple[list[tuple[str, InferenceResult]], dict[str, list[dict[str, object]]]]:
     """Execute SQL queries, infer each result, return (panels, data_map)."""
     panels_for_compose: list[tuple[str, InferenceResult]] = []
     panel_data: dict[str, list[dict[str, object]]] = {}
     for i, sql in enumerate(queries):
-        db.execute(sql)
-        desc = db.description or []
+        execution = service.execute(db, sql)
+        desc = execution.columns
         col_names = [str(d[0]) for d in desc]
-        rows_raw = db.fetchall()
+        rows_raw = execution.rows
         data: list[dict[str, object]] = [
             {k: json_safe(v) for k, v in zip(col_names, row)}
             for row in rows_raw
@@ -119,9 +121,9 @@ def _run_queries(
 
 
 @router.get("/api/v1/demo/dashboard")
-def demo_dashboard(db: DbDep) -> JSONResponse:
+def demo_dashboard(db: DbDep, queries: QueriesDep) -> JSONResponse:
     """Execute 4 demo SQL queries, compose via DashboardEngine, return layout."""
-    panels, panel_data = _run_queries(db, _DEMO_QUERIES, "demo")
+    panels, panel_data = _run_queries(db, _DEMO_QUERIES, "demo", queries)
     layout = DashboardEngine().compose(panels)
     return JSONResponse(content=_layout_to_dict(layout, panel_data))
 
