@@ -1,8 +1,9 @@
 # Revisiones y escritura condicionada del borrador SQL
 
 **Implementado — 2026-10-09: S1.1c.2c.3a.** Se entrega la revisión durable del
-borrador y su escritor transaccional interno. La API específica y la integración
-del autoguardado todavía están pendientes en 3b/3c. El PATCH actual continúa
+borrador y su escritor transaccional interno. **3b entregado — 2026-10-17
+([#8](https://github.com/eribertocz/sqlviz/issues/8)):** API HTTP de autor
+descrita abajo. La integración del autoguardado sigue pendiente en 3c. El PATCH actual continúa
 guardando sin revisión esperada; este incremento no lo convierte en guardado
 condicionado ni resuelve por sí solo la edición simultánea en la UI.
 
@@ -85,12 +86,34 @@ original. No modifica archivos reales del usuario. Si una migración falla,
 el runner existente no la registra y reintenta al abrir; las operaciones que
 requieren una columna ausente o metadata inválida fallan, sin asumir generación cero.
 
+## API HTTP de autor (3b)
+
+Rutas bajo `/api/v1/dashboards/{id}/sql-script`, protegidas por `require_admin`
+como el resto del router; credenciales de lectura compartida reciben 401/403
+sin tocar la base de datos.
+
+| Ruta | Cuerpo | Respuesta |
+| --- | --- | --- |
+| `GET /draft` | — | `{version, dashboard_id, source, revision, initialized}` |
+| `PUT /draft` | `{expected_revision, source}` estricto | Borrador confirmado, misma forma |
+
+El snapshot `GET /sql-script` añade `draft_revision` y `draft_initialized`,
+calculados en la misma lectura que `draft_source`. Solo viaja el token opaco:
+el BIGINT de generación nunca se expone como número JavaScript.
+
+| Caso | Estado | Código |
+| --- | --- | --- |
+| Revisión obsoleta, ajena o competencia | 409 | `sql_draft_conflict` |
+| Texto con NUL/UTF-8 inválido | 422 | `sql_script_invalid` |
+| Texto o cuerpo sobre el presupuesto | 413 | `sql_script_limit` / límite HTTP |
+| Dashboard inexistente | 404 | `dashboard_not_found` |
+
+El 409 no devuelve el borrador vigente: el cliente debe leerlo y revisarlo
+explícitamente, nunca adoptar la revisión nueva y sobrescribir. Guardar no
+analiza ni ejecuta SQL ni cambia paneles, definiciones o última ejecución.
+
 ## Lo que sigue pendiente
 
-- **3b:** contrato HTTP de borrador/revisión y errores, permisos y exposición de
-  su estado en el snapshot. Transportar el token opaco y la marca de inicialización,
-  sin convertir el BIGINT interno en un número JavaScript. El token nunca sustituye
-  la sesión de autor.
 - **3c:** cola de autoguardado con revisión confirmada, estado de conflicto y
   preservación del borrador; Run, navegación y cierre de pestaña coherentes.
   No resolver conflictos recuperando una revisión nueva y sobrescribiendo sin aviso.

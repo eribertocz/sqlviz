@@ -50,6 +50,7 @@ from sqlviz_storage.dashboard_repository import DashboardNotFound, DashboardWrit
 from sqlviz_storage.folder_repository import FolderWriteConflict
 from sqlviz_storage.inference_publication import InferencePublicationConflict
 from sqlviz_storage.panel_repository import PanelNotFound, PanelWriteConflict
+from sqlviz_storage.sql_draft_repository import SqlDraftWriteConflict
 from sqlviz_storage.sql_draft_revision import SqlDraftMetadataError, SqlDraftRevisionLimitError
 from sqlviz_storage.sql_script_repository import (
     SqlDefinitionConflict,
@@ -147,6 +148,15 @@ def create_app(
         return JSONResponse(status_code=500, content={
             "detail": "Stored SQL draft revision is invalid. The project requires repair.",
             "code": "sql_draft_metadata_invalid",
+        })
+
+    @app.exception_handler(SqlDraftWriteConflict)
+    async def _draft_conflict(request: Request, exc: SqlDraftWriteConflict) -> JSONResponse:
+        # The current draft is not echoed: the client must read and review it,
+        # never adopt a newer revision and overwrite silently.
+        return JSONResponse(status_code=409, content={
+            "detail": "SQL draft changed. Review the saved draft before saving again.",
+            "code": "sql_draft_conflict",
         })
 
     @app.exception_handler(SqlDraftRevisionLimitError)
