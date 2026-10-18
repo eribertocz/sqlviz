@@ -1,7 +1,7 @@
 import { legacySqlSnapshot } from '$lib/sql/sqlSnapshot.testFixtures';
 import type { SqlScriptSnapshot } from '$lib/sql/sqlScriptCommit';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { apiGet, apiPatch, apiPost, recompose } from '$lib/api';
+import { apiGet, apiPatch, apiPost, apiPut, recompose } from '$lib/api';
 import type { InferenceResult } from '$lib/types';
 import { createDashboardStore } from './dashboardStore.svelte';
 import { dashboardCache } from './dashboardCache.svelte';
@@ -9,7 +9,7 @@ import { editorRef } from './editorRef';
 import { executionStore } from './executionStore.svelte';
 import { filterValues } from './filterValues.svelte';
 
-vi.mock('$lib/api', () => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiPatch: vi.fn(), apiDelete: vi.fn(), recompose: vi.fn() }));
+vi.mock('$lib/api', () => ({ apiGet: vi.fn(), apiPost: vi.fn(), apiPatch: vi.fn(), apiPut: vi.fn(), apiDelete: vi.fn(), recompose: vi.fn() }));
 vi.mock('$app/environment', () => ({ browser: false }));
 
 const proof = `fixture.${'a'.repeat(64)}`;
@@ -37,6 +37,14 @@ beforeEach(() => {
 });
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals(); editorRef.set({}); });
 
+function draftRevision(generation: number) {
+    return `sql-draft-v1:${generation.toString(16).padStart(64, '0')}`;
+}
+
+function draftResponse(text: string, generation: number) {
+    return { version: 1, dashboard_id: 'd', source: text, revision: draftRevision(generation), initialized: true };
+}
+
 function deferred() {
     let resolve!: (value: unknown) => void;
     let reject!: (error: Error) => void;
@@ -48,7 +56,9 @@ function transport() {
     let panels = 0;
     let revision = 0;
     const token = () => `sql-script-v1:${revision.toString(16).padStart(64, '0')}`;
-    let saved = { version: 1, dashboard_id: 'd', revision: token(), draft_source: '', definition_revision: null as string | null,
+    const draftToken = (generation: number) => `sql-draft-v1:${generation.toString(16).padStart(64, '0')}`;
+    let saved = { version: 1, dashboard_id: 'd', revision: token(), draft_source: '',
+        draft_revision: draftToken(0), draft_initialized: false, definition_revision: null as string | null,
         publication_status: 'absent', last_run_at: null as string | null, last_run_sql: null as string | null,
         panels: [] as { id: string; name: string; sql_content: string; sort_order: number }[],
         publication: null as unknown };
@@ -70,7 +80,8 @@ function transport() {
                 return { statement_index: index, panel_id: id, start_offset: statement.start_offset, end_offset: statement.end_offset };
             });
             revision++;
-            saved = { ...saved, publication_status: 'confirmed', revision: token(), definition_revision: `sql-definition-v1:${revision.toString(16).padStart(64, '0')}`,
+            saved = { ...saved, publication_status: 'confirmed', revision: token(),
+                draft_revision: draftToken(revision * 100), draft_initialized: true, definition_revision: `sql-definition-v1:${revision.toString(16).padStart(64, '0')}`,
                 draft_source: input.sql, panels: bindings.map((binding, i) => ({
                 id: binding.panel_id, name: `Panel ${i + 1}`, sql_content: proposedStatements[i].sql, sort_order: i,
             })), publication: { version: 1, revision, source: input.sql, bindings } };
@@ -510,15 +521,78 @@ it('a commit acknowledgement does not overwrite text edited while that commit wa
 
 it('Run waits for an in-flight draft write and suspends additional auto-save during preparation', async () => {
     transport(); const store = createDashboardStore(); store.sql = source; await store.run();
-    const response = deferred(); vi.mocked(apiPatch).mockReturnValueOnce(response.promise);
+    const response = deferred(); vi.mocked(apiPut).mockReturnValueOnce(response.promise);
+    const draftUrl = '/api/v1/dashboards/d/sql-script/draft';
     store.sql = source + ' '; store.saveDraft();
-    await vi.waitFor(() => expect(apiPatch).toHaveBeenCalledWith('/api/v1/dashboards/d', { sql_content: source + ' ' }));
+    await vi.waitFor(() => expect(apiPut).toHaveBeenCalledWith(draftUrl,
+        { expected_revision: draftRevision(100), source: source + ' ' }));
     vi.mocked(apiGet).mockClear(); const operation = store.run();
     await Promise.resolve(); await Promise.resolve();
     expect(apiGet).not.toHaveBeenCalled();
-    store.saveDraft(true); expect(fetch).not.toHaveBeenCalledWith('/api/v1/dashboards/d', expect.objectContaining({ method: 'PATCH' }));
-    response.resolve({}); await operation;
+    store.saveDraft(true); expect(fetch).not.toHaveBeenCalledWith(draftUrl, expect.objectContaining({ method: 'PUT' }));
+    response.resolve(draftResponse(source + ' ', 101)); await operation;
     expect(apiGet).toHaveBeenCalledWith('/api/v1/dashboards/d/sql-script');
+});
+
+it('consecutive saves each expect the revision confirmed by the previous save', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    let generation = 100;
+    vi.mocked(apiPut).mockImplementation(async (_path, body) =>
+        draftResponse((body as { source: string }).source, ++generation));
+    store.sql = 'SELECT 1'; store.saveDraft();
+    store.sql = 'SELECT 2'; store.saveDraft();
+    await vi.waitFor(() => expect(apiPut).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(apiPut).mock.calls.map(([, body]) => (body as { expected_revision: string }).expected_revision))
+        .toEqual([draftRevision(100), draftRevision(101)]);
+    await vi.waitFor(() => expect(executionStore.saveStatus).toBe('saved'));
+    expect(apiPatch).not.toHaveBeenCalled();
+});
+
+it('a conflict keeps the local text, stops auto-save and never adopts the newer revision', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    vi.mocked(apiPut).mockRejectedValueOnce(Object.assign(new Error('SQL draft changed'),
+        { status: 409, code: 'sql_draft_conflict' }));
+    store.sql = 'SELECT local'; store.saveDraft();
+    await vi.waitFor(() => expect(executionStore.saveStatus).toBe('conflict'));
+    expect(store.draftConflict).toBe(true); expect(store.sql).toBe('SELECT local');
+    store.sql = 'SELECT local edited'; vi.advanceTimersByTime(5000); store.saveDraft(); store.saveDraft(true);
+    expect(apiPut).toHaveBeenCalledTimes(1);
+    expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('/draft'), expect.anything());
+    expect(executionStore.saveStatus).toBe('conflict');
+});
+
+it('keeping the local draft reads the current revision and saves explicitly', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    vi.mocked(apiPut).mockRejectedValueOnce(Object.assign(new Error('changed'), { status: 409, code: 'sql_draft_conflict' }));
+    store.sql = 'SELECT local'; store.saveDraft();
+    await vi.waitFor(() => expect(store.draftConflict).toBe(true));
+    const regular = vi.mocked(apiGet).getMockImplementation()!;
+    vi.mocked(apiGet).mockImplementation(async path =>
+        path.endsWith('/sql-script/draft') ? draftResponse('SELECT other', 500) : regular(path));
+    vi.mocked(apiPut).mockResolvedValueOnce(draftResponse('SELECT local', 501));
+    await store.keepLocalDraft();
+    expect(apiPut).toHaveBeenLastCalledWith('/api/v1/dashboards/d/sql-script/draft',
+        { expected_revision: draftRevision(500), source: 'SELECT local' });
+    expect(store.draftConflict).toBe(false); expect(executionStore.saveStatus).toBe('saved');
+});
+
+it('reloading the saved draft replaces the local text with the server draft', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    vi.mocked(apiPut).mockRejectedValueOnce(Object.assign(new Error('changed'), { status: 409, code: 'sql_draft_conflict' }));
+    store.sql = 'SELECT local'; store.saveDraft();
+    await vi.waitFor(() => expect(store.draftConflict).toBe(true));
+    await store.reloadSavedDraft();
+    expect(store.sql).toBe(source); expect(store.draftConflict).toBe(false);
+    expect(executionStore.saveStatus).toBe('idle');
+});
+
+it('the unload beacon sends a conditional PUT with the confirmed revision', async () => {
+    transport(); const store = createDashboardStore(); store.sql = source; await store.run();
+    store.sql = 'SELECT unload'; store.saveDraft(true);
+    expect(fetch).toHaveBeenCalledWith('/api/v1/dashboards/d/sql-script/draft', expect.objectContaining({
+        method: 'PUT', keepalive: true,
+        body: JSON.stringify({ expected_revision: draftRevision(100), source: 'SELECT unload' }),
+    }));
 });
 
 it('confirmation retains the reviewed revision instead of fetching a new token silently', async () => {

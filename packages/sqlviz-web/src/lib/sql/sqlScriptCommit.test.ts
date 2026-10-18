@@ -15,6 +15,7 @@ function fixture(): { resolution: SqlRunResolution; receipt: SqlScriptCommit } {
         snapshot: { version: 1, dashboard_id: 'd', revision: `sql-script-v1:${'1'.repeat(64)}`,
             publication_status: 'confirmed', last_run_at: null, last_run_sql: null,
             definition_revision: `sql-definition-v1:${'1'.repeat(64)}`, draft_source: resolution.source,
+            draft_revision: `sql-draft-v1:${'2'.repeat(64)}`, draft_initialized: true,
             panels: [{ id: 'a', name: 'A', sql_content: 'SELECT 2', sort_order: 0 },
                 { id: 'c', name: 'New', sql_content: 'SELECT 3', sort_order: 1 }],
             publication: { version: 1, revision: 1, source: resolution.source, bindings: [
@@ -28,11 +29,12 @@ function fixture(): { resolution: SqlRunResolution; receipt: SqlScriptCommit } {
 it('adopts only explicit existing IDs and correlated creations from the committed source', () => {
     const { resolution, receipt } = fixture();
     expect(requireSqlRunCommit(receipt, 'd', resolution)).toEqual({ ids: ['a', 'c'], statements: resolution.statements,
+        draftRevision: receipt.snapshot.draft_revision,
         definition: { version: 1, dashboard_id: 'd', revision: receipt.snapshot.definition_revision } });
     expect(receipt.created_panels[0].creation_key).toBe('new');
 });
 
-it.each(['dashboard', 'token', 'definition', 'same-token', 'source', 'binding', 'offset', 'sql', 'order', 'duplicate', 'missing', 'creation', 'old-id', 'counter'])
+it.each(['dashboard', 'token', 'definition', 'same-token', 'source', 'binding', 'offset', 'sql', 'order', 'duplicate', 'missing', 'creation', 'old-id', 'counter', 'draft'])
 ('does not execute after an inconsistent %s receipt', field => {
     const { resolution, receipt } = fixture();
     const saved = receipt.snapshot;
@@ -50,6 +52,7 @@ it.each(['dashboard', 'token', 'definition', 'same-token', 'source', 'binding', 
     if (field === 'creation') receipt.created_panels[0].creation_key = 'different';
     if (field === 'old-id') receipt.created_panels[0].panel_id = 'b';
     if (field === 'counter') saved.publication!.revision = 0;
+    if (field === 'draft') saved.draft_revision = 'sql-draft-v1:not-a-revision';
     expect(() => requireSqlRunCommit(receipt, 'd', resolution)).toThrow('Reload');
 });
 

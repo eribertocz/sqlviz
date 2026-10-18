@@ -1,5 +1,5 @@
 /** Silent draft auto-save status shown as a subtle header indicator. */
-export type SaveStatus = 'idle' | 'draft' | 'saving' | 'saved';
+export type SaveStatus = 'idle' | 'draft' | 'saving' | 'saved' | 'conflict';
 
 function createExecutionStore() {
     let executing = $state(false);
