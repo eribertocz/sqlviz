@@ -3,6 +3,9 @@
 Actualizada: **2026-10-09**.
 
 **Qué trabajamos ahora:** [plan operativo del Dashboard Studio](architecture/sqlviz-studio-delivery-plan.md).
+
+**Releases y versiones:** [roadmap de releases v0.2.9 → v1.0.0 Beta](architecture/sqlviz-release-roadmap.md), con seguimiento en milestones de GitHub.
+
 S0 entrega el núcleo de geometría; S1 incorporará persistencia y controles de
 posición/tamaño, y S2 drag/resize. Después se completa el recorrido Automático →
 Visual Builder → ECharts nativo. Este es el orden operativo vigente, con criterios
