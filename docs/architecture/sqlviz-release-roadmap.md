@@ -1,4 +1,4 @@
-# Roadmap de releases: v0.2.9 → v1.0.0 Beta
+# Roadmap de releases: v0.2.11 → v1.0.0 Beta
 
 **Creado:** 2026-10-17. **Estado:** F0 en curso.
 **Seguimiento operativo:** [milestones de GitHub](https://github.com/eribertocz/sqlviz/milestones)
@@ -34,7 +34,7 @@ capas. Un issue mayor que M se divide antes de empezar.
 | F0-01 (#1) | Registrar roadmap de releases y milestones | S |
 | F0-02 (#2) | Limpiar artefactos de la raíz y `.gitignore` | S |
 | F0-03 (#3) | Plantillas de issue/PR | S |
-| F0-04 (#4) | CHANGELOG desde v0.2.9 | S |
+| F0-04 (#4) | Verificar CHANGELOG `Unreleased` | S |
 | F0-05 (#5) | CI obligatoria en PRs a `main` | S |
 | F0-06 (#6) | Merge de `feat/sqlviz-foundations` → `main` y tag `v0.3.0` | M |
 
@@ -147,7 +147,7 @@ Cierre ("MVP alpha"): un dashboard de punta a punta sin tocar código.
 | F9-02 | Matriz negativa de seguridad/autorización | M |
 | F9-03 | Accesibilidad WCAG AA en flujos clave | M |
 | F9-04 | Presupuesto de rendimiento y benchmarks en CI | M |
-| F9-05 | Migraciones probadas v0.2.9 → beta | M |
+| F9-05 | Migraciones probadas v0.2.11 → beta | M |
 | F9-06 | Documentación de usuario e instalación | M |
 | F9-07 | Pruebas con usuarios y triage | M |
 
