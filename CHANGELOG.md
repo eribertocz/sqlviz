@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [v0.3.0] — 2026-10-17
+
 ### Documentation
 
 - Dirección de proyecto por recursos aceptada: biblioteca/mapa sobre un catálogo,
