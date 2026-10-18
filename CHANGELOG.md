@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- API de autor para el borrador SQL (S1.1c.2c.3b, #8): `GET`/`PUT
+  /api/v1/dashboards/{id}/sql-script/draft` con revisión esperada, sin parsing
+  ni ejecución; conflicto `409 sql_draft_conflict` sin devolver el texto vigente.
+  El snapshot del script añade `draft_revision` y `draft_initialized`.
+
 ## [v0.3.0] — 2026-10-17
 
 ### Documentation

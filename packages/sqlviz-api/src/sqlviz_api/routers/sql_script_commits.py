@@ -4,6 +4,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Path
 from fastapi.responses import JSONResponse
+from sqlviz_storage.sql_draft_repository import SqlDraftRepository
+from sqlviz_storage.sql_draft_revision import SqlDraftSnapshot
 from sqlviz_storage.sql_run_completion import record_sql_run
 from sqlviz_storage.sql_script_repository import (
     SqlDefinitionConflict,
@@ -20,6 +22,8 @@ from sqlviz_api.sql_commit_contract import (
     CreatedSqlPanelResponse,
     SqlCommitRequest,
     SqlCommitResponse,
+    SqlDraftResponse,
+    SqlDraftWriteRequest,
     SqlPublicationResponse,
     SqlScriptBindingResponse,
     SqlScriptPanelResponse,
@@ -46,13 +50,27 @@ router = APIRouter(
 DashboardId = Annotated[str, Path(min_length=1, max_length=256)]
 
 
+def _draft_response(draft: SqlDraftSnapshot) -> SqlDraftResponse:
+    return SqlDraftResponse(
+        dashboard_id=draft.dashboard_id,
+        source=draft.source,
+        revision=draft.revision,
+        initialized=draft.initialized,
+    )
+
+
 def _snapshot_response(snapshot: SqlScriptSnapshot) -> SqlSnapshotResponse:
     publication = snapshot.publication
+    draft = SqlDraftSnapshot(
+        snapshot.dashboard_id, snapshot.draft_source, snapshot.draft_generation
+    )
     return SqlSnapshotResponse(
         dashboard_id=snapshot.dashboard_id,
         revision=snapshot.revision,
         definition_revision=definition_revision(snapshot),
         draft_source=snapshot.draft_source,
+        draft_revision=draft.revision,
+        draft_initialized=draft.initialized,
         publication_status=("confirmed" if publication is not None else
                             "incompatible" if snapshot.has_script_record else "absent"),
         last_run_at=snapshot.last_run_at,
@@ -91,6 +109,28 @@ def read_script_snapshot(
     dashboard_id: DashboardId, authoring: SqlAuthoringDep
 ) -> SqlSnapshotResponse:
     return _snapshot_response(authoring.read(dashboard_id))
+
+
+@router.get("/draft", response_model=SqlDraftResponse)
+def read_draft(dashboard_id: DashboardId, db: DbDep) -> SqlDraftResponse:
+    return _draft_response(SqlDraftRepository(db).read(dashboard_id))
+
+
+@router.put(
+    "/draft",
+    response_model=SqlDraftResponse,
+    responses={
+        409: {"description": "Draft changed since expected_revision; read it and review"},
+        422: {"description": "Invalid contract or draft text"},
+    },
+)
+def write_draft(
+    dashboard_id: DashboardId, body: SqlDraftWriteRequest, db: DbDep
+) -> SqlDraftResponse:
+    """Save the editor text without parsing; never changes panels or definitions."""
+    return _draft_response(
+        SqlDraftRepository(db).write(dashboard_id, body.expected_revision, body.source)
+    )
 
 
 @router.post(

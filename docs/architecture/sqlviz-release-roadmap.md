@@ -1,6 +1,6 @@
 # Roadmap de releases: v0.2.11 → v1.0.0 Beta
 
-**Creado:** 2026-10-17. **Estado:** F0 en curso.
+**Creado:** 2026-10-17. **Estado:** F0 cerrada (`v0.3.0`); F1 en curso.
 **Seguimiento operativo:** [milestones de GitHub](https://github.com/eribertocz/sqlviz/milestones)
 (uno por fase) e issues con labels `fase:F*`, `tamaño:S|M`, `tipo:*`.
 
@@ -44,16 +44,16 @@ Cierre: `main` verde, sin ramas largas, primer release salido de un PR.
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
-| F1-01 | S1.1c.2c.3b: API tipada/autorizada de borrador y revisión | M |
-| F1-02 | 3c: autoguardado web con revisión confirmada y conflicto visible | M |
-| F1-03 | 3d: recuperación de respuesta perdida, IDs durables de operación | M |
+| F1-01 (#8) | S1.1c.2c.3b: API tipada/autorizada de borrador y revisión | M |
+| F1-02 (#9) | 3c: autoguardado web con revisión confirmada y conflicto visible | M |
+| F1-03 (#10) | 3d: recuperación de respuesta perdida, IDs durables de operación | M |
 | — | **tag `v0.4.0a1`** | |
-| F1-04 | Contrato del documento de layout versionado | S |
-| F1-05 | Migración de overrides legacy de altura al layout | M |
-| F1-06 | Repositorio transaccional de layout con revisión | M |
-| F1-07 | Endpoints de layout (admin escribe, viewer lee) | S |
-| F1-08 | UI de posición/columnas/alto sin re-ejecutar SQL | M |
-| F1-09 | E2E editar → guardar → reabrir → compartir | S |
+| F1-04 (#11) | Contrato del documento de layout versionado | S |
+| F1-05 (#12) | Migración de overrides legacy de altura al layout | M |
+| F1-06 (#13) | Repositorio transaccional de layout con revisión | M |
+| F1-07 (#14) | Endpoints de layout (admin escribe, viewer lee) | S |
+| F1-08 (#15) | UI de posición/columnas/alto sin re-ejecutar SQL | M |
+| F1-09 (#16) | E2E editar → guardar → reabrir → compartir | S |
 
 Cierre: el diseño sobrevive a recarga y viewer; guardados obsoletos se rechazan.
 

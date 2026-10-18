@@ -3,12 +3,18 @@
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from sqlviz_core.models.sql_script import MAX_SQL_SCRIPT_BYTES
 
 from sqlviz_api.sql_execution_contract import DefinitionRevision
 from sqlviz_api.sql_script_contract import PanelRef, SqlIdentityChoice, SqlScriptParseRequest
 
 ScriptRevision = Annotated[
     str, Field(pattern=r"^sql-script-v1:[0-9a-f]{64}$", min_length=78, max_length=78)
+]
+
+
+DraftRevision = Annotated[
+    str, Field(pattern=r"^sql-draft-v1:[0-9a-f]{64}$", min_length=77, max_length=77)
 ]
 
 
@@ -48,6 +54,8 @@ class SqlSnapshotResponse(BaseModel):
     revision: ScriptRevision
     definition_revision: DefinitionRevision | None
     draft_source: str
+    draft_revision: DraftRevision
+    draft_initialized: bool
     panels: list[SqlScriptPanelResponse] = Field(max_length=256)
     publication: SqlPublicationResponse | None
     publication_status: Literal["absent", "confirmed", "incompatible"]
@@ -66,3 +74,20 @@ class SqlCommitResponse(BaseModel):
     version: Literal[1] = 1
     snapshot: SqlSnapshotResponse
     created_panels: list[CreatedSqlPanelResponse] = Field(max_length=256)
+
+
+class SqlDraftWriteRequest(BaseModel):
+    """Unparsed text: an empty or unfinished draft is valid; size is checked in storage."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    expected_revision: DraftRevision
+    source: str = Field(max_length=MAX_SQL_SCRIPT_BYTES)
+
+
+class SqlDraftResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    version: Literal[1] = 1
+    dashboard_id: str
+    source: str
+    revision: DraftRevision
+    initialized: bool
