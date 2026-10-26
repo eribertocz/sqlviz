@@ -207,6 +207,9 @@ H6–H8 y S1.2/S2 no dependen entre sí: tras H5 pueden intercalarse.
 
 ### Secuencia propuesta y versiones
 
+> **Superada:** esta secuencia fue la propuesta inicial. El orden y las versiones
+> vigentes están en el [roadmap de releases](sqlviz-release-roadmap.md).
+
 Respeta la [política vigente](sqlviz-release-roadmap.md#política-de-versiones):
 alpha hasta un recorrido usable, una fase por minor y beta al final.
 
@@ -278,9 +281,10 @@ Respondidas por el usuario el 2026-10-25:
 | 6 | DuckDB | **2.0.0 ya**, con copia previa obligatoria; 2.0.1 al publicarse |
 | 7 | Modo demo en memoria | **Se retira**; lo sustituye un proyecto de ejemplo persistente con datos sintéticos y login normal |
 | 8 | Motor semántico | **Traductor** de modelos Apache Ossie a SQL DuckDB; nunca ejecuta: el cálculo lo hace el motor de la base vía `QueryService`. Modelos en `semantica/*.yaml`; entra en F6 |
-| 9 | Nombre del producto | Provisional **`nexobi`** al inicio de F2; definitivo (candidato *Kipu*) antes de la primera Beta |
+| 9 | Nombre del producto | Provisional **`nexobi`** al inicio de F2; definitivo (candidato *Kipu*) antes de la primera beta |
 | 10 | Editor SQL del dashboard | **Se elimina**, también en legado (solo lectura hasta F8). El SQL vive en modelos y la semántica en Ossie; sale el análisis de SQL arbitrario (S5.1); el Automático usa roles semánticos |
 | 11 | Editores de archivos | La web edita `modelos/*.sql`, `semantica/*.yaml` y `conexiones/*.yaml` con Monaco y guardado condicionado por revisión (patrón de #8/#9); reemplaza al «Monaco de solo lectura» del prompt |
+| 12 | Módulos y versiones | Interfaz propia por módulo (Conexiones, Explorador, Modelos ELT, Semántica, Tableros, Administración) en un shell minimalista; más inversión en ELT y semántica. **Corte**: todo el roadmap es alpha y termina en `v0.16.0a1` (alpha completa); betas `v1.0.0bN` en el roadmap siguiente |
 | — | Aprendizaje (`brain.duckdb`) | **Fuera de alcance** hasta después de la versión estable |
 
 ## Documentos a actualizar tras la aprobación
