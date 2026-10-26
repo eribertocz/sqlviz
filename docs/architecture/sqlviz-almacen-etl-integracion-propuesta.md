@@ -278,7 +278,9 @@ Respondidas por el usuario el 2026-10-25:
 | 6 | DuckDB | **2.0.0 ya**, con copia previa obligatoria; 2.0.1 al publicarse |
 | 7 | Modo demo en memoria | **Se retira**; lo sustituye un proyecto de ejemplo persistente con datos sintéticos y login normal |
 | 8 | Motor semántico | **Traductor** de modelos Apache Ossie a SQL DuckDB; nunca ejecuta: el cálculo lo hace el motor de la base vía `QueryService`. Modelos en `semantica/*.yaml`; entra en F6 |
-| 9 | Nombre del producto | «SQLviz» se reemplaza por un nombre genérico por elegir, en todo el código y el repositorio, al inicio de F2 |
+| 9 | Nombre del producto | Provisional **`nexobi`** al inicio de F2; definitivo (candidato *Kipu*) antes de la primera Beta |
+| 10 | Editor SQL del dashboard | **Se elimina**, también en legado (solo lectura hasta F8). El SQL vive en modelos y la semántica en Ossie; sale el análisis de SQL arbitrario (S5.1); el Automático usa roles semánticos |
+| 11 | Editores de archivos | La web edita `modelos/*.sql`, `semantica/*.yaml` y `conexiones/*.yaml` con Monaco y guardado condicionado por revisión (patrón de #8/#9); reemplaza al «Monaco de solo lectura» del prompt |
 | — | Aprendizaje (`brain.duckdb`) | **Fuera de alcance** hasta después de la versión estable |
 
 ## Documentos a actualizar tras la aprobación

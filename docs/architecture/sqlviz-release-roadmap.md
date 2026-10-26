@@ -36,6 +36,30 @@ Consecuencias en este roadmap:
   persiste almacén ni ETL y desactiva la autenticación. Lo sustituye un
   **proyecto de ejemplo** con datos sintéticos, persistente y con login normal.
 
+## Dashboards sin SQL
+
+**Decisión del usuario — 2026-10-25:** el usuario ya no escribe SQL en el
+dashboard. El SQL vive en los modelos del ETL (`modelos/*.sql`) y las métricas y
+dimensiones en el modelo semántico (YAML Apache Ossie). Un panel se construye
+eligiendo métricas, dimensiones y filtros; el motor semántico lo traduce a SQL.
+
+- **Se elimina el editor SQL del dashboard**, también en proyectos legados:
+  Run, multiconsulta, reconciliación de identidad, borrador y autoguardado del
+  script (S1.1). Los dashboards `.sqlviz` existentes quedan de solo lectura hasta
+  su migración a modelos en F8. Es un cambio incompatible.
+- **La inferencia cambia de papel:** el análisis de SQL arbitrario (S5.1a–c: AST,
+  ámbitos, linaje) sale del roadmap. El nivel Automático propone el gráfico a
+  partir de los roles que declara el modelo semántico (métrica, dimensión,
+  tiempo, unidad) y de la forma del resultado.
+- **El editor pasa al proyecto como código:** la web edita los archivos del
+  proyecto con Monaco: `modelos/*.sql` (SQL con bloque `MODELO`), `semantica/*.yaml`
+  (Ossie, validado con su JSON Schema) y `conexiones/*.yaml` (sin mostrar ni
+  guardar valores de secretos). Se reutilizan Monaco y el patrón de guardado
+  condicionado por revisión con conflicto visible de #8/#9: un archivo cambiado
+  en disco o por Git no se sobrescribe en silencio. En Docker es la forma normal
+  de editar, sin entrar al volumen.
+- La consulta libre de solo lectura sigue disponible en la consola del explorador (F7).
+
 ## Motor semántico
 
 **Decisión del usuario — 2026-10-25:** el motor semántico es un **traductor**,
@@ -55,18 +79,20 @@ especificación no cubre (grano, aditividad, unidades, formato) va en
 
 ## Cambio de nombre del producto
 
-**Decisión del usuario — 2026-10-25:** «SQLviz» se reemplazará por un nombre
-genérico, todavía por elegir, en **todo** el código y el repositorio. Medido
+**Decisión del usuario — 2026-10-25:** «SQLviz» se reemplaza en **todo** el
+código y el repositorio, primero por el nombre provisional genérico **`nexobi`**
+y más adelante por el definitivo (candidato: *Kipu*), elegido antes de la
+primera Beta. El segundo cambio es mecánico porque `nexobi` es un término único. Medido
 el 2026-10-25: 3 232 menciones en 349 archivos y 610 rutas (paquetes
 `sqlviz-*`, imports `sqlviz_*`, comando `sqlviz`, variables `SQLVIZ_*`, tablas
 `_sqlviz_*`, formato `.sqlviz`, documentación y nombre del repositorio).
 
-Se hace **al inicio de F2**, antes de crear nombres nuevos (imagen Docker,
+Se hace **al inicio de F2**, después de eliminar el editor SQL y antes de crear nombres nuevos (imagen Docker,
 `sqlviz.yaml`, carpeta `.sqlviz/`, subcomandos); hacerlo después multiplica lo
 que hay que renombrar y mantener compatible. Requisitos:
 
-- Elegir el nombre antes de empezar F2: libre en PyPI, en el registro de
-  imágenes, como organización/repositorio de GitHub y sin conflicto de marca.
+- `nexobi` está libre en PyPI (verificado el 2026-10-25). El definitivo se
+  verifica en PyPI, registro de imágenes, GitHub, dominio y marca.
 - Por partes revisables (F2-00a–d), con la suite verde en cada PR.
 - Compatibilidad: los proyectos `.sqlviz` existentes siguen abriendo en modo
   legado (firma `_sqlviz_meta` incluida) hasta la migración de F8; las variables
@@ -121,23 +147,23 @@ capas. Un issue mayor que M se divide antes de empezar.
 | Fase | Paraguas | Contenido | Hitos de origen | Versión | Etapa |
 | --- | --- | --- | --- | --- | --- |
 | F0 | — | Consolidación | — | `v0.3.0` | Cerrada |
-| F1 | — | Borrador fiable y archivos locales | S1.1c.2c.3, #19 | `v0.4.0a1` | Alpha |
+| F1 | — | Borrador y archivos locales | S1.1c.2c.3, #19 | `v0.4.0a1` | Alpha |
 | F2 | #23 | Base de proyecto | H0, H1 | `v0.5.0a1`, `a2` | Alpha |
 | F3 | #24 | Almacén analítico y conexiones | H2, H3 | `v0.6.0a1`, `a2` | Alpha |
 | F4 | #25 | ETL núcleo | H4, H5 | `v0.7.0a1`, `a2` | Alpha |
-| F5 | #26 | Lienzo | S1.2, S1.3, S2 | `v0.8.0a1`, `a2` | Alpha |
-| F6 | #27 | Dataset y primer recorrido | S3, S4, M1–M5, R1–R3 | `v0.9.0a1` → **`v0.9.0b1`** | **Primera Beta** |
+| F5 | #26 | Semántica y builder | Ossie, R2a, Automático | `v0.8.0a1`, `a2` | Alpha |
+| F6 | #27 | Lienzo y primer recorrido | S1.2, S1.3, S2, S4.4, M1–M5 | `v0.9.0a1`, `a2` → **`v0.9.0b1`** | **Primera Beta** |
 | F7 | #28 | UI de datos | H6, H7 | `v0.10.0b1` | Beta |
 | F8 | #29 | Programación y migración | H8, H9 | `v0.11.0b1` | Beta |
-| F9 | #30 | Inferencia y renderizado | S5, M6–M7 | `v0.12.0b1`, `b2` | Beta |
+| F9 | #30 | Automático y renderizado | S5 (sin S5.1), M6–M7 | `v0.12.0b1`, `b2` | Beta |
 | F10 | #31 | Pantalla y áreas | S6 | `v0.13.0b1` | Beta |
 | F11 | #32 | Interacciones del lector | S7, M8 | `v0.14.0b1` | Beta |
 | F12 | #33 | Publicación | S8, M9, R4 | `v0.15.0b1` | Beta |
 | F13 | #34 | Endurecimiento | — | `v0.16.0b1` | Beta (fin) |
 
-Dependencias principales: F2 → F3 → F4; F2 → F5; F3 → F6 (el dataset se diseña
-sobre el almacén); F4 → F7 y F8. F5 no depende del almacén, pero se ubica tras
-F4 por decisión del usuario. Ver el [orden unificado](sqlviz-almacen-etl-integracion-propuesta.md#orden-unificado-de-trabajo).
+Dependencias principales: F2 → F3 → F4 → F5 → F6 (la semántica se apoya en
+tablas del almacén producidas por el ETL; el lienzo necesita paneles creados
+con el builder); F4 → F7 y F8. Ver el [orden unificado](sqlviz-almacen-etl-integracion-propuesta.md#orden-unificado-de-trabajo).
 
 ## F0 — Consolidación → `v0.3.0` · Cerrada
 
@@ -150,18 +176,20 @@ F4 por decisión del usuario. Ver el [orden unificado](sqlviz-almacen-etl-integr
 | F0-05 (#5) | CI obligatoria en PRs a `main` | S |
 | F0-06 (#6) | Merge de `feat/sqlviz-foundations` → `main` y tag `v0.3.0` | M |
 
-## F1 — Borrador fiable y archivos locales → `v0.4.0a1` · Alpha
+## F1 — Borrador y archivos locales → `v0.4.0a1` · Alpha
 
-Reducida el 2026-10-25: el layout persistido (#11–#16) pasa a F5.
+Reducida el 2026-10-25: el layout (#11–#16) pasa a F6 y #10 se cancela porque
+el editor SQL del dashboard se elimina. `v0.4.0a1` es el **último release con
+editor SQL**.
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
 | F1-01 (#8) | S1.1c.2c.3b: API tipada/autorizada de borrador y revisión | M |
 | F1-02 (#9) | 3c: autoguardado web con revisión confirmada y conflicto visible | M |
-| F1-03 (#10) | 3d: recuperación de respuesta perdida, IDs durables de operación | M |
+| ~~F1-03 (#10)~~ | ~~3d: recuperación de respuesta perdida~~ (cancelado) | — |
 | F1-10 (#19) | Leer archivos locales de carpetas autorizadas (`--data-dir`) | S |
 
-Cierre: el borrador sobrevive a conflictos y respuestas perdidas → `v0.4.0a1`.
+Cierre: PR #20 fusionado → `v0.4.0a1`.
 
 ## F2 — Base de proyecto (H0 + H1) → `v0.5.0a1`, `a2` · Alpha
 
@@ -170,10 +198,11 @@ almacén de estado, con el modo `.sqlviz` legado funcionando.
 
 | ID | Entregable tentativo | Tam. |
 | --- | --- | --- |
-| F2-00a | Elegir el nombre nuevo y verificar disponibilidad (PyPI, imagen, GitHub, marca) | S |
-| F2-00b | Renombrar paquetes, imports y metadatos de build; suite verde | M |
-| F2-00c | Renombrar CLI, variables de entorno (con alias deprecados), textos de UI y firma de proyectos nuevos; legado `.sqlviz` sigue abriendo | M |
-| F2-00d | Renombrar documentación, README y repositorio de GitHub (las URLs antiguas redirigen) | S |
+| F2-00a | Eliminar el editor SQL del dashboard en la web: Run, multiconsulta, diálogo de identidad y autoguardado del script; se conservan Monaco y el patrón de guardado con revisión para el editor de archivos; los dashboards legados quedan de solo lectura | M |
+| F2-00b | Eliminar sus APIs y almacenamiento: `/sql/parse`, `/sql/reconcile`, `/sql-script/*`, recibos de Run y escritores de script/borrador; las tablas se conservan para leer legados | M |
+| F2-00c | Renombrar a `nexobi`: paquetes, imports y metadatos de build; suite verde | M |
+| F2-00d | Renombrar CLI, variables de entorno (alias `SQLVIZ_*` deprecados), textos de UI y firma de proyectos nuevos; legado `.sqlviz` sigue abriendo | M |
+| F2-00e | Renombrar documentación, README y repositorio de GitHub (las URLs antiguas redirigen) | S |
 | F2-01 | Documento de decisión `sqlviz-proyecto-almacen-etl-decision.md` y actualización de los documentos listados en la propuesta | M |
 | F2-02 | DuckDB 2.0.0: lockfile, suite verde, copia previa obligatoria al abrir proyectos de 1.5.x, nota de incompatibilidad | M |
 | F2-03 | Imagen Docker y `docker compose`: usuario no root, volumen del proyecto, `.env`, extensiones `sqlite`/`postgres` preinstaladas, healthcheck | M |
@@ -189,8 +218,8 @@ almacén de estado, con el modo `.sqlviz` legado funcionando.
 | — | **tag `v0.5.0a2`** | |
 
 Cierre: con `docker compose up`, un proyecto carpeta nuevo y uno `.sqlviz`
-existente abren, inician sesión, comparten y guardan borradores igual que antes,
-también desde otro equipo de la red. Sesiones en memoria;
+existente abren, inician sesión y comparten; los dashboards legados se ven en
+solo lectura, también desde otro equipo de la red. Sesiones en memoria;
 `brain.duckdb` sin cambios.
 
 ## F3 — Almacén analítico y conexiones (H2 + H3) → `v0.6.0a1`, `a2` · Alpha
@@ -208,6 +237,8 @@ Objetivo: los tableros consultan el almacén directamente, sin copia previa.
 | F3-06 | `ATTACH` generado para DuckDB y SQLite; secretos temporales; reapertura controlada al cambiar conexiones | M |
 | F3-07 | PostgreSQL y DuckLake de solo lectura como integración opcional en CI | M |
 | F3-08 | `--data-dir` expresado como conexión de tipo archivo y deprecado | S |
+| F3-09 | API de archivos del proyecto: leer/escribir solo bajo `modelos/`, `semantica/`, `conexiones/` y `semillas/`; rutas validadas, revisión por hash y 409 ante cambio externo | M |
+| F3-10 | Editor de conexiones en la web: validación del YAML, referencias `${VARIABLE}` y prueba de conexión; nunca muestra ni guarda secretos | M |
 | — | **tag `v0.6.0a2`** | |
 
 Cierre: una fuente SQLite (y PostgreSQL opcional) consultable en solo lectura;
@@ -229,57 +260,65 @@ Objetivo: paquete `sqlviz-transform` con plan/aplicar, incremental y auditorías
 | F4-07 | Incremental por intervalos: grano, zona horaria, `inicio`, `reprocesar_ultimos`, `--desde/--hasta` | M |
 | F4-08 | Auditorías bloqueantes dentro de la transacción | M |
 | F4-09 | Recuperación entre `COMMIT` de datos y registro; aceptación con 60 meses sintéticos | M |
+| F4-11 | Editor de modelos en la web: árbol de `modelos/`, Monaco SQL, errores del bloque `MODELO` como marcadores con línea y columna, guardado con revisión y `plan` del cambio antes de aplicar | M |
 | F4-10 | Proyecto de ejemplo: semillas CSV y modelos sintéticos (clientes y lecturas) que se cargan con `aplicar`; sirve de onboarding y de datos para E2E | M |
 | — | **tag `v0.7.0a2`** | |
 
 Cierre: cambiar un modelo replanifica solo ese modelo y sus dependientes;
 aplicar dos veces no cambia nada; una auditoría fallida deja el intervalo previo intacto.
 
-## F5 — Lienzo (S1.2 + S1.3 + S2) → `v0.8.0a1`, `a2` · Alpha
+## F5 — Semántica y builder → `v0.8.0a1`, `a2` · Alpha
 
-Objetivo: composición manual persistida y gestos, guardada en el almacén de estado.
+Objetivo: crear paneles sin SQL, eligiendo métricas y dimensiones del modelo
+semántico sobre el almacén. Es la primera forma de autoría tras eliminar el editor.
 
 | ID | Entregable tentativo | Tam. |
 | --- | --- | --- |
-| F5-01 (#11) | Contrato del documento de layout versionado | S |
-| F5-02 (#12) | Migración de alturas legacy al documento de layout | M |
-| F5-03 (#13) | Repositorio transaccional de layout con revisión | M |
-| F5-04 (#14) | Endpoints de layout (admin escribe, viewer lee) | S |
-| F5-05 (#15) | UI de posición, columnas y alto sin re-ejecutar SQL | M |
-| F5-06 (#16) | E2E editar → guardar → reabrir → compartir | S |
+| F5-01 | Modelo semántico en formato **Apache Ossie** (versión fijada): `semantica/*.yaml` validado con su JSON Schema; extensiones propias en `custom_extensions` | M |
+| F5-02 | Compilador semántico Ossie → SQL dialecto DuckDB con sqlglot: campos, métricas, relaciones many-to-one y filtros parametrizados. **No ejecuta**: entrega SQL a `QueryService` | M |
+| F5-03 | Visual con revisión = métricas + dimensiones + filtros sobre el modelo; el panel referencia el visual | M |
+| F5-04 | Builder mínimo: crear un panel eligiendo métricas, dimensiones y tipo de gráfico | M |
+| F5-04b | Editor de semántica en la web: Monaco YAML con validación y autocompletado por el JSON Schema de Ossie, y vista previa del SQL que genera el compilador | M |
 | — | **tag `v0.8.0a1`** | |
-| F5-07 | S1.3: bloques de texto tipados, edición y publicación | M |
-| F5-08 | S2.1–S2.3: drag y resize con guías, preview y mínimos | M |
-| F5-09 | S2.4–S2.5: teclado, clic/tap, undo/redo y bloqueo | M |
-| F5-10 | S2.6: guardar → recargar → viewer sin ejecutar SQL al mover | S |
+| F5-05 | Nivel Automático por roles semánticos (tiempo → línea, categoría → barras, métrica sola → KPI) y forma del resultado | M |
+| F5-06 | Biblioteca inicial (R2a): modelos semánticos, visuales y tableros con búsqueda | M |
+| F5-07 | E2E: modelo ETL → semántica → panel sin SQL → viewer | S |
 | — | **tag `v0.8.0a2`** | |
 
-## F6 — Dataset y primer recorrido (S3 + S4 + M1–M5 + R1–R3) → `v0.9.0a1` → **`v0.9.0b1`** · Primera Beta
+Cierre: un usuario crea un dashboard sin escribir SQL sobre datos del almacén.
 
-Objetivo: datasets reutilizables sobre el almacén y los tres niveles de autoría.
+## F6 — Lienzo y primer recorrido → `v0.9.0a1`, `a2` → **`v0.9.0b1`** · Primera Beta
+
+Objetivo: composición manual, ajuste experto y matriz sobre los paneles del builder.
 
 | ID | Entregable tentativo | Tam. |
 | --- | --- | --- |
-| F6-01 | S3.1–S3.2: dataset con revisión sobre relaciones del almacén; campos y bindings con identidad | M |
-| F6-02 | S3.3–S3.4: visual separado del panel; un dataset alimenta dos visuales | M |
-| F6-03 | S3.5 + R2a: promoción desde el editor y biblioteca inicial | M |
-| F6-04 | Modelo semántico en formato **Apache Ossie** (versión fijada): `semantica/*.yaml` validado con su JSON Schema; extensiones SQLviz en `custom_extensions` | M |
-| F6-05 | Compilador semántico Ossie → SQL dialecto DuckDB con sqlglot: campos, métricas, relaciones many-to-one y filtros parametrizados. **No ejecuta**: entrega SQL a `QueryService` | M |
-| F6-06 | M1 + R3a: contrato de matriz, grano y medidas sobre el modelo semántico | M |
+| F6-01 (#11) | Contrato del documento de layout versionado | S |
+| F6-02 (#12) | Migración de alturas legacy al documento de layout | M |
+| F6-03 (#13) | Repositorio transaccional de layout con revisión | M |
+| F6-04 (#14) | Endpoints de layout (admin escribe, viewer lee) | S |
+| F6-05 (#15) | UI de posición, columnas y alto sin re-ejecutar consultas | M |
+| F6-06 (#16) | E2E editar → guardar → reabrir → compartir | S |
 | — | **tag `v0.9.0a1`** | |
-| F6-07 | S4.1: nivel Automático completo para el corpus inicial | M |
-| F6-08 | S4.2–S4.3: Visual Builder y compilación a ECharts | M |
-| F6-09 | S4.4: editor de opciones nativas ECharts con precedencia | M |
-| F6-10 | M2–M5 + R3b–c: medidas por contexto (compiladas a SQL), grilla y builder de matriz | M |
-| F6-11 | S4.5: E2E builder → guardar → filtrar → reabrir → viewer → reset | M |
+| F6-07 | S1.3: bloques de texto tipados, edición y publicación | M |
+| F6-08 | S2.1–S2.3: drag y resize con guías, preview y mínimos | M |
+| F6-09 | S2.4–S2.6: teclado, clic/tap, undo/redo, bloqueo; mover no ejecuta consultas | M |
+| F6-10 | S4.4: editor de opciones nativas ECharts con precedencia | M |
+| — | **tag `v0.9.0a2`** | |
+| F6-11 | M1–M3 + R3: contrato de matriz y medidas por contexto compiladas a SQL | M |
+| F6-12 | M4–M5: grilla y builder de matriz con drag de campos | M |
+| F6-13 | E2E builder → guardar → filtrar → reabrir → viewer → reset | M |
 | — | **tag `v0.9.0b1`** (primera Beta) | |
+
+Cierre: un usuario crea, compone, filtra, reabre y comparte un dashboard sin
+tocar código → **primera Beta**.
 
 ## F7 — UI de datos (H6 + H7) → `v0.10.0b1` · Beta
 
 | ID | Entregable tentativo | Tam. |
 | --- | --- | --- |
 | F7-01 | Grilla virtualizada compartida (también la usará la matriz M7) | M |
-| F7-02 | ETL: lista de modelos y detalle con línea de tiempo de intervalos | M |
+| F7-02 | ETL: lista de modelos y detalle (editor de F4-11, dependencias, auditorías) con línea de tiempo de intervalos | M |
 | F7-03 | ETL: grafo de dependencias (evaluar Drawflow con disposición por capas) | M |
 | F7-04 | ETL: plan, aplicar con confirmación y ejecuciones en vivo | M |
 | F7-05 | Explorador: catálogo de bases adjuntas y detalle de tabla con perfil | M |
@@ -292,15 +331,15 @@ Objetivo: datasets reutilizables sobre el almacén y los tres niveles de autorí
 | --- | --- | --- |
 | F8-01 | Programación `diaria`/`mensual` en el servidor, con puesta al día al arrancar | M |
 | F8-02 | Programación visible en la UI del ETL | S |
-| F8-03 | Migración `.sqlviz` → carpeta (desde la web y `sqlviz exportar`), ensayada sobre copias | M |
+| F8-03 | Migración `.sqlviz` → carpeta: cada panel SQL legado pasa a un modelo `vista` y un visual semántico; desde la web y `exportar`, ensayada sobre copias | M |
 | F8-04 | Retirar el modo legado tras migración probada | M |
 
-## F9 — Inferencia y renderizado (S5 + M6–M7) → `v0.12.0b1`, `b2` · Beta
+## F9 — Automático y renderizado (S5 sin S5.1 + M6–M7) → `v0.12.0b1`, `b2` · Beta
 
 | ID | Entregable tentativo | Tam. |
 | --- | --- | --- |
-| F9-01 | Corpus de evaluación independiente con métrica en CI | M |
-| F9-02 | Fechas, granularidad y unidades | M |
+| F9-01 | Corpus de evaluación del nivel Automático semántico con métrica en CI | M |
+| F9-02 | Fechas, granularidad y unidades desde el modelo semántico | M |
 | F9-03 | Nulos y datos vacíos | S |
 | — | **tag `v0.12.0b1`** | |
 | F9-04 | Familias ECharts, lote 1 (heatmap, scatter, combinado) | M |
