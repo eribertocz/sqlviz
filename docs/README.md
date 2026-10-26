@@ -4,7 +4,7 @@ Actualizada: **2026-10-09**.
 
 **Qué trabajamos ahora:** [plan operativo del Dashboard Studio](architecture/sqlviz-studio-delivery-plan.md).
 
-**Releases y versiones:** [roadmap de releases v0.2.11 → Beta](architecture/sqlviz-release-roadmap.md), con seguimiento en milestones de GitHub.
+**Releases y versiones:** [roadmap de releases v0.2.11 → Alpha completa (v0.16.0a)](architecture/sqlviz-release-roadmap.md), con seguimiento en milestones de GitHub.
 
 S0 entrega el núcleo de geometría; S1 incorporará persistencia y controles de
 posición/tamaño, y S2 drag/resize. Después se completa el recorrido Automático →
