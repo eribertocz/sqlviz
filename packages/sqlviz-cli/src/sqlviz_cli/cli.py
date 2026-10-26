@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import duckdb
+from sqlviz_api.services.queries import resolve_data_directories
 from sqlviz_core.version import __version__
 from sqlviz_storage.auth import set_admin_password
 from sqlviz_storage.project_db import create_project, is_sqlviz_project, open_project
@@ -87,11 +88,24 @@ def main() -> None:
         "its credential grants database access independently of HTTP login.",
     )
     parser.add_argument(
+        "--data-dir",
+        action="append",
+        default=[],
+        metavar="FOLDER",
+        help="Allow SQL to read local files (parquet, csv, json) inside FOLDER. "
+        "Repeatable. Without it, analytical SQL cannot read any file.",
+    )
+    parser.add_argument(
         "--no-browser",
         action="store_true",
         help="Do not open the browser automatically.",
     )
     args = parser.parse_args()
+
+    try:
+        data_directories = resolve_data_directories(args.data_dir)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     quack_token = None
     if args.quack:
@@ -153,6 +167,7 @@ def main() -> None:
             port=args.port,
             open_browser=not args.no_browser,
             quack_token=quack_token,
+            data_directories=data_directories,
         )
     except QuackStartupError as exc:
         print(f"Error: {exc}", file=sys.stderr)

@@ -16,6 +16,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Autoguardado condicionado del editor SQL (S1.1c.2c.3c, #9): cada guardado
   espera la revisión confirmada; ante conflicto conserva el texto local, detiene
   el autoguardado y ofrece *Load saved* / *Keep mine* en la cabecera.
+- Opción `--data-dir <carpeta>` (#19): el SQL analítico puede leer archivos
+  locales (parquet, csv, json) solo dentro de carpetas autorizadas al arrancar;
+  todo lo demás sigue denegado. El error 403 indica cómo habilitarlo.
 
 ## [v0.3.0] — 2026-10-17
 

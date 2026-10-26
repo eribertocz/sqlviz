@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 import webbrowser
+from collections.abc import Sequence
 from contextlib import ExitStack, closing
 
 import duckdb
@@ -46,6 +47,7 @@ def serve(
     port: int = _PORT,
     open_browser: bool = True,
     quack_token: str | None = None,
+    data_directories: Sequence[str] = (),
 ) -> None:
     """Start FastAPI + uvicorn.  Blocks until Ctrl+C.
 
@@ -57,6 +59,7 @@ def serve(
         port:         HTTP port (default 4000).
         open_browser: Open the default browser automatically.
         quack_token:  Separate database credential; None disables Quack.
+        data_directories: Folders whose files analytical SQL may read.
                       The caller owns conn and must close it after serving.
     """
     with ExitStack() as resources:
@@ -67,7 +70,12 @@ def serve(
         viewer_conn = (
             resources.enter_context(closing(conn.cursor())) if db_path is not None else None
         )
-        app = create_app(conn, viewer_conn=viewer_conn, demo_mode=db_path is None)
+        app = create_app(
+            conn,
+            viewer_conn=viewer_conn,
+            demo_mode=db_path is None,
+            data_directories=data_directories,
+        )
 
         # Explicit LAN binding keeps origin-based share URLs reachable.
         if host == "0.0.0.0":
