@@ -32,6 +32,9 @@ Consecuencias en este roadmap:
 - El acceso por IP de red con `http://` deja la página en contexto inseguro
   (portapapeles y `crypto.randomUUID` fallan): la composición incluye HTTPS
   opcional y el frontend no debe depender de APIs de contexto seguro.
+- **Se retira el modo demo en memoria** (también decisión del usuario): no
+  persiste almacén ni ETL y desactiva la autenticación. Lo sustituye un
+  **proyecto de ejemplo** con datos sintéticos, persistente y con login normal.
 
 ## Cómo se planifica cada fase
 
@@ -141,6 +144,7 @@ almacén de estado, con el modo `.sqlviz` legado funcionando.
 | F2-08 | Carga y validación de `sqlviz.yaml` con errores precisos | M |
 | F2-09 | Proyecto carpeta: `.sqlviz/estado.duckdb` con migraciones; credencial, enlaces, borradores, tableros, carpetas y paneles en el estado | M |
 | F2-10 | Modo legado `.sqlviz`: misma suite en ambos modos | S |
+| F2-11 | Retirar el modo demo en memoria y su bypass de autenticación; sin proyecto, el contenedor crea uno vacío en el volumen | M |
 | — | **tag `v0.5.0a2`** | |
 
 Cierre: con `docker compose up`, un proyecto carpeta nuevo y uno `.sqlviz`
@@ -184,6 +188,7 @@ Objetivo: paquete `sqlviz-transform` con plan/aplicar, incremental y auditorías
 | F4-07 | Incremental por intervalos: grano, zona horaria, `inicio`, `reprocesar_ultimos`, `--desde/--hasta` | M |
 | F4-08 | Auditorías bloqueantes dentro de la transacción | M |
 | F4-09 | Recuperación entre `COMMIT` de datos y registro; aceptación con 60 meses sintéticos | M |
+| F4-10 | Proyecto de ejemplo: semillas CSV y modelos sintéticos (clientes y lecturas) que se cargan con `aplicar`; sirve de onboarding y de datos para E2E | M |
 | — | **tag `v0.7.0a2`** | |
 
 Cierre: cambiar un modelo replanifica solo ese modelo y sus dependientes;

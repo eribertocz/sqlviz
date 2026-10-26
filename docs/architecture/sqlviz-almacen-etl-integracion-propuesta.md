@@ -276,6 +276,7 @@ Respondidas por el usuario el 2026-10-25:
 | 4 | Orden | **Lienzo después del ETL núcleo** |
 | 5 | CLI y despliegue | **Despliegue en Docker** en la infraestructura del cliente; web como interfaz principal; CLI mínima (`servir`, `plan`/`aplicar` como cliente de la API) con alias `sqlviz RUTA`. Nube después de la estable |
 | 6 | DuckDB | **2.0.0 ya**, con copia previa obligatoria; 2.0.1 al publicarse |
+| 7 | Modo demo en memoria | **Se retira**; lo sustituye un proyecto de ejemplo persistente con datos sintéticos y login normal |
 | — | Aprendizaje (`brain.duckdb`) | **Fuera de alcance** hasta después de la versión estable |
 
 ## Documentos a actualizar tras la aprobación
