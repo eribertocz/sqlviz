@@ -260,8 +260,8 @@ Objetivo: paquete `sqlviz-transform` con plan/aplicar, incremental y auditorías
 | F4-07 | Incremental por intervalos: grano, zona horaria, `inicio`, `reprocesar_ultimos`, `--desde/--hasta` | M |
 | F4-08 | Auditorías bloqueantes dentro de la transacción | M |
 | F4-09 | Recuperación entre `COMMIT` de datos y registro; aceptación con 60 meses sintéticos | M |
-| F4-11 | Editor de modelos en la web: árbol de `modelos/`, Monaco SQL, errores del bloque `MODELO` como marcadores con línea y columna, guardado con revisión y `plan` del cambio antes de aplicar | M |
 | F4-10 | Proyecto de ejemplo: semillas CSV y modelos sintéticos (clientes y lecturas) que se cargan con `aplicar`; sirve de onboarding y de datos para E2E | M |
+| F4-11 | Editor de modelos en la web: árbol de `modelos/`, Monaco SQL, errores del bloque `MODELO` como marcadores con línea y columna, guardado con revisión y `plan` del cambio antes de aplicar | M |
 | — | **tag `v0.7.0a2`** | |
 
 Cierre: cambiar un modelo replanifica solo ese modelo y sus dependientes;
@@ -278,11 +278,11 @@ semántico sobre el almacén. Es la primera forma de autoría tras eliminar el e
 | F5-02 | Compilador semántico Ossie → SQL dialecto DuckDB con sqlglot: campos, métricas, relaciones many-to-one y filtros parametrizados. **No ejecuta**: entrega SQL a `QueryService` | M |
 | F5-03 | Visual con revisión = métricas + dimensiones + filtros sobre el modelo; el panel referencia el visual | M |
 | F5-04 | Builder mínimo: crear un panel eligiendo métricas, dimensiones y tipo de gráfico | M |
-| F5-04b | Editor de semántica en la web: Monaco YAML con validación y autocompletado por el JSON Schema de Ossie, y vista previa del SQL que genera el compilador | M |
+| F5-05 | Editor de semántica en la web: Monaco YAML con validación y autocompletado por el JSON Schema de Ossie, y vista previa del SQL que genera el compilador | M |
 | — | **tag `v0.8.0a1`** | |
-| F5-05 | Nivel Automático por roles semánticos (tiempo → línea, categoría → barras, métrica sola → KPI) y forma del resultado | M |
-| F5-06 | Biblioteca inicial (R2a): modelos semánticos, visuales y tableros con búsqueda | M |
-| F5-07 | E2E: modelo ETL → semántica → panel sin SQL → viewer | S |
+| F5-06 | Nivel Automático por roles semánticos (tiempo → línea, categoría → barras, métrica sola → KPI) y forma del resultado | M |
+| F5-07 | Biblioteca inicial (R2a): modelos semánticos, visuales y tableros con búsqueda | M |
+| F5-08 | E2E: modelo ETL → semántica → panel sin SQL → viewer | S |
 | — | **tag `v0.8.0a2`** | |
 
 Cierre: un usuario crea un dashboard sin escribir SQL sobre datos del almacén.
