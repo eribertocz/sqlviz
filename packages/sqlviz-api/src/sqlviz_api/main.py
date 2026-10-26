@@ -34,6 +34,7 @@ Frontend protection (FastAPI ≥ 0.139.0, DOC3 §8):
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import duckdb
@@ -88,6 +89,7 @@ def create_app(
     demo_mode: bool = False,
     query_limits: QueryLimits | None = None,
     parameter_limits: ParameterLimits | None = None,
+    data_directories: Sequence[str | Path] = (),
 ) -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -101,6 +103,8 @@ def create_app(
                    required. Used by `sqlviz` (no args) demo mode.
         query_limits: App-local analytical budgets. None uses bounded defaults.
         parameter_limits: App-local named-value budgets. None uses bounded defaults.
+        data_directories: Operator-approved folders whose files analytical SQL may
+                          read. Empty keeps all file access disabled.
 
     Returns:
         Configured FastAPI application ready for uvicorn.
@@ -110,7 +114,9 @@ def create_app(
     app.state.db_conn = db_conn
     app.state.demo_mode = demo_mode
     app.state.authorization = AuthorizationService(demo_mode=demo_mode)
-    app.state.queries = QueryService(query_limits, parameter_limits=parameter_limits)
+    app.state.queries = QueryService(
+        query_limits, parameter_limits=parameter_limits, data_directories=data_directories
+    )
     app.state.parameters = ParameterService(parameter_limits)
     app.state.sql_scripts = SqlScriptService()
     app.state.sql_run_receipts = SqlRunReceipts()

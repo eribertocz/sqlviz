@@ -50,6 +50,28 @@ leer metadatos o recursos externos. Referencias con catálogo explícito tambié
 rechazan. Ingesta, conexiones externas y vistas requieren adaptadores de datasets
 posteriores; no existe todavía una UI para importarlas en este contexto.
 
+## Carpetas de datos autorizadas (`--data-dir`)
+
+**Implementado — 2026-10-25 ([#19](https://github.com/eribertocz/sqlviz/issues/19)).**
+El operador puede autorizar carpetas al arrancar:
+`sqlviz proyecto.sqlviz --data-dir <carpeta>` (repetible). Cada ruta se resuelve
+a absoluta y debe existir como carpeta; si no, el arranque falla. Sin la opción
+el comportamiento no cambia.
+
+`QueryService` aplica `allowed_directories` de DuckDB en el catálogo aislado
+**antes** de `enable_external_access = false` y `lock_configuration = true`.
+Así, `read_parquet`, `read_csv`, `read_json` o `FROM '<ruta>'` leen archivos
+dentro de esas carpetas; rutas fuera de ellas, `..` que escapen, `glob` sobre
+el padre, red y extensiones siguen dando `403 external_access`. El SQL del autor
+no puede ampliar la lista: `SET` está prohibido y la configuración bloqueada.
+
+Los lectores de un dashboard compartido ejecutan el SQL guardado por el autor,
+por lo que también leen esos archivos al ver el panel: autorizar una carpeta es
+una decisión del operador sobre ese servidor. Los archivos no pasan por el
+snapshot de tablas locales, así que `max_source_rows`/`max_snapshot_bytes` no
+los limitan; sí aplican memoria, tiempo, filas y tamaño del resultado
+(agregar o filtrar en SQL para archivos grandes).
+
 ## Presupuestos iniciales
 
 Se configuran por aplicación con `create_app(..., query_limits=QueryLimits(...))`.

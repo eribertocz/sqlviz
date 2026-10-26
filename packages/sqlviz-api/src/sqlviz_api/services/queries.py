@@ -8,6 +8,7 @@ fresh catalog. User SQL is never executed by the metadata connection.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -86,6 +87,18 @@ def _reserved(name: str) -> bool:
     )
 
 
+def resolve_data_directories(paths: Sequence[str | Path]) -> tuple[str, ...]:
+    """Absolute existing folders; a missing path fails at startup, not per query."""
+    resolved: list[str] = []
+    for value in paths:
+        path = Path(value).expanduser().resolve()
+        if not path.is_dir():
+            raise ValueError(f"Data directory does not exist or is not a folder: {value}")
+        if str(path) not in resolved:
+            resolved.append(str(path))
+    return tuple(resolved)
+
+
 class QueryService:
     """App-local admission control; every operation owns and closes its catalog."""
 
@@ -94,8 +107,10 @@ class QueryService:
         limits: QueryLimits | None = None,
         *,
         parameter_limits: ParameterLimits | None = None,
+        data_directories: Sequence[str | Path] = (),
     ):
         self.limits = limits or QueryLimits()
+        self.data_directories = resolve_data_directories(data_directories)
         self.parameter_limits = parameter_limits or ParameterLimits()
         self._slots = BoundedSemaphore(self.limits.max_concurrent)
 
@@ -162,6 +177,12 @@ class QueryService:
             timer.start()
             try:
                 self._snapshot(source, conn, query, Path(directory), expired)
+                if self.data_directories:
+                    # Operator opt-in: files under these folders stay readable after
+                    # external access is disabled; everything else is still denied.
+                    conn.execute(
+                        "SET allowed_directories = ?", [list(self.data_directories)]
+                    )
                 conn.execute("SET enable_external_access = false")
                 conn.execute("SET lock_configuration = true")
                 self._check_deadline(expired)
@@ -202,7 +223,10 @@ class QueryService:
                 ) from None
             except duckdb.PermissionException:
                 raise QueryFailure(
-                    403, "external_access", "External access is disabled for analytical SQL"
+                    403,
+                    "external_access",
+                    "External access is disabled for analytical SQL. To read local files, "
+                    "start SQLviz with --data-dir <folder> and query files inside it.",
                 ) from None
             except duckdb.OutOfMemoryException:
                 raise QueryFailure(

@@ -201,6 +201,14 @@ Both demo and persistent projects listen on `127.0.0.1` by default. LAN binding
 requires an explicit `--host 0.0.0.0`; the security limitations above still
 apply. Normal startup does not install extensions or start a Quack service.
 
+Analytical SQL cannot read files by default. To query local files, allow
+specific folders with `--data-dir` (repeatable); only files inside them are readable:
+
+```sh
+uv run sqlviz project.sqlviz --data-dir "C:\data\sales"
+# then, in a panel: SELECT * FROM 'C:\data\sales\totals.parquet'
+```
+
 Quack is a separate, optional database service enabled with `--quack`. It requires
 a preinstalled compatible extension and `SQLVIZ_QUACK_TOKEN` with at least 32
 characters after trimming surrounding whitespace. Its credential grants database

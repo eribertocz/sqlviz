@@ -47,8 +47,25 @@ def test_all_modes_default_to_loopback_without_quack(
         port=4000,
         open_browser=False,
         quack_token=None,
+        data_directories=(),
     )
     conn.close.assert_called_once()
+
+
+def test_data_dirs_are_opt_in_resolved_and_validated(
+    startup: tuple[Mock, Mock], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data = tmp_path / "data"
+    data.mkdir()
+    monkeypatch.setattr(sys, "argv", ["sqlviz", "--data-dir", str(data), "--no-browser"])
+    cli.main()
+    assert startup[1].call_args.kwargs["data_directories"] == (str(data.resolve()),)
+
+    startup[1].reset_mock()
+    monkeypatch.setattr(sys, "argv", ["sqlviz", "--data-dir", str(tmp_path / "missing")])
+    with pytest.raises(SystemExit):
+        cli.main()
+    startup[1].assert_not_called()
 
 
 def test_explicit_lan_and_port_remain_available(

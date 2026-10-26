@@ -13,6 +13,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   /api/v1/dashboards/{id}/sql-script/draft` con revisión esperada, sin parsing
   ni ejecución; conflicto `409 sql_draft_conflict` sin devolver el texto vigente.
   El snapshot del script añade `draft_revision` y `draft_initialized`.
+- Opción `--data-dir <carpeta>` (#19): el SQL analítico puede leer archivos
+  locales (parquet, csv, json) solo dentro de carpetas autorizadas al arrancar;
+  todo lo demás sigue denegado. El error 403 indica cómo habilitarlo.
 
 ## [v0.3.0] — 2026-10-17
 
