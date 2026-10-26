@@ -1,8 +1,9 @@
 # Integración de proyecto como código, almacenes y ETL ligero — propuesta
 
-**Fecha:** 2026-10-25. **Estado:** propuesta pendiente de aprobación. No cambia
-por sí sola las decisiones aceptadas, el [plan operativo del Studio](sqlviz-studio-delivery-plan.md)
-ni el [roadmap de releases](sqlviz-release-roadmap.md). Analiza dos documentos
+**Fecha:** 2026-10-25. **Estado:** **aprobada por el usuario el 2026-10-25** con
+las [decisiones registradas](#decisiones-tomadas). Ya reordena el
+[roadmap de releases](sqlviz-release-roadmap.md). El resto de documentos se
+actualiza en la fase F2 (ver [lista](#documentos-a-actualizar-tras-la-aprobación)). Analiza dos documentos
 aportados por el usuario: `prompt-etl-almacen-sqlviz.md` (arquitectura y fases 0–6)
 y `roadmap-etl-almacen-sqlviz.md` (hitos H0–H9), contra la planificación vigente,
 el CHANGELOG y el código en `45fbf98`.
@@ -107,7 +108,7 @@ rechace también `DETACH`, `ATTACH`, `SET`, `COPY`, `EXPORT`, `PRAGMA` y funcion
 de escritura; pruebas negativas por cada una; documentar que el límite de
 memoria por consulta pasa a ser de instancia. Mantener la opción C como
 evolución cuando haya varios escritores o lectores externos. Esta elección es
-una de las [decisiones pendientes](#decisiones-que-requieren-al-usuario).
+la decisión 1 de las [decisiones tomadas](#decisiones-tomadas).
 
 ## Qué coincide, qué se solapa y qué queda reemplazado
 
@@ -263,15 +264,19 @@ antes dashboards editables. Retrasa el almacén, pero no lo bloquea.
 11. **H9** se adelanta a F8 para no prolongar la convivencia de modos.
 12. Mantener la regla: `aplicar` y Run no comparten transacción ni bloqueo.
 
-## Decisiones que requieren al usuario
+## Decisiones tomadas
 
-1. Modelo de concurrencia del almacén: **A** (recomendada), B o C.
-2. Ubicación de tableros, carpetas y paneles en el modo carpeta antes de
-   «tableros como archivos»: almacén de estado (recomendada) u otra.
-3. Sesiones: mantener en memoria (recomendada) o persistir hashes en el estado.
-4. Orden: lienzo (F5) después del ETL núcleo (recomendado) o antes del almacén.
-5. Subcomandos de la CLI y alias compatible para `sqlviz RUTA`.
-6. Adoptar 2.0.0 ya en H0 o esperar a 2.0.1 para fusionar a `main`.
+Respondidas por el usuario el 2026-10-25:
+
+| # | Decisión | Elección |
+| --- | --- | --- |
+| 1 | Modelo de concurrencia del almacén | **Opción A**: instancia única dueña del almacén, política de sentencias ampliada |
+| 2 | Tableros, carpetas y paneles en modo carpeta | **En `estado.duckdb`**, transitorio hasta «tableros como archivos» |
+| 3 | Sesiones | **En memoria**, como hoy (opción recomendada, aplicada por defecto) |
+| 4 | Orden | **Lienzo después del ETL núcleo** |
+| 5 | CLI | **Subcomandos** con alias compatible `sqlviz RUTA` (recomendada, aplicada por defecto) |
+| 6 | DuckDB | **2.0.0 ya**, con copia previa obligatoria; 2.0.1 al publicarse |
+| — | Aprendizaje (`brain.duckdb`) | **Fuera de alcance** hasta después de la versión estable |
 
 ## Documentos a actualizar tras la aprobación
 
@@ -294,6 +299,6 @@ antes dashboards editables. Retrasa el almacén, pero no lo bloquea.
 | `README.md`, `CHANGELOG.md` | Formato de proyecto, CLI y DuckDB 2.0 al entregarse |
 | DOC2 y DOC3 | Nota de vigencia: carpeta de proyecto y conexiones YAML reemplazan secciones históricas |
 
-Este documento es una propuesta: no se modificaron otros documentos, código ni
+La propuesta se entregó sin modificar otros documentos, código ni
 dependencias. Las pruebas de DuckDB 2.0.0 se ejecutaron fuera del proyecto, con
 datos sintéticos.
