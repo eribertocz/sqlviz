@@ -160,7 +160,7 @@ una de las [decisiones pendientes](#decisiones-que-requieren-al-usuario).
 | **R4 bundles (S8)** | El proyecto como código ya hace de bundle para conexiones y modelos | Adaptar: R4 queda para tableros y visuales cuando se migren a archivos |
 | **R6 alertas** | Comparten scheduler con H8 | Construir H8 de forma que R6b lo reutilice, sin implementar alertas |
 | **Sesiones en el estado** (prompt) | Hoy están en memoria por diseño: reiniciar invalida sesiones y no hay tokens en disco | **No mover**: el estado guarda hash admin, secreto de firma y enlaces. Persistir sesiones solo si hay una necesidad medida |
-| **Patrones de feedback en el estado** (prompt) | Cambia el aprendizaje de por máquina a por proyecto | Aceptable (resuelve DATA-04), pero es un cambio de producto: decisión explícita e importación opcional desde `brain.duckdb` |
+| **Patrones de feedback en el estado** (prompt) | Cambia el aprendizaje de por máquina a por proyecto | **Fuera de alcance por decisión del usuario (2026-10-25):** el aprendizaje se analiza después de la versión estable. `brain.duckdb` sigue igual y no se mueve al estado |
 | **Nombres en español** (prompt) | El código existente usa inglés (`dashboard_repository`, `panels`, `dashboards`) | Español para el dominio nuevo (`sqlviz-transform`, claves YAML, tablas `etl_*`); no renombrar código existente. Registrar la regla |
 | **Extensiones** (`postgres`, `sqlite`, DuckLake) | La política vigente prohíbe autoinstalación y descargas | Instalación explícita del operador (comando o guía), igual que Quack |
 | **Política de migraciones** | Abrir un `.sqlviz` con 2.0.0 lo hace ilegible para 1.5.x | Copia previa obligatoria antes de abrir con 2.0.0; aplicar también a `brain.duckdb` |
@@ -269,10 +269,9 @@ antes dashboards editables. Retrasa el almacén, pero no lo bloquea.
 2. Ubicación de tableros, carpetas y paneles en el modo carpeta antes de
    «tableros como archivos»: almacén de estado (recomendada) u otra.
 3. Sesiones: mantener en memoria (recomendada) o persistir hashes en el estado.
-4. Aprendizaje por proyecto en lugar de por máquina, con importación opcional.
-5. Orden: lienzo (F5) después del ETL núcleo (recomendado) o antes del almacén.
-6. Subcomandos de la CLI y alias compatible para `sqlviz RUTA`.
-7. Adoptar 2.0.0 ya en H0 o esperar a 2.0.1 para fusionar a `main`.
+4. Orden: lienzo (F5) después del ETL núcleo (recomendado) o antes del almacén.
+5. Subcomandos de la CLI y alias compatible para `sqlviz RUTA`.
+6. Adoptar 2.0.0 ya en H0 o esperar a 2.0.1 para fusionar a `main`.
 
 ## Documentos a actualizar tras la aprobación
 
