@@ -1,6 +1,7 @@
-# Roadmap de releases: v0.2.11 → v1.0.0 Beta
+# Roadmap de releases: v0.2.11 → Beta (v0.12.0b)
 
-**Creado:** 2026-10-17. **Estado:** F0 cerrada (`v0.3.0`); F1 en curso.
+**Creado:** 2026-10-17. **Revisado:** 2026-10-25 (política alpha → beta).
+**Estado:** F0 cerrada (`v0.3.0`); F1 en curso.
 **Seguimiento operativo:** [milestones de GitHub](https://github.com/eribertocz/sqlviz/milestones)
 (uno por fase) e issues con labels `fase:F*`, `tamaño:S|M`, `tipo:*`.
 
@@ -12,14 +13,29 @@ ajusta al cerrar cada fase.
 
 ## Política de versiones
 
-| Tag | Formato (PEP 440, hatch-vcs) | Cuándo |
-| --- | --- | --- |
-| Alpha intermedio | `v0.N.0a1`, `v0.N.0a2` | A mitad de fase, al completar un recorrido usable |
-| Cierre de fase | `v0.N.0` | Criterio de cierre cumplido; 0.x admite rupturas |
-| Patch | `v0.N.1` | Solo correcciones sobre una fase cerrada |
-| Alpha de 1.0 | `v1.0.0aN` | Recorrido central completo, se completa alcance 1.0 |
-| **Beta de 1.0** | `v1.0.0b1` | **Meta de este roadmap:** feature freeze y contratos estables |
-| RC / estable | `v1.0.0rcN`, `v1.0.0` | Fuera de alcance: roadmap posterior de mejora por fases |
+SQLviz no es apto para producción hasta `v1.0.0`. Hasta entonces la madurez se
+lee en el sufijo del tag, y **todos los releases se publican como pre-release**:
+`pip install sqlviz` no los instala sin `--pre`, lo que refleja su estado real.
+
+| Etapa | Fases | Tags (PEP 440, hatch-vcs) | Significado |
+| --- | --- | --- | --- |
+| **Alpha** | F1–F4 | `v0.N.0a1`, `v0.N.0a2`… | Aún no usable de punta a punta; contratos y datos pueden romperse |
+| **Beta** | Desde el cierre de F4 hasta F9 | `v0.N.0b1`, `v0.N.0b2`… | Usable para crear y compartir dashboards; puede tener fallos y cambios con migración |
+| RC | Roadmap posterior | `v1.0.0rc1`… | Solo correcciones y pulido; sin funcionalidad nueva |
+| **Estable** | Roadmap posterior | `v1.0.0` | Pulido completo, sin bloqueantes |
+
+Reglas:
+
+- **Una fase = un minor** (`0.4`, `0.5`…). Cada fase publica solo pre-releases;
+  la fase se cierra con su último alpha o beta, sin tag `v0.N.0` sin sufijo.
+- **Alpha → Beta:** el primer beta (`v0.7.0b1`) sale cuando se cumple el cierre
+  de F4: un usuario crea, guarda, filtra, reabre y comparte un dashboard sin
+  tocar código.
+- **Correcciones** sobre una fase ya cerrada: siguiente número del mismo sufijo
+  (`v0.7.0b2`), nunca un patch final.
+- **Fin de este roadmap:** `v0.12.0bN`, todavía **beta**. `v1.0.0` solo llega
+  tras el roadmap de pulido (RC), cuando todo esté bien terminado.
+- `v0.3.0` (F0) quedó publicado antes de esta política y se conserva.
 
 **Tamaños:** S = 1–2 días, un PR, una capa. M = 3–5 días, un PR, puede cruzar
 capas. Un issue mayor que M se divide antes de empezar.
@@ -40,24 +56,26 @@ capas. Un issue mayor que M se divide antes de empezar.
 
 Cierre: `main` verde, sin ramas largas, primer release salido de un PR.
 
-## F1 — Lienzo persistido (S1) → `v0.4.0a1` → `v0.4.0`
+## F1 — Lienzo persistido (S1) → `v0.4.0a1`, `v0.4.0a2` · Alpha
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
 | F1-01 (#8) | S1.1c.2c.3b: API tipada/autorizada de borrador y revisión | M |
 | F1-02 (#9) | 3c: autoguardado web con revisión confirmada y conflicto visible | M |
 | F1-03 (#10) | 3d: recuperación de respuesta perdida, IDs durables de operación | M |
-| — | **tag `v0.4.0a1`** | |
+| — | **tag `v0.4.0a1`** (borrador fiable) | |
 | F1-04 (#11) | Contrato del documento de layout versionado | S |
 | F1-05 (#12) | Migración de overrides legacy de altura al layout | M |
 | F1-06 (#13) | Repositorio transaccional de layout con revisión | M |
 | F1-07 (#14) | Endpoints de layout (admin escribe, viewer lee) | S |
 | F1-08 (#15) | UI de posición/columnas/alto sin re-ejecutar SQL | M |
 | F1-09 (#16) | E2E editar → guardar → reabrir → compartir | S |
+| F1-10 (#19) | Leer archivos locales de carpetas autorizadas (`--data-dir`) | S |
+| — | **tag `v0.4.0a2`** (cierre de F1) | |
 
 Cierre: el diseño sobrevive a recarga y viewer; guardados obsoletos se rechazan.
 
-## F2 — Mover con confianza (S2) → `v0.5.0a1` → `v0.5.0`
+## F2 — Mover con confianza (S2) → `v0.5.0a1`, `v0.5.0a2` · Alpha
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
@@ -69,7 +87,7 @@ Cierre: el diseño sobrevive a recarga y viewer; guardados obsoletos se rechazan
 | F2-05 | Teclado y alternativa clic/tap | M |
 | F2-06 | Gestos sin conflicto con ECharts; mover no ejecuta SQL | S |
 
-## F3 — Dataset/Visual/Panel (S3 + M1 + R1) → `v0.6.0a1` → `v0.6.0`
+## F3 — Dataset/Visual/Panel (S3 + M1 + R1) → `v0.6.0a1`, `v0.6.0a2` · Alpha
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
@@ -81,7 +99,7 @@ Cierre: el diseño sobrevive a recarga y viewer; guardados obsoletos se rechazan
 | F3-05 | Matriz M1: grano y medidas mínimas | M |
 | F3-06 | Biblioteca R1: listar/buscar por ID/revisión | M |
 
-## F4 — Primer recorrido completo (S4 + M2–M5) → `v0.7.0a1`, `a2` → `v0.7.0`
+## F4 — Primer recorrido completo (S4 + M2–M5) → `v0.7.0a1`, `a2` → **`v0.7.0b1` (primera Beta)**
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
@@ -95,22 +113,22 @@ Cierre: el diseño sobrevive a recarga y viewer; guardados obsoletos se rechazan
 | — | **tag `v0.7.0a2`** | |
 | F4-07 | E2E builder → guardar → filtrar → reabrir → viewer → reset | M |
 
-Cierre ("MVP alpha"): un dashboard de punta a punta sin tocar código.
+Cierre: un dashboard de punta a punta sin tocar código → **paso a Beta** con `v0.7.0b1`.
 
-## F5 — Inferencia y renderizado (S5 + M6–M7) → `v0.8.0a1` → `v0.8.0`
+## F5 — Inferencia y renderizado (S5 + M6–M7) → `v0.8.0b1`, `v0.8.0b2` · Beta
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
 | F5-01 | Corpus de evaluación independiente con métrica en CI | M |
 | F5-02 | Fechas, granularidad y unidades | M |
 | F5-03 | Nulos y datos vacíos | S |
-| — | **tag `v0.8.0a1`** | |
+| — | **tag `v0.8.0b1`** | |
 | F5-04 | Familias ECharts lote 1 (heatmap, scatter, combinado) | M |
 | F5-05 | Familias ECharts lote 2 (treemap, funnel, gauge) | M |
 | F5-06 | Formato numérico/semántico | M |
 | F5-07 | Escala de matriz: virtualización y carga progresiva | M |
 
-## F6 — Pantalla y áreas (S6) → `v0.9.0`
+## F6 — Pantalla y áreas (S6) → `v0.9.0b1` · Beta
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
@@ -119,7 +137,7 @@ Cierre ("MVP alpha"): un dashboard de punta a punta sin tocar código.
 | F6-03 | Secciones/áreas del dashboard | M |
 | F6-04 | Lectura responsive preservando desktop | M |
 
-## F7 — Interacciones del lector (S7) → `v1.0.0a1`
+## F7 — Interacciones del lector (S7) → `v0.10.0b1` · Beta
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
@@ -129,7 +147,7 @@ Cierre ("MVP alpha"): un dashboard de punta a punta sin tocar código.
 | F7-04 | Cancelación efectiva de SQL en DuckDB | M |
 | F7-05 | Contexto preservado al navegar entre dashboards | S |
 
-## F8 — Publicación (S8 + R4) → `v1.0.0a2`
+## F8 — Publicación (S8 + R4) → `v0.11.0b1` · Beta
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
@@ -139,11 +157,11 @@ Cierre ("MVP alpha"): un dashboard de punta a punta sin tocar código.
 | F8-04 | Bundles de definiciones export/import | M |
 | F8-05 | Estados vacío/error/carga homogéneos | S |
 
-## F9 — Endurecimiento → `v1.0.0a3` → **`v1.0.0b1`**
+## F9 — Endurecimiento → **`v0.12.0b1`** · Beta (fin de este roadmap)
 
 | ID | Issue | Tam. |
 | --- | --- | --- |
-| F9-01 | Contratos 1.0 congelados con golden tests | M |
+| F9-01 | Contratos candidatos a 1.0 congelados con golden tests | M |
 | F9-02 | Matriz negativa de seguridad/autorización | M |
 | F9-03 | Accesibilidad WCAG AA en flujos clave | M |
 | F9-04 | Presupuesto de rendimiento y benchmarks en CI | M |
@@ -151,8 +169,9 @@ Cierre ("MVP alpha"): un dashboard de punta a punta sin tocar código.
 | F9-06 | Documentación de usuario e instalación | M |
 | F9-07 | Pruebas con usuarios y triage | M |
 
-## Después de la Beta
+## Después de la Beta (roadmap de pulido, por planificar)
 
-Roadmap separado: ciclo RC repasando cada fase solo con correcciones y pulido,
-`v1.0.0` estable sin bloqueantes, y 1.x con conectores (R5), alertas (R6) y
-APIs (R7).
+Al terminar F9 SQLviz sigue en **beta**. Un roadmap posterior repasa cada fase
+de nuevo solo con correcciones, rendimiento, accesibilidad y documentación:
+`v1.0.0rc1`, `rc2`… hasta `v1.0.0` estable sin bloqueantes. Conectores (R5),
+alertas (R6) y APIs (R7) se planifican para 1.x.
