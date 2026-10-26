@@ -7,9 +7,19 @@ export type ExecResult = {
     data: Record<string, unknown>[];
 };
 
+/** Error carrying the HTTP status and the server's stable `code`, when present. */
+export type ApiError = Error & { status?: number; code?: string };
+
 /** Keep server validation messages readable without rendering raw JSON values. */
-async function responseError(response: Response): Promise<Error> {
+async function responseError(response: Response): Promise<ApiError> {
     const body: unknown = await response.json().catch(() => null);
+    const error: ApiError = describeError(response, body);
+    error.status = response.status;
+    if (body && typeof body === 'object' && 'code' in body && typeof body.code === 'string') error.code = body.code;
+    return error;
+}
+
+function describeError(response: Response, body: unknown): Error {
     const detail = body && typeof body === 'object' && 'detail' in body ? body.detail : null;
     if (typeof detail === 'string') return new Error(detail);
     if (Array.isArray(detail)) {
@@ -75,6 +85,18 @@ export async function apiDelete(path: string): Promise<void> {
 export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
     const r = await fetch(path, {
         method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+    });
+    if (!r.ok) {
+        throw await responseError(r);
+    }
+    return r.json() as Promise<T>;
+}
+
+export async function apiPut<T>(path: string, body: unknown): Promise<T> {
+    const r = await fetch(path, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
     });

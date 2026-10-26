@@ -230,7 +230,7 @@ transaccional ni la comprobación del estado esperado en almacenamiento.
 | --- | --- | --- |
 | **3a** | Implementado | Revisión durable propia del borrador, escritor condicionado interno y migración en copia; PATCH/Run avanzan el contador, bloqueo del padre y rollback, sin cambios de identidad ni SQL ejecutado |
 | **3b** | Implementado ([#8](https://github.com/eribertocz/sqlviz/issues/8)) | API tipada y autorizada de borrador/revisión, snapshot integrado y errores seguros; guardar texto incompleto sin parsing, precondición validada en almacenamiento |
-| **3c** | Pendiente | Cola de autoguardado con revisión confirmada, conflicto visible y texto local preservado; Run/navegación/cierre de pestaña sin adoptar respuestas tardías ni sobrescribir automáticamente otro borrador |
+| **3c** | Implementado ([#9](https://github.com/eribertocz/sqlviz/issues/9)) | Cola de autoguardado con revisión confirmada, conflicto visible y texto local preservado; Run/navegación/cierre de pestaña sin adoptar respuestas tardías ni sobrescribir automáticamente otro borrador |
 | **3d** | Pendiente | Recuperación explícita de respuesta perdida de guardado/commit, identificación durable de operaciones cuando corresponda; estado confirmado y sin duplicar creaciones al revisar/reintentar |
 
 **S1.1c.2c.1 se entrega en tres incrementos revisables:**
@@ -246,8 +246,8 @@ liga el lote a una definición y [1c](sqlviz-sql-run-completion.md) verifica/cie
 el éxito. **2c.1 queda entregada**, con sus límites documentados: no congela las
 filas analíticas ni resuelve recuperación. **2c.2 entregada:**
 [recarga verificada](sqlviz-sql-snapshot-reload.md). **3a entregada:**
-[revisión de borrador](sqlviz-sql-draft-revisions.md). **3b entregada:** API de guardado condicionado. **Siguiente: 3c**,
-integración web del autoguardado; después recuperación.
+[revisión de borrador](sqlviz-sql-draft-revisions.md). **3b entregada:** API de guardado condicionado. **3c entregada:** autoguardado
+web condicionado con conflicto visible. **Siguiente: 3d**, recuperación.
 
 1. Revisar cómo se asigna hoy la identidad de paneles al editar y ejecutar SQL.
    Establecer reconciliación segura antes de asociar geometría persistida. Un

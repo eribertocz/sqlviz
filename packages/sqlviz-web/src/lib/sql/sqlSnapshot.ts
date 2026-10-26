@@ -1,6 +1,7 @@
 import { confirmedSqlDraft, sqlDraftFromPanels, unboundSqlDraft, type SqlIdentityDraft } from './sqlIdentityDraft';
 import { parseSqlScript, type SqlStatement } from './sqlScript.svelte';
 import type { SqlScriptSnapshot } from './sqlScriptCommit';
+import { SQL_DRAFT_REVISION } from './sqlDraft';
 import type { CachedDashboard } from '$lib/stores/dashboardCache.svelte';
 
 export type LoadedSqlSnapshot = {
@@ -9,6 +10,8 @@ export type LoadedSqlSnapshot = {
     lastRunIdentity: SqlIdentityDraft | null;
     panels: SqlScriptSnapshot['panels'];
     definitionRevision: string | null;
+    /** Confirmed server draft; the only revision a later save may expect. */
+    draftRevision: string;
     lastRunAt: string | null;
     lastRunSql: string;
 };
@@ -21,7 +24,9 @@ export async function loadSqlSnapshot(value: unknown, dashboardId: string,
     const snapshot = value as SqlScriptSnapshot;
     if (snapshot.version !== 1 || snapshot.dashboard_id !== dashboardId ||
         typeof snapshot.revision !== 'string' || !/^sql-script-v1:[0-9a-f]{64}$/.test(snapshot.revision) ||
-        typeof snapshot.draft_source !== 'string' || !Array.isArray(snapshot.panels) || snapshot.panels.length > 256 ||
+        typeof snapshot.draft_source !== 'string' || typeof snapshot.draft_revision !== 'string' ||
+        !SQL_DRAFT_REVISION.test(snapshot.draft_revision) || typeof snapshot.draft_initialized !== 'boolean' ||
+        !Array.isArray(snapshot.panels) || snapshot.panels.length > 256 ||
         !['absent', 'confirmed', 'incompatible'].includes(snapshot.publication_status) ||
         !(snapshot.last_run_sql === null || typeof snapshot.last_run_sql === 'string') ||
         !(snapshot.last_run_at === null || (typeof snapshot.last_run_at === 'string' &&
@@ -59,7 +64,7 @@ export async function loadSqlSnapshot(value: unknown, dashboardId: string,
     const legacyIdentity = legacy ? sqlDraftFromPanels(panels) : null;
     const source = legacyIdentity?.source ?? snapshot.draft_source;
     return {
-        source, panels, definitionRevision: snapshot.definition_revision,
+        source, panels, definitionRevision: snapshot.definition_revision, draftRevision: snapshot.draft_revision,
         identity: publishedIdentity?.source === source ? publishedIdentity : legacyIdentity ?? unboundSqlDraft(source, ids),
         lastRunIdentity: publishedIdentity?.source === snapshot.last_run_sql ? publishedIdentity : null,
         lastRunAt: snapshot.last_run_at, lastRunSql: snapshot.last_run_sql ?? '',
