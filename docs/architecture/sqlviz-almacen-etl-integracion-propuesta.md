@@ -278,6 +278,7 @@ Respondidas por el usuario el 2026-10-25:
 | 6 | DuckDB | **2.0.0 ya**, con copia previa obligatoria; 2.0.1 al publicarse |
 | 7 | Modo demo en memoria | **Se retira**; lo sustituye un proyecto de ejemplo persistente con datos sintéticos y login normal |
 | 8 | Motor semántico | **Traductor** de modelos Apache Ossie a SQL DuckDB; nunca ejecuta: el cálculo lo hace el motor de la base vía `QueryService`. Modelos en `semantica/*.yaml`; entra en F6 |
+| 9 | Nombre del producto | «SQLviz» se reemplaza por un nombre genérico por elegir, en todo el código y el repositorio, al inicio de F2 |
 | — | Aprendizaje (`brain.duckdb`) | **Fuera de alcance** hasta después de la versión estable |
 
 ## Documentos a actualizar tras la aprobación

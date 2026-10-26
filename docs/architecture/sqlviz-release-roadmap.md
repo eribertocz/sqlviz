@@ -53,6 +53,26 @@ producción): se fija una versión, se valida con su JSON Schema y lo que la
 especificación no cubre (grano, aditividad, unidades, formato) va en
 `custom_extensions` de SQLviz.
 
+## Cambio de nombre del producto
+
+**Decisión del usuario — 2026-10-25:** «SQLviz» se reemplazará por un nombre
+genérico, todavía por elegir, en **todo** el código y el repositorio. Medido
+el 2026-10-25: 3 232 menciones en 349 archivos y 610 rutas (paquetes
+`sqlviz-*`, imports `sqlviz_*`, comando `sqlviz`, variables `SQLVIZ_*`, tablas
+`_sqlviz_*`, formato `.sqlviz`, documentación y nombre del repositorio).
+
+Se hace **al inicio de F2**, antes de crear nombres nuevos (imagen Docker,
+`sqlviz.yaml`, carpeta `.sqlviz/`, subcomandos); hacerlo después multiplica lo
+que hay que renombrar y mantener compatible. Requisitos:
+
+- Elegir el nombre antes de empezar F2: libre en PyPI, en el registro de
+  imágenes, como organización/repositorio de GitHub y sin conflicto de marca.
+- Por partes revisables (F2-00a–d), con la suite verde en cada PR.
+- Compatibilidad: los proyectos `.sqlviz` existentes siguen abriendo en modo
+  legado (firma `_sqlviz_meta` incluida) hasta la migración de F8; las variables
+  `SQLVIZ_*` se aceptan con aviso de deprecación durante un ciclo.
+- El historial (CHANGELOG, tags y releases anteriores) no se reescribe.
+
 ## Cómo se planifica cada fase
 
 1. Cada fase tiene un **issue paraguas** con objetivo, versión, dependencias,
@@ -150,6 +170,10 @@ almacén de estado, con el modo `.sqlviz` legado funcionando.
 
 | ID | Entregable tentativo | Tam. |
 | --- | --- | --- |
+| F2-00a | Elegir el nombre nuevo y verificar disponibilidad (PyPI, imagen, GitHub, marca) | S |
+| F2-00b | Renombrar paquetes, imports y metadatos de build; suite verde | M |
+| F2-00c | Renombrar CLI, variables de entorno (con alias deprecados), textos de UI y firma de proyectos nuevos; legado `.sqlviz` sigue abriendo | M |
+| F2-00d | Renombrar documentación, README y repositorio de GitHub (las URLs antiguas redirigen) | S |
 | F2-01 | Documento de decisión `sqlviz-proyecto-almacen-etl-decision.md` y actualización de los documentos listados en la propuesta | M |
 | F2-02 | DuckDB 2.0.0: lockfile, suite verde, copia previa obligatoria al abrir proyectos de 1.5.x, nota de incompatibilidad | M |
 | F2-03 | Imagen Docker y `docker compose`: usuario no root, volumen del proyecto, `.env`, extensiones `sqlite`/`postgres` preinstaladas, healthcheck | M |
