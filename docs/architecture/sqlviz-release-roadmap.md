@@ -81,22 +81,22 @@ capas. Un issue mayor que M se divide antes de empezar.
 
 ## Vista general
 
-| Fase | Contenido | Hitos de origen | Versión | Etapa |
-| --- | --- | --- | --- | --- |
-| F0 | Consolidación | — | `v0.3.0` | Cerrada |
-| F1 | Borrador fiable y archivos locales | S1.1c.2c.3, #19 | `v0.4.0a1` | Alpha |
-| F2 | Base de proyecto | H0, H1 | `v0.5.0a1`, `a2` | Alpha |
-| F3 | Almacén analítico y conexiones | H2, H3 | `v0.6.0a1`, `a2` | Alpha |
-| F4 | ETL núcleo | H4, H5 | `v0.7.0a1`, `a2` | Alpha |
-| F5 | Lienzo | S1.2, S1.3, S2 | `v0.8.0a1`, `a2` | Alpha |
-| F6 | Dataset y primer recorrido | S3, S4, M1–M5, R1–R3 | `v0.9.0a1` → **`v0.9.0b1`** | **Primera Beta** |
-| F7 | UI de datos | H6, H7 | `v0.10.0b1` | Beta |
-| F8 | Programación y migración | H8, H9 | `v0.11.0b1` | Beta |
-| F9 | Inferencia y renderizado | S5, M6–M7 | `v0.12.0b1`, `b2` | Beta |
-| F10 | Pantalla y áreas | S6 | `v0.13.0b1` | Beta |
-| F11 | Interacciones del lector | S7, M8 | `v0.14.0b1` | Beta |
-| F12 | Publicación | S8, M9, R4 | `v0.15.0b1` | Beta |
-| F13 | Endurecimiento | — | `v0.16.0b1` | Beta (fin) |
+| Fase | Paraguas | Contenido | Hitos de origen | Versión | Etapa |
+| --- | --- | --- | --- | --- | --- |
+| F0 | — | Consolidación | — | `v0.3.0` | Cerrada |
+| F1 | — | Borrador fiable y archivos locales | S1.1c.2c.3, #19 | `v0.4.0a1` | Alpha |
+| F2 | #23 | Base de proyecto | H0, H1 | `v0.5.0a1`, `a2` | Alpha |
+| F3 | #24 | Almacén analítico y conexiones | H2, H3 | `v0.6.0a1`, `a2` | Alpha |
+| F4 | #25 | ETL núcleo | H4, H5 | `v0.7.0a1`, `a2` | Alpha |
+| F5 | #26 | Lienzo | S1.2, S1.3, S2 | `v0.8.0a1`, `a2` | Alpha |
+| F6 | #27 | Dataset y primer recorrido | S3, S4, M1–M5, R1–R3 | `v0.9.0a1` → **`v0.9.0b1`** | **Primera Beta** |
+| F7 | #28 | UI de datos | H6, H7 | `v0.10.0b1` | Beta |
+| F8 | #29 | Programación y migración | H8, H9 | `v0.11.0b1` | Beta |
+| F9 | #30 | Inferencia y renderizado | S5, M6–M7 | `v0.12.0b1`, `b2` | Beta |
+| F10 | #31 | Pantalla y áreas | S6 | `v0.13.0b1` | Beta |
+| F11 | #32 | Interacciones del lector | S7, M8 | `v0.14.0b1` | Beta |
+| F12 | #33 | Publicación | S8, M9, R4 | `v0.15.0b1` | Beta |
+| F13 | #34 | Endurecimiento | — | `v0.16.0b1` | Beta (fin) |
 
 Dependencias principales: F2 → F3 → F4; F2 → F5; F3 → F6 (el dataset se diseña
 sobre el almacén); F4 → F7 y F8. F5 no depende del almacén, pero se ubica tras
