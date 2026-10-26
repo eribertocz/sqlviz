@@ -12,6 +12,27 @@ Este documento fija fases, versiones objetivo y entregables tentativos. El
 técnico de las etapas S*/M*/R*; la [propuesta aprobada](sqlviz-almacen-etl-integracion-propuesta.md)
 el de los hitos H0–H9 del almacén y el ETL. Este roadmap agrupa ambos en releases.
 
+## Destino de despliegue
+
+**Decisión del usuario — 2026-10-25:** SQLviz se despliega en la infraestructura
+propia del cliente, **en Docker**, como un solo contenedor que es dueño del
+proyecto (estado y almacén en un volumen). El almacén analítico es DuckDB; otras
+bases se integran por `ATTACH`. La nube se diseña después de la versión estable.
+
+Consecuencias en este roadmap:
+
+- La **interfaz principal es la web**; la API la usan la web y las automatizaciones.
+- La **CLI es mínima**: punto de entrada del contenedor (`sqlviz servir`) y
+  `plan`/`aplicar` como cliente fino de la API para tareas programadas o CI.
+  No es necesaria para usar el producto.
+- Todo lo que hoy es interactivo en la terminal (contraseña del admin) debe poder
+  configurarse con variables de entorno o desde la web.
+- Las extensiones de DuckDB van **preinstaladas en la imagen**; las rutas de
+  `ATTACH` y de archivos son volúmenes montados.
+- El acceso por IP de red con `http://` deja la página en contexto inseguro
+  (portapapeles y `crypto.randomUUID` fallan): la composición incluye HTTPS
+  opcional y el frontend no debe depender de APIs de contexto seguro.
+
 ## Cómo se planifica cada fase
 
 1. Cada fase tiene un **issue paraguas** con objetivo, versión, dependencias,
@@ -111,17 +132,20 @@ almacén de estado, con el modo `.sqlviz` legado funcionando.
 | --- | --- | --- |
 | F2-01 | Documento de decisión `sqlviz-proyecto-almacen-etl-decision.md` y actualización de los documentos listados en la propuesta | M |
 | F2-02 | DuckDB 2.0.0: lockfile, suite verde, copia previa obligatoria al abrir proyectos de 1.5.x, nota de incompatibilidad | M |
-| F2-03 | Extensiones (`sqlite`, `postgres`) con instalación explícita del operador | S |
-| F2-04 | CLI con subcomandos y alias compatible `sqlviz RUTA` | M |
+| F2-03 | Imagen Docker y `docker compose`: usuario no root, volumen del proyecto, `.env`, extensiones `sqlite`/`postgres` preinstaladas, healthcheck | M |
+| F2-04 | CLI mínima: `sqlviz servir` como entrypoint (host y puerto por variables) y alias compatible `sqlviz RUTA` | S |
+| F2-05 | Admin inicial sin terminal: variable de entorno o primer acceso web | S |
+| F2-06 | Acceso por red: HTTPS opcional en compose y frontend sin dependencia de contexto seguro | S |
 | — | **tag `v0.5.0a1`** | |
-| F2-05 | Repositorios y servicios reciben una conexión de estado (H1a, sin cambio de formato) | M |
-| F2-06 | Carga y validación de `sqlviz.yaml` con errores precisos | M |
-| F2-07 | Proyecto carpeta: `.sqlviz/estado.duckdb` con migraciones; credencial, enlaces, borradores, tableros, carpetas y paneles en el estado | M |
-| F2-08 | Modo legado `.sqlviz`: misma suite en ambos modos | S |
+| F2-07 | Repositorios y servicios reciben una conexión de estado (H1a, sin cambio de formato) | M |
+| F2-08 | Carga y validación de `sqlviz.yaml` con errores precisos | M |
+| F2-09 | Proyecto carpeta: `.sqlviz/estado.duckdb` con migraciones; credencial, enlaces, borradores, tableros, carpetas y paneles en el estado | M |
+| F2-10 | Modo legado `.sqlviz`: misma suite en ambos modos | S |
 | — | **tag `v0.5.0a2`** | |
 
-Cierre: un proyecto carpeta nuevo y uno `.sqlviz` existente abren, inician
-sesión, comparten y guardan borradores igual que antes. Sesiones en memoria;
+Cierre: con `docker compose up`, un proyecto carpeta nuevo y uno `.sqlviz`
+existente abren, inician sesión, comparten y guardan borradores igual que antes,
+también desde otro equipo de la red. Sesiones en memoria;
 `brain.duckdb` sin cambios.
 
 ## F3 — Almacén analítico y conexiones (H2 + H3) → `v0.6.0a1`, `a2` · Alpha
@@ -155,7 +179,7 @@ Objetivo: paquete `sqlviz-transform` con plan/aplicar, incremental y auditorías
 | F4-03 | DAG con sqlglot y huella de modelo (independiente de `fingerprint.py`) | M |
 | F4-04 | Tablas `etl_*` en el estado, registro de ejecuciones y bloqueo de `aplicar` | M |
 | F4-05 | `plan` / `aplicar` con huella del plan (409 si cambió) | M |
-| F4-06 | CLI `plan`/`aplicar`, API `/etl` y token local de operador para CLI ↔ servidor | M |
+| F4-06 | API `/etl` y CLI `plan`/`aplicar` como cliente fino de la API (token de operador; uso con `docker compose exec` o tareas programadas) | M |
 | — | **tag `v0.7.0a1`** | |
 | F4-07 | Incremental por intervalos: grano, zona horaria, `inicio`, `reprocesar_ultimos`, `--desde/--hasta` | M |
 | F4-08 | Auditorías bloqueantes dentro de la transacción | M |
@@ -220,7 +244,7 @@ Objetivo: datasets reutilizables sobre el almacén y los tres niveles de autorí
 | --- | --- | --- |
 | F8-01 | Programación `diaria`/`mensual` en el servidor, con puesta al día al arrancar | M |
 | F8-02 | Programación visible en la UI del ETL | S |
-| F8-03 | `sqlviz exportar`: `.sqlviz` → carpeta, ensayado sobre copias | M |
+| F8-03 | Migración `.sqlviz` → carpeta (desde la web y `sqlviz exportar`), ensayada sobre copias | M |
 | F8-04 | Retirar el modo legado tras migración probada | M |
 
 ## F9 — Inferencia y renderizado (S5 + M6–M7) → `v0.12.0b1`, `b2` · Beta
@@ -274,8 +298,9 @@ Objetivo: datasets reutilizables sobre el almacén y los tres niveles de autorí
 | F13-03 | Accesibilidad WCAG AA en flujos clave | M |
 | F13-04 | Presupuesto de rendimiento y benchmarks en CI (almacén y ETL incluidos) | M |
 | F13-05 | Migraciones probadas desde v0.2.11 hasta la beta | M |
-| F13-06 | Documentación de usuario e instalación | M |
+| F13-06 | Documentación de usuario e instalación con Docker (respaldo y restauración del volumen, actualización de versión) | M |
 | F13-07 | Pruebas con usuarios y triage | M |
+| F13-08 | Imagen de despliegue endurecida: tamaño, escaneo de vulnerabilidades, límites de recursos | M |
 
 ## Después de la Beta (roadmap de pulido, por planificar)
 
@@ -283,7 +308,8 @@ Al terminar F13 SQLviz sigue en **beta**. Un roadmap posterior repasa cada fase
 de nuevo solo con correcciones, rendimiento, accesibilidad y documentación:
 `v1.0.0rc1`, `rc2`… hasta `v1.0.0` estable sin bloqueantes.
 
-Quedan para después de la estable o según necesidad: aprendizaje de patrones
+Quedan para después de la estable o según necesidad: despliegue en la nube,
+aprendizaje de patrones
 (`brain.duckdb`), tableros como archivos, capa de métricas, DuckLake como
 destino de escritura, Quack para clientes externos, alertas (R6), API analítica
 pública (R7) y las capacidades ETL marcadas como posteriores en la propuesta.

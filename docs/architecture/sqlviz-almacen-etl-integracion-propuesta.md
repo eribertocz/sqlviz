@@ -274,7 +274,7 @@ Respondidas por el usuario el 2026-10-25:
 | 2 | Tableros, carpetas y paneles en modo carpeta | **En `estado.duckdb`**, transitorio hasta «tableros como archivos» |
 | 3 | Sesiones | **En memoria**, como hoy (opción recomendada, aplicada por defecto) |
 | 4 | Orden | **Lienzo después del ETL núcleo** |
-| 5 | CLI | **Subcomandos** con alias compatible `sqlviz RUTA` (recomendada, aplicada por defecto) |
+| 5 | CLI y despliegue | **Despliegue en Docker** en la infraestructura del cliente; web como interfaz principal; CLI mínima (`servir`, `plan`/`aplicar` como cliente de la API) con alias `sqlviz RUTA`. Nube después de la estable |
 | 6 | DuckDB | **2.0.0 ya**, con copia previa obligatoria; 2.0.1 al publicarse |
 | — | Aprendizaje (`brain.duckdb`) | **Fuera de alcance** hasta después de la versión estable |
 
