@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
-import { apiDelete, apiGet, apiPatch, apiPost, recompose, type ExecResult } from '$lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut, recompose, type ExecResult } from '$lib/api';
+import { draftPath, isDraftConflict, requireSqlDraft } from '$lib/sql/sqlDraft';
 import { requireSqlExecution, recomposeSqlRun, completeSqlRun, type BoundExecResult } from '$lib/sql/sqlExecution';
 import type { DashboardInfo, DashboardLayout, FilterControl, FilterDomain, FolderInfo, InferenceResult } from '$lib/types';
 import { dashboardCache } from './dashboardCache.svelte';
@@ -97,6 +98,12 @@ export function createDashboardStore() {
     // The SQL last persisted to the dashboard draft — used to tell a real user
     // edit apart from a programmatic load (which must not mark the draft dirty).
     let lastSavedSql     = '';
+    // Server revision of lastSavedSql, owned by one dashboard. A save expects
+    // exactly this revision; it is never refreshed silently to win a conflict.
+    let confirmedDraft: { dashboardId: string; revision: string } | null = null;
+    // Another writer saved first: auto-save stops and the local text is kept
+    // until the author explicitly reloads the saved draft or keeps theirs.
+    let draftConflict    = $state(false);
 
     let saveDebounceTimer   = 0;
     let draftWrites: Promise<void> = Promise.resolve();
@@ -202,10 +209,12 @@ export function createDashboardStore() {
     }
 
     /** Adopt a set of SQL as the current, already-saved baseline (on load/run). */
-    function markSqlSaved(text: string) {
+    function markSqlSaved(text: string, owner: string | null, revision: string | null) {
         lastSavedSql = text;
+        confirmedDraft = owner && revision ? { dashboardId: owner, revision } : null;
+        draftConflict = false;
         clearTimeout(saveDebounceTimer);
-        if (executionStore.saveStatus === 'draft') executionStore.saveStatus = 'idle';
+        if (executionStore.saveStatus === 'draft' || executionStore.saveStatus === 'conflict') executionStore.saveStatus = 'idle';
     }
 
     /** Called from the public `sql` setter on every editor change. */
@@ -218,6 +227,7 @@ export function createDashboardStore() {
         // that no longer match the query.
         const cached = dashboardCache.get(dashboardId);
         if (cached && cached.sql !== v) dashboardCache.invalidate(dashboardId);
+        if (draftConflict) return; // keep the conflict visible; never auto-save over it
         if (v === lastSavedSql) {
             // Back to the saved state (e.g. programmatic load / undo) — clean.
             clearTimeout(saveDebounceTimer);
@@ -238,18 +248,23 @@ export function createDashboardStore() {
      */
     function saveDraft(useBeacon = false) {
         clearTimeout(saveDebounceTimer);
-        if (!dashboardId || sql === lastSavedSql || executionStore.executing || sqlRunResolution) return;
+        if (!dashboardId || sql === lastSavedSql || executionStore.executing || sqlRunResolution || draftConflict) return;
         const id = dashboardId;
         const text = sql;
         const generation = viewGeneration;
-        const path = `/api/v1/dashboards/${id}`;
+        const path = draftPath(id);
+        // Without a confirmed revision the server state is unknown: never write blindly.
+        const expectedFor = () => confirmedDraft?.dashboardId === id ? confirmedDraft.revision : null;
 
         if (useBeacon) {
-            // Page is unloading — keepalive lets the PATCH outlive the document.
+            const expected = expectedFor();
+            if (!expected) return;
+            // Page is unloading — keepalive lets the PUT outlive the document. A
+            // conflict is rejected by the server; the text is not forced over it.
             fetch(path, {
-                method: 'PATCH',
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sql_content: text }),
+                body: JSON.stringify({ expected_revision: expected, source: text }),
                 keepalive: true,
             }).catch(() => {});
             lastSavedSql = text;
@@ -257,21 +272,68 @@ export function createDashboardStore() {
         }
 
         executionStore.saveStatus = 'saving';
-        draftWrites = draftWrites.then(() => apiPatch(path, { sql_content: text }))
-            .then(() => {
-                if (id !== dashboardId || generation !== viewGeneration) return;
-                lastSavedSql = text;
-                // Only flip to "saved" if nothing newer is pending.
-                if (sql === text) {
-                    executionStore.saveStatus = 'saved';
-                    window.setTimeout(() => {
-                        if (executionStore.saveStatus === 'saved') executionStore.saveStatus = 'idle';
-                    }, 2000);
-                }
-            })
-            .catch(() => {
-                if (id === dashboardId && generation === viewGeneration) executionStore.saveStatus = 'draft';
-            });
+        // Writes are serialized so each one expects the revision confirmed by the previous one.
+        draftWrites = draftWrites.then(async () => {
+            const expected = expectedFor();
+            if (!expected) throw new Error('No confirmed draft revision');
+            const saved = requireSqlDraft(await apiPut<unknown>(path, { expected_revision: expected, source: text }), id);
+            if (confirmedDraft?.dashboardId === id) confirmedDraft = { dashboardId: id, revision: saved.revision };
+            if (id !== dashboardId || generation !== viewGeneration) return;
+            lastSavedSql = text;
+            // Only flip to "saved" if nothing newer is pending.
+            if (sql === text) {
+                executionStore.saveStatus = 'saved';
+                window.setTimeout(() => {
+                    if (executionStore.saveStatus === 'saved') executionStore.saveStatus = 'idle';
+                }, 2000);
+            }
+        }).catch((error: unknown) => {
+            if (id !== dashboardId || generation !== viewGeneration) return;
+            if (isDraftConflict(error)) {
+                draftConflict = true;
+                executionStore.saveStatus = 'conflict';
+            } else if (!draftConflict) executionStore.saveStatus = 'draft';
+        });
+    }
+
+    /** Conflict resolution: discard local text and adopt the draft saved on the server. */
+    async function reloadSavedDraft() {
+        const id = dashboardId;
+        if (!id || !draftConflict || executionStore.executing) return;
+        const generation = ++viewGeneration;
+        viewLoading = true;
+        try {
+            const loaded = await loadSqlSnapshot(await apiGet<unknown>(`/api/v1/dashboards/${encodeURIComponent(id)}/sql-script`), id);
+            if (generation !== viewGeneration || dashboardId !== id) return;
+            adoptSqlSnapshot(id, loaded);
+        } catch (error: unknown) {
+            if (generation === viewGeneration) uiStore.showToast(error instanceof Error ? error.message : 'Could not load the saved draft.');
+        } finally {
+            if (generation === viewGeneration) viewLoading = false;
+        }
+    }
+
+    /** Conflict resolution: explicitly replace the saved draft with the local text. */
+    async function keepLocalDraft() {
+        const id = dashboardId;
+        if (!id || !draftConflict || executionStore.executing) return;
+        const generation = viewGeneration;
+        const text = sql;
+        executionStore.saveStatus = 'saving';
+        try {
+            await draftWrites;
+            const current = requireSqlDraft(await apiGet<unknown>(draftPath(id)), id);
+            const saved = requireSqlDraft(await apiPut<unknown>(draftPath(id),
+                { expected_revision: current.revision, source: text }), id);
+            if (generation !== viewGeneration || dashboardId !== id) return;
+            markSqlSaved(text, id, saved.revision);
+            executionStore.saveStatus = sql === text ? 'saved' : 'draft';
+            if (sql !== text) onSqlChanged(sql);
+        } catch (error: unknown) {
+            if (generation !== viewGeneration || dashboardId !== id) return;
+            executionStore.saveStatus = 'conflict';
+            if (!isDraftConflict(error)) uiStore.showToast(error instanceof Error ? error.message : 'Could not save the draft.');
+        }
     }
 
     /**
@@ -316,7 +378,7 @@ export function createDashboardStore() {
         filterDomains = reusable?.filterDomains ?? {};
         filterValues.replace(reusable?.filterValues ?? {});
         propertiesPanelId = null;
-        markSqlSaved(loaded.source);
+        markSqlSaved(loaded.source, id, loaded.draftRevision);
         loadPaletteFor(id);
         persistActive(id);
         const generation = viewGeneration;
@@ -455,7 +517,8 @@ export function createDashboardStore() {
             })));
             sqlIdentity = sql === ranSql && sqlIdentity === candidateIdentity
                 ? savedIdentity : unboundSqlDraft(sql, panelIds);
-            markSqlSaved(ranSql);
+            // Run explicitly saved this text as the draft; its receipt carries the new revision.
+            markSqlSaved(ranSql, activeDashId!, committed.draftRevision);
             executionStore.saveStatus = sql === ranSql ? 'saved' : 'draft';
             // Old results may reference removed panels or superseded SQL. Only a
             // complete execution/composition will publish a new result view.
@@ -636,6 +699,9 @@ export function createDashboardStore() {
                 sort_order: allDashboards.length,
             });
             await refreshExplorer();
+            // A missing revision only disables auto-save until the next Run.
+            const draft = await apiGet<unknown>(draftPath(dash.id))
+                .then(value => requireSqlDraft(value, dash.id)).catch(() => null);
             if (generation !== viewGeneration) return;
             resetFilterUpdates();
             // Switch to the empty new dashboard without running anything.
@@ -647,7 +713,7 @@ export function createDashboardStore() {
             cancelSqlRunResolution();
             sqlIdentity = unboundSqlDraft('');
             confirmedSqlIdentity = null;
-            markSqlSaved('');
+            markSqlSaved('', dash.id, draft?.revision ?? null);
             lastRunAt       = null;
             lastRunSql      = '';
             executedResults = [];
@@ -1245,6 +1311,7 @@ export function createDashboardStore() {
         get hasLayout() { return hasLayout; },
         get lastRunAt() { return lastRunAt; },
         get canRestoreLastRun() { return canRestoreLastRun; },
+        get draftConflict() { return draftConflict; },
         get propertiesPanelId() { return propertiesPanelId; },
         get selectedPanel() { return selectedPanel; },
         get colorOverrides() { return colorOverrides; },
@@ -1265,6 +1332,8 @@ export function createDashboardStore() {
         run,
         applySqlEditorChange,
         saveDraft,
+        reloadSavedDraft,
+        keepLocalDraft,
         restoreLastRun,
         handleDelete,
         handleEditSQL,
