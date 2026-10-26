@@ -3,7 +3,8 @@
 **Implementado — 2026-10-09: S1.1c.2c.3a.** Se entrega la revisión durable del
 borrador y su escritor transaccional interno. **3b entregado — 2026-10-17
 ([#8](https://github.com/eribertocz/sqlviz/issues/8)):** API HTTP de autor
-descrita abajo. La integración del autoguardado sigue pendiente en 3c. El PATCH actual continúa
+descrita abajo. **3c entregado ([#9](https://github.com/eribertocz/sqlviz/issues/9)):**
+el autoguardado web usa esa API; ver abajo. El PATCH actual continúa
 guardando sin revisión esperada; este incremento no lo convierte en guardado
 condicionado ni resuelve por sí solo la edición simultánea en la UI.
 
@@ -112,11 +113,27 @@ El 409 no devuelve el borrador vigente: el cliente debe leerlo y revisarlo
 explícitamente, nunca adoptar la revisión nueva y sobrescribir. Guardar no
 analiza ni ejecuta SQL ni cambia paneles, definiciones o última ejecución.
 
+## Autoguardado web (3c)
+
+El store del dashboard guarda `revision` confirmada por dashboard y deja de usar
+el PATCH legacy para el borrador. Cada guardado (debounce de 2 s, blur, cambio
+de dashboard) se encola y espera exactamente la revisión confirmada por el
+anterior; sin revisión conocida no escribe. Fuentes de la revisión: snapshot al
+cargar, recibo del commit de Run y lectura del borrador al crear un dashboard.
+
+Ante `409 sql_draft_conflict` el editor conserva el texto, detiene el
+autoguardado (incluido el beacon de cierre) y la cabecera muestra *Not saved:
+draft changed elsewhere* con dos acciones explícitas: **Load saved** descarta el
+texto local y adopta el snapshot del servidor; **Keep mine** lee la revisión
+vigente y sustituye el borrador guardado por el texto local. Run es también una
+decisión explícita del autor: su commit guarda el borrador y limpia el conflicto.
+
+El beacon de cierre envía un PUT `keepalive` condicionado; si el servidor lo
+rechaza por conflicto, ese último texto no se guarda (recuperación en 3d).
+Respuestas tardías de otro dashboard o vista no se adoptan.
+
 ## Lo que sigue pendiente
 
-- **3c:** cola de autoguardado con revisión confirmada, estado de conflicto y
-  preservación del borrador; Run, navegación y cierre de pestaña coherentes.
-  No resolver conflictos recuperando una revisión nueva y sobrescribiendo sin aviso.
 - **3d:** recuperación explícita de respuesta perdida de guardado/commit,
   sin duplicar creaciones, con persistencia de operaciones cuando sea necesaria.
 

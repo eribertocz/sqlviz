@@ -13,6 +13,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   /api/v1/dashboards/{id}/sql-script/draft` con revisión esperada, sin parsing
   ni ejecución; conflicto `409 sql_draft_conflict` sin devolver el texto vigente.
   El snapshot del script añade `draft_revision` y `draft_initialized`.
+- Autoguardado condicionado del editor SQL (S1.1c.2c.3c, #9): cada guardado
+  espera la revisión confirmada; ante conflicto conserva el texto local, detiene
+  el autoguardado y ofrece *Load saved* / *Keep mine* en la cabecera.
 
 ## [v0.3.0] — 2026-10-17
 
