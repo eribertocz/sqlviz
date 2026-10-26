@@ -36,6 +36,23 @@ Consecuencias en este roadmap:
   persiste almacén ni ETL y desactiva la autenticación. Lo sustituye un
   **proyecto de ejemplo** con datos sintéticos, persistente y con login normal.
 
+## Motor semántico
+
+**Decisión del usuario — 2026-10-25:** el motor semántico es un **traductor**,
+no un motor de cálculo. Lee modelos semánticos en formato
+[Apache Ossie](https://github.com/apache/ossie) (antes Open Semantic
+Interchange) y genera SQL en dialecto **DuckDB**; el cálculo lo ejecuta siempre
+el motor de la base sobre los datos del almacén, a través de `QueryService` y
+sus presupuestos. No guarda datos, no cachea agregados y no tiene un segundo
+camino de ejecución. Otros dialectos se consideran después.
+
+Los modelos Ossie viven en el proyecto como código (`semantica/*.yaml`) y sus
+datasets apuntan a relaciones del almacén producidas por el ETL. Ossie está en
+incubación y su núcleo es un borrador (`0.2.0.dev0`, que pide no usarlo aún en
+producción): se fija una versión, se valida con su JSON Schema y lo que la
+especificación no cubre (grano, aditividad, unidades, formato) va en
+`custom_extensions` de SQLviz.
+
 ## Cómo se planifica cada fase
 
 1. Cada fase tiene un **issue paraguas** con objetivo, versión, dependencias,
@@ -222,13 +239,15 @@ Objetivo: datasets reutilizables sobre el almacén y los tres niveles de autorí
 | F6-01 | S3.1–S3.2: dataset con revisión sobre relaciones del almacén; campos y bindings con identidad | M |
 | F6-02 | S3.3–S3.4: visual separado del panel; un dataset alimenta dos visuales | M |
 | F6-03 | S3.5 + R2a: promoción desde el editor y biblioteca inicial | M |
-| F6-04 | M1 + R3a: contrato de matriz, grano y medidas | M |
+| F6-04 | Modelo semántico en formato **Apache Ossie** (versión fijada): `semantica/*.yaml` validado con su JSON Schema; extensiones SQLviz en `custom_extensions` | M |
+| F6-05 | Compilador semántico Ossie → SQL dialecto DuckDB con sqlglot: campos, métricas, relaciones many-to-one y filtros parametrizados. **No ejecuta**: entrega SQL a `QueryService` | M |
+| F6-06 | M1 + R3a: contrato de matriz, grano y medidas sobre el modelo semántico | M |
 | — | **tag `v0.9.0a1`** | |
-| F6-05 | S4.1: nivel Automático completo para el corpus inicial | M |
-| F6-06 | S4.2–S4.3: Visual Builder y compilación a ECharts | M |
-| F6-07 | S4.4: editor de opciones nativas ECharts con precedencia | M |
-| F6-08 | M2–M5 + R3b–c: motor de medidas, grilla y builder de matriz | M |
-| F6-09 | S4.5: E2E builder → guardar → filtrar → reabrir → viewer → reset | M |
+| F6-07 | S4.1: nivel Automático completo para el corpus inicial | M |
+| F6-08 | S4.2–S4.3: Visual Builder y compilación a ECharts | M |
+| F6-09 | S4.4: editor de opciones nativas ECharts con precedencia | M |
+| F6-10 | M2–M5 + R3b–c: medidas por contexto (compiladas a SQL), grilla y builder de matriz | M |
+| F6-11 | S4.5: E2E builder → guardar → filtrar → reabrir → viewer → reset | M |
 | — | **tag `v0.9.0b1`** (primera Beta) | |
 
 ## F7 — UI de datos (H6 + H7) → `v0.10.0b1` · Beta
